@@ -151,7 +151,8 @@ class FitTool(NopTool):
 
 class IADTool(ToolBase):
   name = 'IAD'
-  xoffUpdated = pyqtSignal()
+  xoffUpdated = pyqtSignal(name='xoffUpdated')
+  iadYUpdated = pyqtSignal(name='iadYUpdated')
 
   def __init__(self):
     super().__init__()
@@ -210,6 +211,8 @@ class IADTool(ToolBase):
       b = lines[self.base]
       x = self.iadX
       y = [sum(np.abs(l.y - b.y)) for l in lines]
+      self.iadY = y
+      self.iadYUpdated.emit()
       return [Line(x, y, 'IAD')]
 
     raise RuntimeError()

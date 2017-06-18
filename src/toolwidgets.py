@@ -86,7 +86,7 @@ class IADToolWidget(ToolWidgetBase):
 
     self.WCthreshold = QLineEdit()
     self.WCthreshold.setValidator(QDoubleValidator())
-    self.WCthreshold.textChanged.connect(lambda t: self.updateWCthreshold)
+    self.WCthreshold.textChanged.connect(lambda t: self.toolSetWCthreshold)
     self.WCthreshold.setText('%g' % self.tool.threshold)
     self.optionsGrid.addWidget(QLabel('WC threshold'), 2, 0)
     self.optionsGrid.addWidget(self.WCthreshold, 2, 1)
@@ -100,15 +100,16 @@ class IADToolWidget(ToolWidgetBase):
       self.vbox.addWidget(btn)
 
     self.tool.xoffUpdated.connect(self.updateXoff)
+    self.tool.iadYUpdated.connect(self.updateIADy)
 
   def linesTableCellChanged(self, r, c):
     if c == 1:
-      self.updateIADx()
+      self.toolSetIADx()
 
-  def updateBase(self):
+  def toolSetBase(self):
     self.tool.base = self.selectBaseGroup.checkedId()
 
-  def updateIADx(self):
+  def toolSetIADx(self):
     self.tool.iadX = []
     for x in self.getIADx():
       try:
@@ -117,7 +118,7 @@ class IADToolWidget(ToolWidgetBase):
         x = None
       self.tool.iadX.append(x)
 
-  def updateWCthreshold(self):
+  def toolSetWCthreshold(self):
     self.tool.threshold = float(self.WCthreshold.text())
 
   def interpSelected(self, idx):
@@ -133,12 +134,12 @@ class IADToolWidget(ToolWidgetBase):
     self.linesTable.clear()
     self.linesTable.verticalHeader().hide()
     self.linesTable.horizontalHeader().setResizeMode(QHeaderView.ResizeToContents)
-    self.linesTable.setColumnCount(4)
-    self.linesTable.setHorizontalHeaderLabels(['Name', 'IAD X', 'Weight center', 'X offset'])
+    self.linesTable.setColumnCount(5)
+    self.linesTable.setHorizontalHeaderLabels(['Name', 'IAD X', 'IAD Y', 'X offset', 'Weight center'])
     self.linesTable.setSizeAdjustPolicy(QAbstractScrollArea.AdjustToContents)
 
     self.selectBaseGroup = QButtonGroup()
-    self.selectBaseGroup.buttonClicked.connect(lambda b: self.updateBase)
+    self.selectBaseGroup.buttonClicked.connect(lambda b: self.toolSetBase())
     self.lines = []
 
   def add(self, data):
@@ -152,6 +153,7 @@ class IADToolWidget(ToolWidgetBase):
 
     self.selectBaseGroup.addButton(radio, len(self.selectBaseGroup.buttons()))
     radio.setChecked(True)
+    self.toolSetBase()
 
     self.lines.append(data)
 
@@ -163,13 +165,16 @@ class IADToolWidget(ToolWidgetBase):
 
   def setIADx(self, i, v):
     self.setLinesTableCell(i, 1, v)
-    self.updateIADx()
+    self.toolSetIADx()
 
-  def setWC(self, i, v):
+  def setIADy(self, i, v):
     self.setLinesTableCell(i, 2, v)
 
   def setXoff(self, i, v):
     self.setLinesTableCell(i, 3, v)
+
+  def setWC(self, i, v):
+    self.setLinesTableCell(i, 4, v)
 
   def getIADx(self):
     return self.getLinesTableCol(1)
@@ -182,6 +187,10 @@ class IADToolWidget(ToolWidgetBase):
         b = self.tool.wc[self.tool.base]
         self.setWC(i, '%g%+g' % (b, wc - b))
       self.setXoff(i, '%g' % xoff)
+
+  def updateIADy(self):
+    for i, iadY in enumerate(self.tool.iadY):
+      self.setIADy(i, '%g' % iadY)
 
   def plotOriginal(self):
     self.plot('orig')
@@ -198,5 +207,7 @@ class IADToolWidget(ToolWidgetBase):
   def plot(self, mode):
     log('IAD: Plot %s' % mode)
     self.tool.mode = mode
-    self.updateIADx()
+    self.toolSetBase()
+    self.toolSetIADx()
+    self.toolSetWCthreshold()
     self.plotRequested.emit(self.tool)

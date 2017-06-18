@@ -152,9 +152,10 @@ class MainWindow(QMainWindow):
 
   def openFiles(self, filenames):
     for filename in filenames:
-      f = fileloader.load(filename)
-      if f is None:
-        log('Unsupported file: %s' % filename)
+      try:
+        f = fileloader.load(filename)
+      except fileloader.UnsupportedFileException as ex:
+        log('Unsupported file: %s %s' % (ex.mimetype, ex.filename), 'error')
         continue
       for sheet in f:
         self.addSheet(sheet)

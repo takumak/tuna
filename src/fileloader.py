@@ -7,6 +7,13 @@ from PyQt5.QtCore import QMimeDatabase
 from log import log
 
 
+class UnsupportedFileException(Exception):
+  def __init__(self, filename, mimetype):
+    super().__init__()
+    self.filename = filename
+    self.mimetype = mimetype
+
+
 class FileLoaderBase:
 
   class Sheet:
@@ -110,7 +117,7 @@ class FileLoaderCSV(FileLoaderText):
 
 
 class FileLoaderExcel(FileLoaderBase):
-  re_pat = r'application/vnd\.(?:openxmlformats-officedocument|ms-excel)\.'
+  re_pat = r'^application/vnd\.(?:openxmlformats-officedocument\.|ms-excel\.|oasis\.opendocument\.spreadsheet)'
 
 
   class Sheet(FileLoaderBase.Sheet):
@@ -119,33 +126,41 @@ class FileLoaderExcel(FileLoaderBase):
       self.sheet = sheet
 
     def colCount(self):
-      return self.sheet.ncols
+      return self.sheet.number_of_columns()
 
     def rowCount(self):
-      return self.sheet.nrows
+      return self.sheet.number_of_rows()
 
     def getValue(self, y, x):
-      return self.sheet.cell(y, x).value
+      return self.sheet.cell_value(y, x)
 
 
   def __init__(self, filename):
-    import xlrd
-    log('Load Excel file: %s' % filename)
-    self.sheets = xlrd.open_workbook(filename).sheets()
+    import pyexcel
+    log('Trying to load by pyexcel: %s' % filename)
+    self.book = pyexcel.get_book(file_name=filename)
 
   def sheetCount(self):
-    return len(self.sheets)
+    return self.book.number_of_sheets()
 
   def getSheet(self, idx):
-    return self.Sheet(self.sheets[idx])
+    return self.Sheet(self.book[idx])
+
+  @classmethod
+  def canLoad(cls, mimetype):
+    return True
 
 
 def load(filename):
+  from pyexcel.sources.factory import FileTypeNotSupported
   loaders = [FileLoaderText, FileLoaderCSV, FileLoaderExcel]
 
   t = QMimeDatabase().mimeTypeForFile(filename).name()
   for o in loaders:
     if o.canLoad(t):
-      return o(filename)
+      try:
+        return o(filename)
+      except FileTypeNotSupported:
+        pass
 
-  return None
+  raise UnsupportedFileException(filename, t)

@@ -1,8 +1,5 @@
 import os
 import re
-import xlrd
-from PyQt5.QtCore import QMimeDatabase
-
 
 from log import log
 
@@ -152,6 +149,7 @@ class FileLoaderExcel(FileLoaderBase):
 
 
 def load(filename):
+  from PyQt5.QtCore import QMimeDatabase
   from pyexcel.sources.factory import FileTypeNotSupported
   loaders = [FileLoaderText, FileLoaderCSV, FileLoaderExcel]
 

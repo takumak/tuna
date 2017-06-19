@@ -2,20 +2,14 @@
 
 set -xe
 
-env PYTHON_CONFIGURE_OPTS="--enable-framework" pyenv install -s 3.5.3
-pyenv local 3.5.3
-python -m pip install virtualenv
-
-rm -rf venv build dist Tuna.app Tuna.app.zip
-python -m virtualenv --no-site-packages venv
+$(dirname $(readlink -e $0))/../../tools/make_virtualenv.bash
 
 (
   set -xe
   cd venv
   source bin/activate
-  pip install pyqt5 pyqtgraph numpy scipy pyexcel{,-io,-xls,-odsr} pyinstaller
+  pip install pyinstaller
 
-  ln -s ../../../../tuna
   cd tuna/dist/mac
   pyinstaller tuna.spec
 

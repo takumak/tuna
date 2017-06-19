@@ -16,7 +16,7 @@ python -m virtualenv --no-site-packages venv
   pip install pyqt5 pyqtgraph numpy scipy pyexcel{,-io,-xls,-odsr} pyinstaller
 
   ln -s ../../../../tuna
-  cd tuna/bundle/app
+  cd tuna/dist/mac
   pyinstaller tuna.spec
 
   deactivate
@@ -24,3 +24,4 @@ python -m virtualenv --no-site-packages venv
 
 mv dist/tuna.app .
 zip -r tuna.app.zip tuna.app
+rm -rf venv build dist

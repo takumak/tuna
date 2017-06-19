@@ -150,7 +150,10 @@ class FileLoaderExcel(FileLoaderBase):
 
 def load(filename):
   from PyQt5.QtCore import QMimeDatabase
-  from pyexcel.sources.factory import FileTypeNotSupported
+  try:
+    from pyexcel.exceptions import FileTypeNotSupported
+  except ModuleNotFoundError:
+    from pyexcel.sources.factory import FileTypeNotSupported
   loaders = [FileLoaderText, FileLoaderCSV, FileLoaderExcel]
 
   t = QMimeDatabase().mimeTypeForFile(filename).name()

@@ -2,6 +2,7 @@
 
 set -xe
 
+rm -rf venv build dist Tuna.app Tuna.app.zip
 $(dirname $(readlink -e $0))/../../tools/make_virtualenv.bash
 
 (

@@ -14,7 +14,7 @@ class LogFormatter(logging.Formatter):
 
   def format(self, record):
     msg = super().format(record)
-    fmt = '<div style="color:%s;white-space:pre">%s</div><br>'
+    fmt = '<div style="color:%s;font-family:monospace;white-space:pre">%s</div><br>'
     return fmt % (self.colors[record.levelno], html.escape(msg))
 
 

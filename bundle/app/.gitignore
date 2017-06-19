@@ -1,2 +1,5 @@
 build
 dist
+venv
+tuna.app
+.python-version

@@ -6,7 +6,7 @@ env PYTHON_CONFIGURE_OPTS="--enable-framework" pyenv install -s 3.5.3
 pyenv local 3.5.3
 python -m pip install virtualenv
 
-rm -rf venv build dist
+rm -rf venv build dist tuna.app tuna.app.zip
 python -m virtualenv --no-site-packages venv
 
 (

@@ -1,3 +1,4 @@
+import logging
 import re
 from PyQt5.QtCore import Qt, pyqtSignal
 from PyQt5.QtGui import QDoubleValidator
@@ -7,7 +8,6 @@ from PyQt5.QtWidgets import \
   QComboBox, QTableWidgetItem, QAbstractScrollArea, \
   QHeaderView
 
-from log import log
 from tools import NopInterp, CubicSpline, ToolBase, FitTool, IADTool
 from commonwidgets import TableWidget
 
@@ -205,7 +205,7 @@ class IADToolWidget(ToolWidgetBase):
     self.plot('iad')
 
   def plot(self, mode):
-    log('IAD: Plot %s' % mode)
+    logging.info('IAD: Plot %s' % mode)
     self.tool.mode = mode
     self.toolSetBase()
     self.toolSetIADx()

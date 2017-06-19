@@ -2,8 +2,6 @@ import numpy as np
 from PyQt5.QtCore import QObject, pyqtSignal
 from PyQt5.QtWidgets import QWidget, QGridLayout, QLabel, QSpinBox
 
-from log import log
-
 
 class Line:
   def __init__(self, x, y, name):

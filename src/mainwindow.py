@@ -1,3 +1,4 @@
+import logging
 import html
 from PyQt5.QtCore import Qt
 from PyQt5.QtGui import QIcon, QTextCursor, QKeySequence
@@ -7,7 +8,6 @@ from PyQt5.QtWidgets import \
   QCheckBox, QTextEdit, QSplitter, QDockWidget, QPushButton
 
 
-from log import log
 import fileloader
 from sheetwidgets import SheetWidget
 from graphwidgets import GraphWidget
@@ -67,11 +67,6 @@ class SelectColumnDialog(QDialog):
 
 
 class MainWindow(QMainWindow):
-  logformats = {
-    'message': '<div style="white-space:pre">%s</div><br>',
-    'error': '<div style="color:red;white-space:pre">%s</div><br>'
-  }
-
   def __init__(self):
     super().__init__()
     self.fileToolBar = self.addToolBar('File')
@@ -120,7 +115,7 @@ class MainWindow(QMainWindow):
     self.resize(1000, 800)
     self.setAcceptDrops(True)
 
-    log('Drag and drop here to open multiple files')
+    logging.info('Drag and drop here to open multiple files')
 
   def dragEnterEvent(self, ev):
     if not ev.mimeData().hasUrls():
@@ -155,14 +150,14 @@ class MainWindow(QMainWindow):
       try:
         f = fileloader.load(filename)
       except fileloader.UnsupportedFileException as ex:
-        log('Unsupported file: %s %s' % (ex.mimetype, ex.filename), 'error')
+        logging.error('Unsupported file: %s %s' % (ex.mimetype, ex.filename))
         continue
       for sheet in f:
         self.addSheet(sheet)
     self.update()
 
   def addSheet(self, sheet):
-    log('Add sheet: %s' % sheet.name)
+    logging.info('Add sheet: %s' % sheet.name)
     self.sourcesTabWidget.show()
 
     sheetwidget = SheetWidget(sheet)
@@ -226,9 +221,8 @@ class MainWindow(QMainWindow):
     for l in self.curTool.getLines():
       self.graphWidget.add(l)
 
-  def log_(self, text, role):
-    text = self.logformats[role] % html.escape(text)
+  def log_(self, html):
     self.logTextEdit.moveCursor(QTextCursor.End)
-    self.logTextEdit.insertHtml(text)
+    self.logTextEdit.insertHtml(html)
     s = self.logTextEdit.verticalScrollBar()
     s.setValue(s.maximum())

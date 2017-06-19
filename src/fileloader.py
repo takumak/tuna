@@ -1,7 +1,6 @@
 import os
 import re
-
-from log import log
+import logging
 
 
 class UnsupportedFileException(Exception):
@@ -98,7 +97,7 @@ class FileLoaderText(FileLoaderBase):
 
 
   def __init__(self, filename):
-    log('Load text file: %s' % filename)
+    logging.info('Load text file: %s' % filename)
     self.sheet = self.Sheet(filename, self.delimiter)
 
   def sheetCount(self):
@@ -134,7 +133,7 @@ class FileLoaderExcel(FileLoaderBase):
 
   def __init__(self, filename):
     import pyexcel
-    log('Trying to load by pyexcel: %s' % filename)
+    logging.info('Trying to load by pyexcel: %s' % filename)
     self.book = pyexcel.get_book(file_name=filename)
 
   def sheetCount(self):

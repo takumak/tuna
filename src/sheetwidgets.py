@@ -2,7 +2,6 @@ from PyQt5.QtCore import Qt, QVariant, pyqtSignal
 from PyQt5.QtGui import QBrush
 from PyQt5.QtWidgets import QTableWidgetItem
 
-from log import log
 from commonwidgets import TableWidget
 
 

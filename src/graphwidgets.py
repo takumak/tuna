@@ -1,6 +1,5 @@
 import pyqtgraph as pg
 
-from log import log
 
 class GraphWidget(pg.PlotWidget):
   # https://github.com/LibreOffice/core/blob/master/extras/source/palettes/chart-palettes.soc

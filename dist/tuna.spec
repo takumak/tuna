@@ -4,7 +4,7 @@ block_cipher = None
 
 
 a = Analysis(
-  ['../../src/tuna.py'],
+  ['../src/tuna.py'],
   pathex=[],
   binaries=[],
   datas=[],
@@ -45,7 +45,7 @@ exe = EXE(
   pyz,
   a.scripts,
   exclude_binaries=True,
-  name='tuna',
+  name='Tuna',
   debug=False,
   strip=False,
   upx=True,
@@ -59,7 +59,7 @@ coll = COLLECT(
   a.datas,
   strip=False,
   upx=True,
-  name='tuna'
+  name='Tuna'
 )
 
 app = BUNDLE(

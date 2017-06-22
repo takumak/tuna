@@ -2,6 +2,10 @@
 
 set -xe
 
+ROOT=$(dirname $(realpath $0))/../..
+SPEC=$ROOT/build/tuna.spec
+OUTDIR=$ROOT/dist
+
 NUMPY=numpy-1.13.0+mkl-cp35-cp35m-win_amd64.whl
 SCIPY=scipy-0.19.1-cp35-cp35m-win_amd64.whl
 
@@ -47,5 +51,6 @@ wine $PYTHON -m pip install \
     pyexcel pyexcel-io pyexcel-xls pyexcel-odsr \
     pyinstaller
 
-wine wine/drive_c/python/Scripts/pyinstaller.exe ../tuna.spec
-cp dist/Tuna.exe ..
+wine wine/drive_c/python/Scripts/pyinstaller.exe $SPEC
+mkdir -p $OUTDIR
+cp dist/Tuna.exe $OUTDIR

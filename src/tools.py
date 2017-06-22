@@ -135,16 +135,18 @@ class ToolBase(QObject):
   def getLines(self):
     raise NotImplementedError()
 
+  def getXrange(self):
+    return min([min(l.x) for l in self.lines]), max([max(l.x) for l in self.lines])
+
+  def getYrange(self):
+    return min([min(l.y) for l in self.lines]), max([max(l.y) for l in self.lines])
+
 
 class NopTool(ToolBase):
   name = 'Nop'
 
   def getLines(self):
     return self.lines
-
-
-class FitTool(NopTool):
-  name = 'Fit'
 
 
 class IADTool(ToolBase):
@@ -214,3 +216,7 @@ class IADTool(ToolBase):
       return [Line(x, y, 'IAD')]
 
     raise RuntimeError()
+
+
+class FitTool(ToolBase):
+  name = 'Fit'

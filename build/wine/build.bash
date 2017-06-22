@@ -1,7 +1,5 @@
 #!/bin/bash
 
-set -xe
-
 ROOT=$(dirname $(realpath $0))/../..
 SPEC=$ROOT/build/tuna.spec
 OUTDIR=$ROOT/dist
@@ -22,6 +20,7 @@ EOF
   exit 1
 fi
 
+set -xe
 
 export WINEPREFIX=$(pwd)/wine
 rm -rf $WINEPREFIX python-msi build dist

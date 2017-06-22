@@ -100,3 +100,10 @@ for fn in glob.glob('build/*/scipy/spatial/cKDTree.*'):
   newname = os.path.basename(fn).lower()
   print('Rename file: %s => %s' % (fn, newname))
   os.rename(fn, os.path.join(dirname, newname))
+
+import zipfile
+with zipfile.ZipFile('tuna.zip', 'w', zipfile.ZIP_DEFLATED) as f:
+  for dirpath, dirnames, filenames in os.walk(glob.glob('build/*/')[0]):
+    for fn in filenames:
+      path = os.path.join(dirpath, fn)
+      print()

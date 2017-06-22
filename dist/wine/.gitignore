@@ -1,0 +1,7 @@
+*.whl
+python-*-webinstall.exe
+winetricks
+python-msi
+wine
+build
+dist

@@ -2,9 +2,8 @@ import os
 
 block_cipher = None
 
-
 a = Analysis(
-  ['../../src/tuna.py'],
+  ['../src/tuna.py'],
   pathex=[],
   binaries=[],
   datas=[],
@@ -42,7 +41,8 @@ a = Analysis(
 pyz = PYZ(a.pure, a.zipped_data, cipher=block_cipher)
 
 exe = EXE(
-  # a.scripts,
+  pyz,
+  a.scripts,
   a.binaries,
   a.zipfiles,
   a.datas,
@@ -50,21 +50,11 @@ exe = EXE(
   debug=False,
   strip=False,
   upx=False,
-  console=True
-)
-
-coll = COLLECT(
-  exe,
-  a.binaries,
-  a.zipfiles,
-  a.datas,
-  strip=False,
-  upx=False,
-  name='Tuna'
+  console=False
 )
 
 app = BUNDLE(
-  coll,
+  exe,
   name='Tuna.app',
   icon=None,
   bundle_identifier=None

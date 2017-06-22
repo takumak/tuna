@@ -12,7 +12,7 @@ $(dirname $(readlink -e $0))/../../tools/make_virtualenv.bash
   pip install pyinstaller
 
   cd tuna/dist/mac
-  pyinstaller ../tuna.spec
+  pyinstaller ../../tuna.spec
 
   deactivate
 )

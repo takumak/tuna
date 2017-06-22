@@ -2,21 +2,19 @@
 
 set -xe
 
-rm -rf venv build dist Tuna.app Tuna.app.zip
-$(dirname $(readlink -e $0))/../../tools/make_virtualenv.bash
+ROOT=$(dirname $(realpath $0))/../..
+SPEC=$ROOT/build/tuna.spec
+OUTDIR=$ROOT/dist
 
-(
-  set -xe
-  cd venv
-  source bin/activate
-  pip install pyinstaller
+rm -rf venv build dist Tuna.app $OUTDIR/Tuna.app.zip
+$ROOT/tools/make_virtualenv.bash
 
-  cd tuna/dist/mac
-  pyinstaller ../../tuna.spec
-
-  deactivate
-)
+source venv/bin/activate
+pip install pyinstaller
+pyinstaller $SPEC
+deactivate
 
 mv dist/Tuna.app .
-zip -r Tuna.app.zip Tuna.app
+mkdir -p $OUTDIR
+zip -r $OUTDIR/Tuna.app.zip Tuna.app
 rm -rf venv build dist

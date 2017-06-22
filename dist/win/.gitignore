@@ -1,8 +1,2 @@
-get-pip
-wine
-winetricks
-numpy*.whl
-scipy*.whl
-python-3.5.3-embed-win32.zip
+*.whl
 build
-dist

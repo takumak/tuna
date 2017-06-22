@@ -1,10 +1,10 @@
-# -*- mode: python -*-
+import os
 
 block_cipher = None
 
 
 a = Analysis(
-  ['../src/tuna.py'],
+  ['../../src/tuna.py'],
   pathex=[],
   binaries=[],
   datas=[],
@@ -42,7 +42,6 @@ a = Analysis(
 pyz = PYZ(a.pure, a.zipped_data, cipher=block_cipher)
 
 exe = EXE(
-  pyz,
   # a.scripts,
   a.binaries,
   a.zipfiles,
@@ -50,8 +49,8 @@ exe = EXE(
   name='Tuna',
   debug=False,
   strip=False,
-  upx=True,
-  console=False
+  upx=False,
+  console=True
 )
 
 coll = COLLECT(
@@ -60,7 +59,7 @@ coll = COLLECT(
   a.zipfiles,
   a.datas,
   strip=False,
-  upx=True,
+  upx=False,
   name='Tuna'
 )
 

@@ -31,79 +31,16 @@ and place these files into:
     'venv/Scripts/pip.exe', 'install',
     'pyqt5', 'pyqtgraph',
     'pyexcel', 'pyexcel-io', 'pyexcel-xls', 'pyexcel-odsr',
-    'cx_Freeze'
+    'pyinstaller'
   ], check=True)
 
 
-print('Go into virtualenv')
-__file__ = 'venv/Scripts/activate_this.py'
-exec(open('venv/Scripts/activate_this.py').read())
+import shutil
+for name in 'build', 'dist':
+  if os.path.exists(name):
+    shutil.rmtree(name)
 
-import glob
-from cx_Freeze import setup, Executable
-
-# https://stackoverflow.com/questions/32432887/cx-freeze-importerror-no-module-named-scipy
-# https://bitbucket.org/anthony_tuininga/cx_freeze/issues/43/import-errors-when-using-cx_freeze-with
-from cx_Freeze.finder import ModuleFinder
-modname_map = {
-  'scipy.lib': 'scipy._lib',
-}
-IncludePackage = ModuleFinder.IncludePackage
-ModuleFinder.IncludePackage = lambda s, n: IncludePackage(s, modname_map.get(n, n))
-
-build_exe_options = {
-  'include_files': glob.glob('../../src/*.py'),
-  'packages': [
-    'numpy',
-    'numpy.core._methods',
-    'numpy.lib.format',
-    'scipy.sparse.csgraph._validation',
-    'scipy.spatial.ckdtree',
-    'pyqtgraph',
-    'pyexcel.plugins',
-    'pyexcel.plugins.parsers',
-    'pyexcel.plugins.parsers.excel',
-    'pyexcel.plugins.renderers',
-    'pyexcel.plugins.sources',
-    'pyexcel.plugins.sources.file_input',
-    'pyexcel_io',
-    'pyexcel_io.database',
-    'pyexcel_io.readers.csvr',
-    'pyexcel_io.readers.csvz',
-    'pyexcel_io.readers.tsv',
-    'pyexcel_io.readers.tsvz',
-    'pyexcel_io.writers.csvw',
-    'pyexcel_io.readers.csvz',
-    'pyexcel_io.readers.tsv',
-    'pyexcel_io.readers.tsvz',
-    'pyexcel_xls',
-    'pyexcel_xls.xlsr',
-    'pyexcel_odsr',
-    'pyexcel_odsr.odsr',
-    'lxml._elementpath' # required by pyexcel_odsr
-  ]
-}
-
-base = None
-if sys.platform == 'win32':
-  base = 'Win32GUI'
-
-sys.argv = ['build.py', 'build_exe']
-setup(
-  name = 'Tuna',
-  options = {'build_exe': build_exe_options},
-  executables = [Executable('../../src/tuna.py', base='Win32GUI')]
-)
-
-for fn in glob.glob('build/*/scipy/spatial/cKDTree.*'):
-  dirname = os.path.dirname(fn)
-  newname = os.path.basename(fn).lower()
-  print('Rename file: %s => %s' % (fn, newname))
-  os.rename(fn, os.path.join(dirname, newname))
-
-import zipfile
-with zipfile.ZipFile('tuna.zip', 'w', zipfile.ZIP_DEFLATED) as f:
-  for dirpath, dirnames, filenames in os.walk(glob.glob('build/*/')[0]):
-    for fn in filenames:
-      path = os.path.join(dirpath, fn)
-      print()
+import subprocess
+subprocess.run(['venv/Scripts/pyinstaller.exe', '../tuna.spec'], check=True)
+os.makedirs('../../dist')
+os.rename('dist/Tuna.exe', '../../dist/Tuna.exe')

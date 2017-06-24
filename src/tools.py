@@ -19,6 +19,12 @@ class Line:
     self.y = np.array(Y)
     self.name = name
 
+  def getXrange(self):
+    return min(self.x), max(self.x)
+
+  def getYrange(self):
+    return min(self.y), max(self.y)
+
   def weightCenter(self):
     return sum(self.x*self.y)/sum(self.y)
 
@@ -117,7 +123,7 @@ class CubicSpline(InterpBase):
 
 class ToolBase(QObject):
   cleared = pyqtSignal()
-  added = pyqtSignal(Line)
+  linesUpdated = pyqtSignal(list)
 
   def __init__(self):
     super().__init__()
@@ -127,19 +133,25 @@ class ToolBase(QObject):
     self.lines = []
     self.cleared.emit()
 
-  def add(self, x, y, name):
-    l = Line(x, y, name)
-    self.lines.append(l)
-    self.added.emit(l)
-
   def getLines(self):
     raise NotImplementedError()
 
+  def setLines(self, lines):
+    self.lines = lines
+    self.linesUpdated.emit(lines)
+
+  def getGraphicsItems(self):
+    return []
+
   def getXrange(self):
-    return min([min(l.x) for l in self.lines]), max([max(l.x) for l in self.lines])
+    if len(self.lines) == 0: return 0, 1
+    l1, l2 = zip(*[l.getXrange() for l in self.lines])
+    return min(l1), max(l2)
 
   def getYrange(self):
-    return min([min(l.y) for l in self.lines]), max([max(l.y) for l in self.lines])
+    if len(self.lines) == 0: return 0, 1
+    l1, l2 = zip(*[l.getYrange() for l in self.lines])
+    return min(l1), max(l2)
 
 
 class NopTool(ToolBase):
@@ -220,3 +232,18 @@ class IADTool(ToolBase):
 
 class FitTool(ToolBase):
   name = 'Fit'
+
+  def __init__(self):
+    super().__init__()
+    self.functions = []
+
+  def getLines(self):
+    lines = [] + self.lines
+    x1, x2 = self.getXrange()
+    x = np.linspace(x1, x2, 500)
+    for func in self.functions:
+      lines.append(Line(x, func.y(x), func.name))
+    return lines
+
+  def getGraphicsItems(self):
+    return sum([f.getGraphicsItems() for f in self.functions], [])

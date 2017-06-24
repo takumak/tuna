@@ -1,5 +1,9 @@
+from PyQt5.QtCore import QObject, pyqtSignal
 from PyQt5.QtWidgets import QGraphicsItem
+import pyqtgraph as pg
+import numpy as np
 import operator
+
 
 class FitParameter:
   def __init__(self, name, value, handlefunc = None, handlefunc_i = None):
@@ -55,29 +59,35 @@ class FitParameterOp(FitParameterConst):
 
 
 class FitHandleBase:
-  def getGraphicsItem(self):
+  def getGraphicsItems(self):
     raise NotImplementedError()
 
 
 class FitHandlePosition(FitHandleBase):
-  def __init__(self, param_x, param_y):
-    self.param_x = param_x
-    self.param_y = param_y
+  def __init__(self, x, y):
+    self.x = x
+    self.y = y
 
-  def getGraphicsItem(self):
-    item = QGraphicsItem()
-    # QGraphicsEllipseItem
-
-
-class FitHandleLength(FitHandleBase):
-  def __init__(self, param_cx, param_cy, param_theta, param_len):
-    self.cx = cx
-    self.cy = cy
-    self.theta = theta
+  def getGraphicsItems(self):
+    sp = pg.ScatterPlotItem(size=6, pen=pg.mkPen('#000', width=2), brush=pg.mkBrush('#fff'))
+    sp.addPoints([{'pos': (self.x.value(), self.y.value()), 'data': 1}])
+    return [sp]
 
 
-class FitFunctionBase:
+# class FitHandleLength(FitHandleBase):
+#   def __init__(self, param_cx, param_cy, param_theta, param_len):
+#     self.cx = cx
+#     self.cy = cy
+#     self.theta = theta
+#     self.length = param_len
+
+
+class FitFunctionBase(QObject):
+  parameterChanged = pyqtSignal(name='parameterChanged')
+
   def __init__(self, lines):
+    super().__init__()
+
     self.params = []
     self.paramsNameMap = {}
     self.handles = []
@@ -87,6 +97,9 @@ class FitFunctionBase:
       return self.paramsNameMap[name]
     raise AttributeError()
 
+  def y(self, x):
+    raise NotImplementedError()
+
   def addParam(self, param):
     self.params.append(param)
     self.paramsNameMap[param.name] = param
@@ -95,33 +108,43 @@ class FitFunctionBase:
     self.handles.append(handle)
 
   def getXrange(self, lines):
+    if len(lines) == 0: return 0, 1
     l1, l2 = zip(*[l.getXrange() for l in lines])
     return min(l1), max(l2)
 
   def getYrange(self, lines):
+    if len(lines) == 0: return 0, 1
     l1, l2 = zip(*[l.getYrange() for l in lines])
     return min(l1), max(l2)
 
   def getWidth(self, lines):
-    x1, x2 = self.get_Xrange(lines)
+    if len(lines) == 0: return 1
+    x1, x2 = self.getXrange(lines)
     return x2 - x1
 
   def getHeight(self, lines):
-    y1, y2 = self.get_Yrange(lines)
+    if len(lines) == 0: return 1
+    y1, y2 = self.getYrange(lines)
     return y2 - y1
+
+  def getGraphicsItems(self):
+    return sum([h.getGraphicsItems() for h in self.handles], [])
 
 
 class FitFuncGaussian(FitFunctionBase):
+  name = 'Gaussian'
+  desc = 'a*exp[-(x-b)^2/2c^2]'
+
   def __init__(self, lines):
     super().__init__(lines)
 
     x1, x2 = self.getXrange(lines)
     self.addParam(FitParameter('a', self.getHeight(lines)*0.6))
     self.addParam(FitParameter('b', (x1 + x2)/2))
-    self.addParam(FitParameter('c', (x2 - x1)*0.6), self.HWHM, self.HWHM_i)
+    self.addParam(FitParameter('c', (x2 - x1)*0.1, self.HWHM, self.HWHM_i))
 
     self.addHandle(FitHandlePosition(self.b, self.a))
-    self.addHandle(FitHandlePosition(self.c, None))
+    # self.addHandle(FitHandlePosition(self.c, None))
 
   def y(self, x):
     return self.a.value()*np.exp(-(x-self.b.value())**2/(2*self.c.value()**2))

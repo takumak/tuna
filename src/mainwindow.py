@@ -11,7 +11,7 @@ from PyQt5.QtWidgets import \
 import fileloader
 from sheetwidgets import SheetWidget
 from graphwidgets import GraphWidget
-from tools import NopTool
+from tools import Line, NopTool
 from toolwidgets import FitToolWidget, IADToolWidget
 from commonwidgets import TabWidgetWithCheckBox
 
@@ -92,7 +92,7 @@ class MainWindow(QMainWindow):
     self.tools = [self.curTool]
 
     dock_p = None
-    toolWidgets = [IADToolWidget()]
+    toolWidgets = [FitToolWidget(), IADToolWidget()]
     toolDockWidgets = []
     for t in toolWidgets:
       t.plotRequested.connect(self.plotRequested)
@@ -198,6 +198,7 @@ class MainWindow(QMainWindow):
     for t in self.tools:
       t.clear()
 
+    lines = []
     for i, sw in enumerate(self.sourcesTabWidget.getAllWidgets()):
       if not self.sourcesTabWidget.isChecked(i): continue
       x = sw.getX()[1]
@@ -206,8 +207,10 @@ class MainWindow(QMainWindow):
         name = self.sourcesTabWidget.tabText(i)
         if len(y_) > 1:
           name += ':%s' % n
-        for t in self.tools:
-          t.add(x, y, name)
+        lines.append(Line(x, y, name))
+
+    for t in self.tools:
+      t.setLines(lines)
 
     self.updateGraph()
 
@@ -219,7 +222,9 @@ class MainWindow(QMainWindow):
   def updateGraph(self):
     self.graphWidget.clearItems()
     for l in self.curTool.getLines():
-      self.graphWidget.add(l)
+      self.graphWidget.addLine(l)
+    for item in self.curTool.getGraphicsItems():
+      self.graphWidget.addItem(item)
 
   def log_(self, html):
     self.logTextEdit.moveCursor(QTextCursor.End)

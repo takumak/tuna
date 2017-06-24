@@ -1,4 +1,5 @@
 import logging
+import inspect
 import re
 from PyQt5.QtCore import Qt, pyqtSignal
 from PyQt5.QtGui import QDoubleValidator
@@ -10,6 +11,7 @@ from PyQt5.QtWidgets import \
 
 from tools import NopInterp, CubicSpline, ToolBase, FitTool, IADTool
 from commonwidgets import TableWidget
+from fit_functions import FitFuncGaussian
 
 
 class ToolWidgetBase(QWidget):
@@ -19,28 +21,15 @@ class ToolWidgetBase(QWidget):
     super().__init__()
     self.tool = self.toolClass()
     self.tool.cleared.connect(self.clear)
-    self.tool.added.connect(self.add)
+    self.tool.linesUpdated.connect(self.linesUpdated)
 
   def name(self):
     return self.toolClass.name
 
   def clear(self):
-    raise NotImplementedError()
-
-  def add(self, data):
-    raise NotImplementedError()
-
-
-class FitToolWidget(ToolWidgetBase):
-  toolClass = FitTool
-
-  def __init__(self):
-    super().__init__()
-
-  def clear(self):
     pass
 
-  def add(self, data):
+  def linesUpdated(self, lines):
     pass
 
 
@@ -140,28 +129,30 @@ class IADToolWidget(ToolWidgetBase):
 
     self.selectBaseGroup = QButtonGroup()
     self.selectBaseGroup.buttonClicked.connect(lambda b: self.toolSetBase())
-    self.lines = []
 
-  def add(self, data):
-    r = len(self.lines)
-    radio = QRadioButton(data.name)
-    self.linesTable.setRowCount(r + 1)
-    self.linesTable.setCellWidget(r, 0, radio)
+  def linesUpdated(self, lines):
+    self.linesTable.setRowCount(len(lines) + 1)
 
-    m = re.search(r'^([\+\-]?\d*(?:\.\d+)?)', data.name)
-    if m: self.setIADx(r, m.group(1))
+    for r, line in enumerate(lines):
+      radio = QRadioButton(line.name)
+      self.selectBaseGroup.addButton(radio, len(self.selectBaseGroup.buttons()))
+      self.linesTable.setCellWidget(r, 0, radio)
 
-    self.selectBaseGroup.addButton(radio, len(self.selectBaseGroup.buttons()))
+      m = re.search(r'^([\+\-]?\d*(?:\.\d+)?)', line.name)
+      if m: self.setIADx(r, m.group(1))
+
     radio.setChecked(True)
     self.toolSetBase()
-
-    self.lines.append(data)
 
   def setLinesTableCell(self, r, c, v):
     self.linesTable.setItem(r, c, QTableWidgetItem(str(v)))
 
   def getLinesTableCol(self, c):
-    return [self.linesTable.item(r, c).text() for r in range(self.linesTable.rowCount())]
+    items = []
+    for r in range(self.linesTable.rowCount()):
+      item = self.linesTable.item(r, c)
+      items.append(item.text() if item else None)
+    return items
 
   def setIADx(self, i, v):
     self.setLinesTableCell(i, 1, v)
@@ -210,4 +201,87 @@ class IADToolWidget(ToolWidgetBase):
     self.toolSetBase()
     self.toolSetIADx()
     self.toolSetWCthreshold()
+    self.plotRequested.emit(self.tool)
+
+
+class FitToolWidget(ToolWidgetBase):
+  toolClass = FitTool
+
+  def __init__(self):
+    super().__init__()
+
+    self.vbox = QVBoxLayout()
+    self.setLayout(self.vbox)
+
+    self.functions = [FitFuncGaussian]
+
+    self.paramsTable = TableWidget()
+    self.paramsTable.horizontalHeader().setResizeMode(QHeaderView.ResizeToContents)
+    self.paramsTable.cellChanged.connect(self.paramsTableCellChanged)
+    self.vbox.addWidget(self.paramsTable)
+    self.setLastRow()
+
+  def paramsTableCellChanged(self, r, c):
+    pass
+
+  def functionSelected(self, row, combo, idx):
+    func = combo.itemData(idx)
+    if inspect.isclass(func):
+      func = func(self.tool.lines)
+      func.parameterChanged.connect(lambda: self.parameterChanged(row, func))
+      combo.setItemData(idx, func)
+    self.parameterChanged(row, func)
+    self.setLastRow()
+    self.toolSetFunctions()
+
+  def parameterChanged(self, row, func_):
+    func = self.paramsTable.cellWidget(row, 0).currentData()
+    if func_ != func: return
+
+    c = 0
+
+    if func:
+      ncol = 1 + len(func.params)*2
+      if self.paramsTable.columnCount() < ncol:
+        self.paramsTable.setColumnCount(ncol)
+
+      for i, param in enumerate(func.params):
+        c = 1 + i*2
+        self.paramsTable.setItem(row, c, QTableWidgetItem(param.name))
+        self.paramsTable.setItem(row, c+1, QTableWidgetItem('%g' % param.value()))
+      c += 2
+
+    for i in range(c, self.paramsTable.columnCount()):
+      self.paramsTable.setItem(row, i, QTableWidgetItem(''))
+
+  def setLastRow(self):
+    n = self.paramsTable.rowCount()
+
+    while True:
+      if n == 0:
+        self.paramsTable.setColumnCount(1)
+        break
+
+      combobox = self.paramsTable.cellWidget(n - 1, 0)
+      if combobox.currentData() is None:
+        return
+
+      break
+
+    self.paramsTable.setRowCount(n + 1)
+    combo = QComboBox()
+    combo.addItem('Select', None)
+    combo.currentIndexChanged.connect(
+      lambda idx: self.functionSelected(n, combo, idx))
+    for func in self.functions:
+      combo.addItem(func.name, func)
+    self.paramsTable.setCellWidget(n, 0, combo)
+
+  def toolSetFunctions(self):
+    self.tool.functions = []
+    for r in range(self.paramsTable.rowCount()):
+      combo = self.paramsTable.cellWidget(r, 0)
+      func = combo.currentData()
+      if func:
+        self.tool.functions.append(func)
     self.plotRequested.emit(self.tool)

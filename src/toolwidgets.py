@@ -11,7 +11,7 @@ from PyQt5.QtWidgets import \
 
 from tools import NopInterp, CubicSpline, ToolBase, FitTool, IADTool
 from commonwidgets import TableWidget
-from fit_functions import FitFuncGaussian
+from fit_functions import FitFuncGaussian, FitFuncAsym2Sig
 
 
 class ToolWidgetBase(QWidget):
@@ -213,7 +213,7 @@ class FitToolWidget(ToolWidgetBase):
     self.vbox = QVBoxLayout()
     self.setLayout(self.vbox)
 
-    self.functions = [FitFuncGaussian]
+    self.functions = [FitFuncGaussian, FitFuncAsym2Sig]
 
     self.paramsTable = TableWidget()
     self.paramsTable.horizontalHeader().setResizeMode(QHeaderView.ResizeToContents)
@@ -222,7 +222,11 @@ class FitToolWidget(ToolWidgetBase):
     self.setLastRow()
 
   def paramsTableCellChanged(self, r, c):
-    pass
+    if c < 2 or c % 2 != 0:
+      return
+    value = float(self.paramsTable.item(r, c).text())
+    func = self.paramsTable.cellWidget(r, 0).currentData()
+    func.params[c//2-1].setValue(value)
 
   def functionSelected(self, row, combo, idx):
     func = combo.itemData(idx)

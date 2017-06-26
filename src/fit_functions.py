@@ -1,4 +1,5 @@
 from PyQt5.QtCore import Qt, QObject, pyqtSignal
+from PyQt5.QtWidgets import QGraphicsLineItem
 import pyqtgraph as pg
 import numpy as np
 import operator
@@ -32,49 +33,58 @@ class FitParameter(QObject):
       self.value_ = value
       self.changed.emit()
 
-  def const(self):
-    return FitParameterConst(self)
-
-  def isConst(self):
-    return False
-
 
   def __add__(self, b):
-    return FitParameterOp(operator.add, '+', self, b)
+    return FitParameterOp(operator.add, operator.sub, '+', self, b)
+
+  def __radd__(self, b):
+    return FitParameterOp(operator.add, operator.sub, '+', self, b)
 
   def __sub__(self, b):
-    return FitParameterOp(operator.sub, '-', self, b)
+    return FitParameterOp(operator.sub, lambda v,b: b-v, '-', self, b)
+
+  def __rsub__(self, b):
+    return FitParameterOp(lambda s,b: b-s, operator.add, '-', self, b)
 
   def __mul__(self, b):
-    return FitParameterOp(operator.mul, '*', self, b)
+    return FitParameterOp(operator.mul, operator.truediv, '*', self, b)
+
+  def __rmul__(self, b):
+    return FitParameterOp(operator.mul, operator.truediv, '*', self, b)
 
   def __truediv__(self, b):
-    return FitParameterOp(operator.truediv, '/', self, b)
+    return FitParameterOp(operator.truediv, operator.mul, '/', self, b)
+
+  def __neg__(self):
+    return self*(-1)
+
+  def __pow__(self, b):
+    return FitParameterOp(operator.pow, lambda v,b: v**(1/b), '/', self, b)
 
 
 class FitParameterConst(FitParameter):
   def setValue(self, value):
     pass
 
-  def isConst(self):
-    return True
 
+class FitParameterFunc(FitParameterConst):
+  def __init__(self, name, f, fi, *args):
+    self.f = f
+    self.fi = fi
+    self.args = args
+    super().__init__(name, self.value())
+    for a in self.args:
+      a.changed.connect(lambda: self.changed.emit())
 
-# class FitParameterFunc(FitParameter):
-#   def __init__(self, func, func_i, *args):
-#     super().__init__(*args)
-#     self.func = func
-#     self.func_i = func_i
+  def value(self):
+    return self.f(*[a.value() for a in self.args])
 
-#   def value(self):
-#     return self.func(super().value())
-
-#   def setValue(self, value):
-#     super().setValue(self.func_i(value))
+  def setValue(self, value):
+    self.args[0].setValue(self.fi(value, *[a.value() for a in self.args[1:]]))
 
 
 class FitParameterOp(FitParameter):
-  def __init__(self, op, opname, a, b):
+  def __init__(self, op, opi, opname, a, b):
     if not isinstance(a, FitParameter):
       a = FitParameterConst(repr(a), a)
     if not isinstance(b, FitParameter):
@@ -82,9 +92,10 @@ class FitParameterOp(FitParameter):
 
     super().__init__('(%s%s%s)' % (a.name, opname, b.name), 0)
 
-    self.op = op
-    self.a  = a
-    self.b  = b
+    self.op  = op
+    self.opi = opi
+    self.a   = a
+    self.b   = b
 
     a.changed.connect(lambda: self.changed.emit())
     b.changed.connect(lambda: self.changed.emit())
@@ -92,16 +103,16 @@ class FitParameterOp(FitParameter):
   def value(self):
     return self.op(self.a.value(), self.b.value())
 
-  def isConst(self):
-    return (self.a.isConst() or self.b.isConst()) and not (self.a.isConst() and self.b.isConst())
+  def setValue(self, value):
+    self.a.setValue(self.opi(value, self.b.value()))
 
 
-class PointHandle(pg.GraphItem):
+class Point(pg.GraphItem):
   def __init__(self, x, y, xyfilter=None):
     super().__init__()
     self.x = x
     self.y = y
-    self.size = 6
+    self.size = 8
     self.pen = pg.mkPen('#000', width=2)
     self.brush = pg.mkBrush('#fff')
     self.applyParams()
@@ -141,9 +152,6 @@ class PointHandle(pg.GraphItem):
 
     if ev.isStart():
       pos = ev.buttonDownPos()
-      if len(self.scatter.pointsAt(pos)) == 0:
-        ev.ignore()
-        return
       self.drag = pos, self.x.value(), self.y.value()
 
     elif ev.isFinish():
@@ -162,6 +170,25 @@ class PointHandle(pg.GraphItem):
     ev.accept()
 
 
+class Line(QGraphicsLineItem):
+  def __init__(self, x1, y1, x2, y2):
+    super().__init__()
+    self.x1 = x1
+    self.y1 = y1
+    self.x2 = x2
+    self.y2 = y2
+    self.setPen(pg.mkPen('#000', width=2))
+    self.applyParams()
+
+    x1.changed.connect(self.applyParams)
+    y1.changed.connect(self.applyParams)
+    x2.changed.connect(self.applyParams)
+    y2.changed.connect(self.applyParams)
+
+  def applyParams(self):
+    self.setLine(*[v.value() for v in (self.x1, self.y1, self.x2, self.y2)])
+
+
 class FitHandleBase:
   def getGraphItems(self):
     raise NotImplementedError()
@@ -173,10 +200,21 @@ class FitHandlePosition(FitHandleBase):
     self.y = y
 
   def getGraphItems(self):
-    return [PointHandle(self.x, self.y)]
+    return [Point(self.x, self.y)]
 
 
-class FitHandleLength(FitHandleBase):
+class FitHandleLine(FitHandleBase):
+  def __init__(self, x1, y1, x2, y2):
+    self.x1 = x1
+    self.y1 = y1
+    self.x2 = x2
+    self.y2 = y2
+
+  def getGraphItems(self):
+    return [Line(self.x1, self.y1, self.x2, self.y2), Point(self.x2, self.y2)]
+
+
+class FitHandleThetaLength(FitHandleBase):
   def __init__(self, cx, cy, theta, length):
     self.cx = cx
     self.cy = cy
@@ -188,6 +226,8 @@ class FitHandleLength(FitHandleBase):
 
     cx.changed.connect(self.updateXY)
     cy.changed.connect(self.updateXY)
+    theta.changed.connect(self.updateXY)
+    length.changed.connect(self.updateXY)
 
   def updateXY(self):
     self.x.setValue(self.getX())
@@ -208,13 +248,13 @@ class FitHandleLength(FitHandleBase):
     return self.getX(), self.getY()
 
   def getGraphItems(self):
-    return [PointHandle(self.x, self.y, self.xyfilter)]
+    return [Line(self.cx, self.cy, self.x, self.y), Point(self.x, self.y, self.xyfilter)]
 
 
 class FitFunctionBase(QObject):
   parameterChanged = pyqtSignal(name='parameterChanged')
 
-  def __init__(self, lines):
+  def __init__(self):
     super().__init__()
 
     self.params = []
@@ -237,6 +277,9 @@ class FitFunctionBase(QObject):
     param.changed.connect(self.paramChanged)
 
   def paramChanged(self):
+    if self.plotCurveItem:
+      x, y = self.plotCurveItem.getData()
+      self.plotCurveItem.setData(x=x, y=self.y(x))
     self.parameterChanged.emit()
 
   def addHandle(self, handle):
@@ -277,21 +320,49 @@ class FitFuncGaussian(FitFunctionBase):
   desc = 'a*exp[-(x-b)^2/2c^2]'
 
   def __init__(self, lines):
-    super().__init__(lines)
+    super().__init__()
 
     x1, x2 = self.getXrange(lines)
     self.addParam(FitParameter('a', self.getHeight(lines)*0.6))
     self.addParam(FitParameter('b', (x1 + x2)/2))
     self.addParam(FitParameter('c', (x2 - x1)*0.1))
 
-    theta = FitParameterConst('theta', 0)
+    HWHM = self.c*np.sqrt(2*np.log(2))
     self.addHandle(FitHandlePosition(self.b, self.a))
-    self.addHandle(FitHandleLength(self.b, self.a*np.exp(-1/2), theta, self.c))
+    self.addHandle(FitHandleThetaLength(self.b, self.a/2, FitParameterConst('theta', 0), HWHM))
+    self.addHandle(FitHandleThetaLength(self.b, self.a/2, FitParameterConst('theta', np.pi), HWHM))
 
   def y(self, x):
     return self.a.value()*np.exp(-(x-self.b.value())**2/(2*self.c.value()**2))
 
-  def paramChanged(self):
-    if self.plotCurveItem:
-      x, y = self.plotCurveItem.getData()
-      self.plotCurveItem.setData(x=x, y=self.y(x))
+
+class FitFuncAsym2Sig(FitFunctionBase):
+  name = 'Asym2Sig'
+  desc = 'A*1/(1+exp(-(x-xc+w1/2)/w2))*(1-1/(1+exp(-(x-xc-w1/2)/w3)))'
+
+  def __init__(self, lines):
+    super().__init__()
+
+    x1, x2 = self.getXrange(lines)
+    self.addParam(FitParameter('A',  self.getHeight(lines)*0.6))
+    self.addParam(FitParameter('xc', (x1 + x2)/2))
+    self.addParam(FitParameter('w1', self.getWidth(lines)*0.1))
+    self.addParam(FitParameter('w2', self.getWidth(lines)*0.1))
+    self.addParam(FitParameter('w3', self.getWidth(lines)*0.1))
+
+    b =     (1+FitParameterFunc('b', np.exp, np.log, -( self.w1/(2*self.w2))))**(-1)
+    c = 1 - (1+FitParameterFunc('c', np.exp, np.log, -(-self.w1/(2*self.w3))))**(-1)
+    cy = self.A*b*c
+
+    bl = FitParameterFunc('bl', np.exp, np.log, -self.w3**(-1)*self.w1)
+    xl = -self.w1/2 + self.xc
+    yl = (-(bl+1)**(-1)+1)*self.A/2
+
+    self.addHandle(FitHandlePosition(self.xc, cy))
+    self.addHandle(FitHandleThetaLength(self.xc, cy/2, FitParameterConst('theta', 0), self.w3))
+    self.addHandle(FitHandleLine(self.xc, cy, xl, yl))
+
+  def y(self, x):
+    return (self.A.value()
+            *    1/(1+np.exp(-(x-self.xc.value()+self.w1.value()/2)/self.w2.value()))
+            * (1-1/(1+np.exp(-(x-self.xc.value()-self.w1.value()/2)/self.w3.value()))))

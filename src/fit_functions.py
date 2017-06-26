@@ -1,8 +1,9 @@
-from PyQt5.QtCore import QObject, pyqtSignal
-from PyQt5.QtWidgets import QGraphicsItem
-import pyqtgraph as pg
+from PyQt5.QtCore import Qt, QObject, pyqtSignal
+from PyQt5.QtGui import QPainter, QPainterPath, QColor, QBrush, QPen
+from PyQt5.QtWidgets import QGraphicsItem, QGraphicsEllipseItem
 import numpy as np
 import operator
+import logging
 
 
 class FitParameter:
@@ -58,6 +59,42 @@ class FitParameterOp(FitParameterConst):
     return self.op(self.a.value(), self.b.value())
 
 
+class PointHandle(QGraphicsEllipseItem):
+  def __init__(self, x, y):
+    super().__init__()
+    self.x = x
+    self.y = y
+    self.moveBy(self.x.value(), self.y.value())
+    self.setSize(6)
+
+    bgBrush = QBrush(QColor('#fff'))
+    fgBrush = QBrush(QColor('#000'))
+    self.setBrush(bgBrush)
+    self.setPen(QPen(fgBrush, 2))
+    self.setFlags(self.ItemIgnoresTransformations)
+
+    self.setAcceptHoverEvents(True)
+    self.setFlag(self.ItemIsMovable)
+
+  def shape(self):
+    path = QPainterPath()
+    path.addEllipse(self.rect())
+    return path
+
+  def paint(self, painter, option, widget):
+    painter.setRenderHint(QPainter.Antialiasing)
+    super().paint(painter, option, widget)
+
+  def setSize(self, size):
+    self.setRect(self.x.value()-size/2, self.y.value()-size/2, size, size)
+
+  def hoverEnterEvent(self, ev):
+    self.setSize(8)
+
+  def hoverLeaveEvent(self, ev):
+    self.setSize(6)
+
+
 class FitHandleBase:
   def getGraphicsItems(self):
     raise NotImplementedError()
@@ -69,9 +106,7 @@ class FitHandlePosition(FitHandleBase):
     self.y = y
 
   def getGraphicsItems(self):
-    sp = pg.ScatterPlotItem(size=6, pen=pg.mkPen('#000', width=2), brush=pg.mkBrush('#fff'))
-    sp.addPoints([{'pos': (self.x.value(), self.y.value()), 'data': 1}])
-    return [sp]
+    return [PointHandle(self.x, self.y)]
 
 
 # class FitHandleLength(FitHandleBase):

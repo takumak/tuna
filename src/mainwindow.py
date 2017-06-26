@@ -95,7 +95,7 @@ class MainWindow(QMainWindow):
     toolWidgets = [FitToolWidget(), IADToolWidget()]
     toolDockWidgets = []
     for t in toolWidgets:
-      t.plotRequested.connect(self.plotRequested)
+      t.activated.connect(self.toolActivated)
       dock = QDockWidget(t.name())
       dock.setWidget(t)
       toolDockWidgets.append(dock)
@@ -214,16 +214,14 @@ class MainWindow(QMainWindow):
 
     self.updateGraph()
 
-  def plotRequested(self, tool):
+  def toolActivated(self, tool):
     self.curTool = tool
     self.updateGraph()
     self.graphWidget.autoRange()
 
   def updateGraph(self):
     self.graphWidget.clearItems()
-    for l in self.curTool.getLines():
-      self.graphWidget.addLine(l)
-    for item in self.curTool.getGraphicsItems():
+    for item in self.curTool.getGraphItems():
       self.graphWidget.addItem(item)
 
   def log_(self, html):

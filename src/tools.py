@@ -1,6 +1,7 @@
 import numpy as np
 from PyQt5.QtCore import QObject, pyqtSignal
 from PyQt5.QtWidgets import QWidget, QGridLayout, QLabel, QSpinBox
+import pyqtgraph as pg
 
 
 class Line:
@@ -125,6 +126,12 @@ class ToolBase(QObject):
   cleared = pyqtSignal()
   linesUpdated = pyqtSignal(list)
 
+  # https://github.com/LibreOffice/core/blob/master/extras/source/palettes/chart-palettes.soc
+  colors = [
+    '#004586', '#ff420e', '#ffd320', '#579d1c', '#7e0021', '#83caff',
+    '#314004', '#aecf00', '#4b1f6f', '#ff950e', '#c5000b', '#0084d1'
+  ]
+
   def __init__(self):
     super().__init__()
     self.lines = []
@@ -134,14 +141,28 @@ class ToolBase(QObject):
     self.cleared.emit()
 
   def getLines(self):
-    raise NotImplementedError()
+    return self.lines
 
   def setLines(self, lines):
     self.lines = lines
     self.linesUpdated.emit(lines)
 
-  def getGraphicsItems(self):
-    return []
+  def getColor(self, i):
+    return self.colors[i % len(self.colors)]
+
+  def createLineGraphItem(self, line, i):
+    return pg.PlotCurveItem(
+      x=line.x, y=line.y,
+      pen=pg.mkPen(color=self.getColor(i), width=2),
+      antialias=True,
+      name=line.name)
+
+  def getGraphItems(self):
+    items = []
+    for i, line in enumerate(self.getLines()):
+      item = self.createLineGraphItem(line, i)
+      items.append(item)
+    return items
 
   def getXrange(self):
     if len(self.lines) == 0: return 0, 1
@@ -156,9 +177,6 @@ class ToolBase(QObject):
 
 class NopTool(ToolBase):
   name = 'Nop'
-
-  def getLines(self):
-    return self.lines
 
 
 class IADTool(ToolBase):
@@ -237,13 +255,19 @@ class FitTool(ToolBase):
     super().__init__()
     self.functions = []
 
-  def getLines(self):
-    lines = [] + self.lines
+  def createLineGraphItem(self, line, i):
+    return pg.ScatterPlotItem(
+      x=line.x, y=line.y,
+      pen=pg.mkPen(None),
+      brush=pg.mkBrush(self.getColor(i)),
+      size=6,
+      antialias=True,
+      name=line.name)
+
+  def getGraphItems(self):
+    items = [] + super().getGraphItems()
     x1, x2 = self.getXrange()
     x = np.linspace(x1, x2, 500)
-    for func in self.functions:
-      lines.append(Line(x, func.y(x), func.name))
-    return lines
-
-  def getGraphicsItems(self):
-    return sum([f.getGraphicsItems() for f in self.functions], [])
+    for i, f in enumerate(self.functions):
+      items += f.getGraphItems(x, pen=pg.mkPen(color=self.getColor(i), width=2))
+    return items

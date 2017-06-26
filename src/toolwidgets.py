@@ -15,7 +15,7 @@ from fit_functions import FitFuncGaussian
 
 
 class ToolWidgetBase(QWidget):
-  plotRequested = pyqtSignal(ToolBase, name='plotRequested')
+  activated = pyqtSignal(ToolBase, name='activated')
 
   def __init__(self):
     super().__init__()
@@ -201,7 +201,7 @@ class IADToolWidget(ToolWidgetBase):
     self.toolSetBase()
     self.toolSetIADx()
     self.toolSetWCthreshold()
-    self.plotRequested.emit(self.tool)
+    self.activated.emit(self.tool)
 
 
 class FitToolWidget(ToolWidgetBase):
@@ -284,4 +284,4 @@ class FitToolWidget(ToolWidgetBase):
       func = combo.currentData()
       if func:
         self.tool.functions.append(func)
-    self.plotRequested.emit(self.tool)
+    self.activated.emit(self.tool)

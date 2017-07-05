@@ -22,13 +22,18 @@ class Line:
   def weightCenter(self):
     return sum(self.x*self.y)/sum(self.y)
 
+  def integrate(self):
+    return sum(self.y[:-1]*(self.x[1:]-self.x[:-1]))
+
   def normalize(self):
-    return self.__class__(self.x, self.y/sum(self.y), self.name)
+    return self.__class__(self.x, self.y/self.integrate(), self.name)
 
   def xoff(self, off):
     return self.__class__(self.x + off, self.y, self.name)
 
   def __sub__(self, other):
+    if list(self.x) != list(other.x):
+      raise RuntimeError('x is not same')
     return self.__class__(self.x, self.y - other.y, self.name)
 
 
@@ -105,11 +110,19 @@ class CubicSpline(InterpBase):
     super().__init__()
     self.addParam(self.ParamInt('N', 1, 999, 9))
 
-  def do(self, line):
-    x, y = line.x, line.y
+  def do(self, line, xrange = None):
+    if xrange:
+      X1, X2 = xrange
+    else:
+      X1, X2 = min(line.x), max(line.x)
+
+    n = sum([1 if v >= X1 and v <= X2 else 0 for v in line.x])
+    npoints = n * (self.N.value() + 1)
+
     from scipy import interpolate
-    tck = interpolate.splrep(x, y, s=0)
-    x2 = np.arange(min(x), max(x), (max(x)-min(x))/(len(x) * (self.N.value() + 1)))
+    tck = interpolate.splrep(line.x, line.y, s=0)
+    dx = (X2 - X1)/npoints
+    x2 = np.arange(X1, X2, dx)
     y2 = interpolate.splev(x2, tck, der=0)
     return Line(x2, y2, line.name)
 
@@ -161,7 +174,7 @@ class IADTool(ToolBase):
     self.lines = None
 
   def calcXoff(self, line, wc):
-    line_ = self.interp.do(line).normalize()
+    line_ = self.interp.do(line)
     line = line_
     xoff = 0
     cnt = 0
@@ -170,9 +183,9 @@ class IADTool(ToolBase):
       dx = wc - wc2
       cnt += 1
       if abs(dx) < self.threshold or cnt > 100:
-        return xoff, wc2, line
+        return xoff, wc2
       xoff += dx
-      line = line_.xoff(xoff).normalize()
+      line = line_.xoff(xoff)
 
   def getLines(self):
     if not self.lines:
@@ -181,34 +194,40 @@ class IADTool(ToolBase):
     if self.mode == 'orig':
       return self.lines
 
-    base = self.interp.do(self.lines[self.base]).normalize()
-    wc = base.weightCenter()
+    base = self.lines[self.base]
+    wc = self.interp.do(base).weightCenter()
 
-    lines = []
     self.wc = []
     self.xoff = []
     for i, l in enumerate(self.lines):
       if i == self.base:
-        lines.append(base)
         self.wc.append(wc)
         self.xoff.append(0)
       else:
-        xoff, wc, line = self.calcXoff(l, wc)
-        lines.append(line)
+        xoff, wc = self.calcXoff(l, wc)
         self.wc.append(wc)
         self.xoff.append(xoff)
     self.xoffUpdated.emit()
 
     if self.mode == 'xoff':
-      return lines
+      return [l.xoff(xoff) for l, xoff in zip(self.lines, self.xoff)]
+
+    diff = []
+    for l, xoff in zip(self.lines, self.xoff):
+      x1 = l.x + xoff
+      x2 = base.x
+      X1 = max([min(x1), min(x2)])
+      X2 = min([max(x1), max(x2)])
+      l1 = self.interp.do(l.xoff(xoff), (X1, X2))
+      l2 = self.interp.do(base,         (X1, X2))
+      diff.append(l1 - l2)
 
     if self.mode == 'diff':
-      return [l - lines[self.base] for l in lines]
+      return diff
 
     if self.mode == 'iad':
-      b = lines[self.base]
       x = self.iadX
-      y = [sum(np.abs(l.y - b.y)) for l in lines]
+      y = [sum(np.abs(d.y))*(d.x[1]-d.x[0]) for d in diff]
       self.iadY = y
       self.iadYUpdated.emit()
       return [Line(x, y, 'IAD')]

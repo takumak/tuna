@@ -42,12 +42,7 @@ class TabWidgetWithCheckBox(QTabWidget):
 
     self.menu = QMenu()
     self.menu.addAction('Select all', self.selectAll)
-    self.menu.addAction('Select all except this', self.selectAllExceptThis)
     self.menu.addAction('Unselect all except this', self.unselectAllExceptThis)
-    self.menu.addAction('Select right tabs', self.selectRightTabs)
-    self.menu.addAction('Unselect right tabs', self.unselectRightTabs)
-    self.menu.addAction('Select left tabs', self.selectLeftTabs)
-    self.menu.addAction('Unselect left tabs', self.unselectLeftTabs)
 
     tabbar = self.tabBar()
     tabbar.setContextMenuPolicy(Qt.CustomContextMenu)

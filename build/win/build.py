@@ -39,5 +39,8 @@ for name in 'build', 'dist':
 
 import subprocess
 subprocess.run(['venv/Scripts/pyinstaller.exe', '../tuna.spec'], check=True)
-os.makedirs('../../dist')
+if not os.path.exists('../../dist'):
+  os.makedirs('../../dist')
+if os.path.exists('../../dist/Tuna.exe'):
+  os.remove('../../dist/Tuna.exe')
 os.rename('dist/Tuna.exe', '../../dist/Tuna.exe')

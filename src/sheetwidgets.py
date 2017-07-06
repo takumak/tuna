@@ -54,6 +54,10 @@ class SheetWidget(TableWidget):
     self.x = c
     self.updateHeaderState()
 
+  def setY(self, y):
+    self.y = y
+    self.updateHeaderState()
+
   def selectY(self, c, yn):
     if c == self.x:
       self.x = self.y[yn]

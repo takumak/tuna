@@ -1,10 +1,11 @@
+import os
 import logging
 import html
 from PyQt5.QtCore import Qt
 from PyQt5.QtGui import QIcon, QTextCursor, QKeySequence
 from PyQt5.QtWidgets import \
   QApplication, QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, \
-  QToolBar, QFileDialog, QDialog, QLabel, QTabWidget, QTabBar, \
+  QFileDialog, QDialog, QLabel, QTabWidget, QTabBar, \
   QCheckBox, QTextEdit, QSplitter, QDockWidget, QPushButton
 
 
@@ -14,6 +15,7 @@ from graphwidgets import GraphWidget
 from tools import NopTool
 from toolwidgets import FitToolWidget, IADToolWidget
 from commonwidgets import TabWidgetWithCheckBox
+
 
 
 class SelectColumnDialog(QDialog):
@@ -67,9 +69,13 @@ class SelectColumnDialog(QDialog):
 
 
 class MainWindow(QMainWindow):
-  def __init__(self):
+  saveStateVersion = 1
+
+  def __init__(self, config_filename):
     super().__init__()
+    self.config_filename = config_filename
     self.fileToolBar = self.addToolBar('File')
+    self.fileToolBar.setObjectName('toolbar_File')
     act_open = self.fileToolBar.addAction('Open')
     act_open.setShortcut(QKeySequence.Open)
     act_open.triggered.connect(self.showOpenFileDialog)
@@ -83,11 +89,13 @@ class MainWindow(QMainWindow):
     self.sourcesTabWidget.tabCloseRequested.connect(self.sourceTabCloseRequested)
     self.sourcesTabWidget.hide()
     self.sourcesDockWidget = QDockWidget('Sources')
+    self.sourcesDockWidget.setObjectName('dock_Sources')
     self.sourcesDockWidget.setWidget(self.sourcesTabWidget)
 
     self.logTextEdit = QTextEdit()
     self.logTextEdit.setReadOnly(True)
     self.logDockWidget = QDockWidget('Log')
+    self.logDockWidget.setObjectName('dock_Log')
     self.logDockWidget.setWidget(self.logTextEdit)
 
     dock_p = None
@@ -98,6 +106,7 @@ class MainWindow(QMainWindow):
     for t in toolWidgets:
       t.plotRequested.connect(self.plotRequested)
       dock = QDockWidget(t.name())
+      dock.setObjectName('dock_%s' % t.name())
       dock.setWidget(t)
       toolDockWidgets.append(dock)
       self.tools.append(t.tool)
@@ -117,6 +126,8 @@ class MainWindow(QMainWindow):
 
     self.resize(1000, 800)
     self.setAcceptDrops(True)
+
+    self.loadConfig()
 
     logging.info('Drag and drop here to open multiple files')
 
@@ -160,14 +171,15 @@ class MainWindow(QMainWindow):
     self.update()
     self.sourcesDockWidget.raise_()
 
-  def addSheet(self, sheet):
+  def addSheet(self, sheet, checked = True):
     logging.info('Add sheet: %s' % sheet.name)
     self.sourcesTabWidget.show()
 
     sheetwidget = SheetWidget(sheet)
     sheetwidget.horizontalHeader().sectionClicked.connect(
       lambda c: self.headerClicked(sheetwidget, c))
-    self.sourcesTabWidget.addTab(sheetwidget, sheet.name, True)
+    self.sourcesTabWidget.addTab(sheetwidget, sheet.name, checked)
+    return sheetwidget
 
   def headerClicked(self, sheetwidget, c):
     unselect, x, y = sheetwidget.useColumnCandidates(c)
@@ -237,3 +249,56 @@ class MainWindow(QMainWindow):
     s.setValue(s.maximum())
     if activate:
       self.logDockWidget.raise_()
+
+  def closeEvent(self, ev):
+    self.saveConfig()
+    ev.accept()
+
+  def loadConfig(self):
+    if not os.path.exists(self.config_filename):
+      return
+
+    import toml
+    obj = toml.load(open(self.config_filename))
+    self.loadState(obj['mainwindow']['state'])
+
+    files = {}
+    for sheet in obj['sheets']:
+      filename = sheet.filename
+      f = files.get(filename, None)
+      if f is False:
+        continue
+      elif f is None:
+        try:
+          f = fileloader.load(filename)
+        except:
+          logging.error('Failed to load file: %s' % filename)
+          files[filename] = False
+          continue
+        files[filename] = f
+
+      sw = self.addSheet(f.getSheet(sheet['index']), sheet['enabled'])
+      sw.setX(sheet['x'])
+      sw.setY(sheet['y'])
+
+  def saveConfig(self):
+    import toml
+
+    sheets = []
+    for i, sw in enumerate(self.sourcesTabWidget.getAllWidgets()):
+      sheets.append({
+        'enabled': self.sourcesTabWidget.isChecked(i),
+        'filename': sw.sheet.filename,
+        'index': sw.sheet.idx,
+        'x': sw.x,
+        'y': sw.y
+      })
+
+    obj = {
+      'sheets': sheets,
+      'mainwindow': {
+        'state': self.saveState(self.saveStateVersion)
+      }
+    }
+
+    toml.dump(obj, open(self.config_filename, 'w'))

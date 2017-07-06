@@ -28,7 +28,7 @@ class LogHandler(logging.Handler):
   def emit(self, record):
     msg = self.format(record)
     if self.app:
-      self.app.window.log_(msg)
+      self.app.window.log_(msg, record.levelno>=logging.ERROR)
     else:
       self.log.append(msg)
 

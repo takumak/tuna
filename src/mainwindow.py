@@ -107,10 +107,12 @@ class MainWindow(QMainWindow):
 
     self.addDockWidget(Qt.BottomDockWidgetArea, self.sourcesDockWidget)
     self.resizeDocks(toolDockWidgets, [400] * len(toolDockWidgets), Qt.Horizontal)
+    toolWidgets[0].raise_()
 
     self.addDockWidget(Qt.BottomDockWidgetArea, self.logDockWidget)
     self.tabifyDockWidget(self.logDockWidget, self.sourcesDockWidget)
     self.resizeDocks([self.sourcesDockWidget, self.logDockWidget], [200, 200], Qt.Vertical)
+    self.logDockWidget.raise_()
 
     self.resize(1000, 800)
     self.setAcceptDrops(True)
@@ -155,6 +157,7 @@ class MainWindow(QMainWindow):
       for sheet in f:
         self.addSheet(sheet)
     self.update()
+    self.sourcesDockWidget.raise_()
 
   def addSheet(self, sheet):
     logging.info('Add sheet: %s' % sheet.name)
@@ -221,8 +224,10 @@ class MainWindow(QMainWindow):
     for l in self.curTool.getLines():
       self.graphWidget.add(l)
 
-  def log_(self, html):
+  def log_(self, html, activate=False):
     self.logTextEdit.moveCursor(QTextCursor.End)
     self.logTextEdit.insertHtml(html)
     s = self.logTextEdit.verticalScrollBar()
     s.setValue(s.maximum())
+    if activate:
+      self.logDockWidget.raise_()

@@ -8,7 +8,7 @@ from PyQt5.QtWidgets import \
   QComboBox, QTableWidgetItem, QAbstractScrollArea, \
   QHeaderView
 
-from tools import NopInterp, CubicSpline, ToolBase, FitTool, IADTool
+from tools import CubicSpline, ToolBase, FitTool, IADTool
 from commonwidgets import TableWidget
 
 
@@ -71,24 +71,28 @@ class IADToolWidget(ToolWidgetBase):
     self.interpComboBox.currentIndexChanged.connect(self.interpSelected)
     self.interpOptionsLayout = QVBoxLayout()
     self.interpOptionsLayout.setContentsMargins(40, 0, 0, 0)
-    self.optionsGrid.addWidget(QLabel('Interpolation'), 0, 0)
+    self.interpCheckBox = QCheckBox('Interpolation')
+    self.interpCheckBox.setChecked(False)
+    self.interpStateChanged(Qt.Unchecked)
+    self.interpCheckBox.stateChanged.connect(self.interpStateChanged)
+    self.optionsGrid.addWidget(self.interpCheckBox, 0, 0)
     self.optionsGrid.addWidget(self.interpComboBox, 0, 1)
     self.optionsGrid.addLayout(self.interpOptionsLayout, 1, 0, 1, 2)
 
     self.interpOptions = []
-    for interp in [NopInterp(), CubicSpline()]:
+    for interp in [CubicSpline()]:
       opt = interp.createOptionsWidget()
       self.interpComboBox.addItem(interp.name, [interp, opt])
       if opt:
         self.interpOptionsLayout.addWidget(opt)
         self.interpOptions.append(opt)
-    self.interpComboBox.setCurrentIndex(1)
+    self.interpComboBox.setCurrentIndex(0)
 
     self.WCthreshold = QLineEdit()
     self.WCthreshold.setValidator(QDoubleValidator())
     self.WCthreshold.textChanged.connect(lambda t: self.toolSetWCthreshold)
     self.WCthreshold.setText('%g' % self.tool.threshold)
-    self.optionsGrid.addWidget(QLabel('WC threshold'), 2, 0)
+    self.optionsGrid.addWidget(QLabel('Weight center threshold'), 2, 0)
     self.optionsGrid.addWidget(self.WCthreshold, 2, 1)
 
     for l, f in [('Plot original', self.plotOriginal),
@@ -129,6 +133,11 @@ class IADToolWidget(ToolWidgetBase):
         opt.show()
       else:
         opt.hide()
+    self.replot()
+
+  def interpStateChanged(self, state):
+    self.tool.interpEnabled = state == Qt.Checked
+    self.replot()
 
   def clear(self):
     self.linesTable.clear()

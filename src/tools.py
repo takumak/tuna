@@ -164,6 +164,7 @@ class IADTool(ToolBase):
     self.mode = 'orig'
     self.base = 0
     self.interp = None
+    self.interpEnabled = True
     self.threshold = 1e-10
     self.lines = None
 
@@ -181,12 +182,17 @@ class IADTool(ToolBase):
       xoff += dx
       line = line_.xoff(xoff)
 
+  def doInterpIfEnabled(self, lines):
+    if self.interpEnabled:
+      return [self.interp.do(l) for l in lines]
+    return lines
+
   def getLines(self):
     if not self.lines:
       return []
 
     if self.mode == 'orig':
-      return self.lines
+      return self.doInterpIfEnabled(self.lines)
 
     base = self.lines[self.base]
     wc = self.interp.do(base).weightCenter()
@@ -204,7 +210,8 @@ class IADTool(ToolBase):
     self.xoffUpdated.emit()
 
     if self.mode == 'xoff':
-      return [l.xoff(xoff) for l, xoff in zip(self.lines, self.xoff)]
+      return self.doInterpIfEnabled(
+        [l.xoff(xoff) for l, xoff in zip(self.lines, self.xoff)])
 
     diff = []
     for l, xoff in zip(self.lines, self.xoff):

@@ -3,10 +3,10 @@ import re
 from PyQt5.QtCore import Qt, pyqtSignal
 from PyQt5.QtGui import QDoubleValidator
 from PyQt5.QtWidgets import \
-  QWidget, QLabel, QVBoxLayout, QGridLayout, QLineEdit, QFrame, \
-  QCheckBox, QSpinBox, QPushButton, QButtonGroup, QRadioButton, \
-  QComboBox, QTableWidgetItem, QAbstractScrollArea, \
-  QHeaderView
+  QWidget, QLabel, QVBoxLayout, QHBoxLayout, QGridLayout, \
+  QLineEdit, QFrame, QCheckBox, QSpinBox, QPushButton, \
+  QButtonGroup, QRadioButton, QComboBox, QTableWidgetItem, \
+  QAbstractScrollArea, QHeaderView, QApplication
 
 from tools import CubicSpline, ToolBase, FitTool, IADTool
 from commonwidgets import TableWidget
@@ -46,26 +46,34 @@ class FitToolWidget(ToolWidgetBase):
 
 class IADToolWidget(ToolWidgetBase):
   toolClass = IADTool
+  columnLabels = ['Name', 'IAD X', 'IAD Y', 'X offset', 'Weight center', 'Peak x', 'Peak y']
 
   def __init__(self):
     super().__init__()
 
-    self.vbox = QVBoxLayout()
-    self.setLayout(self.vbox)
+    vbox = QVBoxLayout()
+    self.setLayout(vbox)
 
     self.linesTable = TableWidget()
     self.linesTable.cellChanged.connect(self.linesTableCellChanged)
-    self.vbox.addWidget(self.linesTable)
+    vbox.addWidget(self.linesTable)
 
-    self.vbox.addStretch(1)
+    self.linesTableCopyButton = QPushButton('Copy')
+    self.linesTableCopyButton.clicked.connect(lambda c: self.copyLinesTable())
+    hbox = QHBoxLayout()
+    hbox.addWidget(self.linesTableCopyButton)
+    hbox.addStretch(1)
+    vbox.addLayout(hbox)
+
+    vbox.addStretch(1)
     line = QFrame()
     line.setFrameShape(QFrame.HLine)
     line.setFrameShadow(QFrame.Sunken)
-    self.vbox.addWidget(line)
+    vbox.addWidget(line)
 
 
     self.optionsGrid = QGridLayout()
-    self.vbox.addLayout(self.optionsGrid)
+    vbox.addLayout(self.optionsGrid)
 
     self.interpComboBox = QComboBox()
     self.interpComboBox.currentIndexChanged.connect(self.interpSelected)
@@ -101,10 +109,20 @@ class IADToolWidget(ToolWidgetBase):
                  ('Plot IAD', self.plotIAD)]:
       btn = QPushButton(l)
       btn.clicked.connect(f)
-      self.vbox.addWidget(btn)
+      vbox.addWidget(btn)
 
     self.tool.xoffUpdated.connect(self.updateXoff)
     self.tool.iadYUpdated.connect(self.updateIADy)
+    self.tool.peaksUpdated.connect(self.updatePeaks)
+
+  def copyLinesTable(self):
+    rows = [self.columnLabels]
+    for r in range(self.linesTable.rowCount()):
+      row = [self.linesTable.cellWidget(r, 0).text()]
+      for c in range(1, self.linesTable.columnCount()):
+        row.append(self.linesTable.item(r, c).text())
+      rows.append(row)
+    QApplication.clipboard().setText('\n'.join(['\t'.join(r) for r in rows]))
 
   def linesTableCellChanged(self, r, c):
     if c == 1:
@@ -143,8 +161,8 @@ class IADToolWidget(ToolWidgetBase):
     self.linesTable.clear()
     self.linesTable.verticalHeader().hide()
     self.linesTable.horizontalHeader().setResizeMode(QHeaderView.ResizeToContents)
-    self.linesTable.setColumnCount(5)
-    self.linesTable.setHorizontalHeaderLabels(['Name', 'IAD X', 'IAD Y', 'X offset', 'Weight center'])
+    self.linesTable.setColumnCount(len(self.columnLabels))
+    self.linesTable.setHorizontalHeaderLabels(self.columnLabels)
     self.linesTable.setSizeAdjustPolicy(QAbstractScrollArea.AdjustToContents)
 
     self.selectBaseGroup = QButtonGroup()
@@ -185,6 +203,10 @@ class IADToolWidget(ToolWidgetBase):
   def setWC(self, i, v):
     self.setLinesTableCell(i, 4, v)
 
+  def setPeak(self, i, x, y):
+    self.setLinesTableCell(i, 5, x)
+    self.setLinesTableCell(i, 6, y)
+
   def getIADx(self):
     return self.getLinesTableCol(1)
 
@@ -200,6 +222,10 @@ class IADToolWidget(ToolWidgetBase):
   def updateIADy(self):
     for i, iadY in enumerate(self.tool.iadY):
       self.setIADy(i, '%g' % iadY)
+
+  def updatePeaks(self):
+    for i, peak in enumerate(self.tool.peaks):
+      self.setPeak(i, *peak)
 
   def plotOriginal(self):
     self.plot('orig')

@@ -36,6 +36,9 @@ class Line:
       raise RuntimeError('x is not same')
     return self.__class__(self.x, self.y - other.y, self.name)
 
+  def peak(self):
+    return max(zip(self.x, self.y), key=lambda p: p[1])
+
 
 class InterpBase:
   class ParamBase:
@@ -158,6 +161,7 @@ class IADTool(ToolBase):
   name = 'IAD'
   xoffUpdated = pyqtSignal(name='xoffUpdated')
   iadYUpdated = pyqtSignal(name='iadYUpdated')
+  peaksUpdated = pyqtSignal(name='peaksUpdated')
 
   def __init__(self):
     super().__init__()
@@ -187,12 +191,17 @@ class IADTool(ToolBase):
       return [self.interp.do(l) for l in lines]
     return lines
 
+  def updatePeaks(self, lines):
+    self.peaks = [l.peak() for l in lines]
+    self.peaksUpdated.emit()
+    return lines
+
   def getLines(self):
     if not self.lines:
       return []
 
     if self.mode == 'orig':
-      return self.doInterpIfEnabled(self.lines)
+      return self.updatePeaks(self.doInterpIfEnabled(self.lines))
 
     base = self.lines[self.base]
     wc = self.interp.do(base).weightCenter()
@@ -210,8 +219,8 @@ class IADTool(ToolBase):
     self.xoffUpdated.emit()
 
     if self.mode == 'xoff':
-      return self.doInterpIfEnabled(
-        [l.xoff(xoff) for l, xoff in zip(self.lines, self.xoff)])
+      return self.updatePeaks(self.doInterpIfEnabled(
+        [l.xoff(xoff) for l, xoff in zip(self.lines, self.xoff)]))
 
     diff = []
     for l, xoff in zip(self.lines, self.xoff):

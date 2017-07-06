@@ -10,5 +10,5 @@ pip install virtualenv
 rm -rf venv
 virtualenv --no-site-packages venv
 source venv/bin/activate
-pip install pyqt5 pyqtgraph numpy scipy pyexcel{,-io,-xls,-odsr}
+pip install $(cat $ROOT/depends.txt)
 deactivate

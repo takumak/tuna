@@ -1,4 +1,6 @@
+import sys
 import logging
+import traceback
 import html
 from datetime import datetime
 
@@ -38,6 +40,9 @@ class LogHandler(logging.Handler):
       self.app.window.log_(msg)
       self.log = None
 
+def excepthook(exc_type, exc_value, exc_traceback):
+  tb = ''.join(traceback.format_tb(exc_traceback))
+  logging.error('%s %s\n%s' % (exc_type, exc_value, tb))
 
 def set_app(app):
   global __handler
@@ -47,3 +52,4 @@ def setup():
   global __handler
   __handler = LogHandler()
   logging.getLogger().addHandler(__handler)
+  sys.excepthook = excepthook

@@ -1,6 +1,7 @@
 import sys, os
-import traceback
 from PyQt5.QtWidgets import QApplication
+
+import log
 
 
 class Tsuna(QApplication):
@@ -8,7 +9,7 @@ class Tsuna(QApplication):
     super().__init__(sys.argv)
     self.exedir = exedir
     from mainwindow import MainWindow
-    self.window = MainWindow(os.path.join(exedir, 'tuna.toml'))
+    self.window = MainWindow(os.path.join(exedir, 'tuna.conf.json'))
     self.window.show()
 
 
@@ -21,9 +22,4 @@ if __name__ == '__main__':
 
   app = Tsuna(exedir)
   log.set_app(app)
-
-  def excepthook(exctype, value, tb):
-    logging.error('%s %s\n%s' % (exctype, value, ''.join(traceback.format_tb(tb))))
-  sys.excepthook = excepthook
-
   sys.exit(app.exec_())

@@ -45,6 +45,7 @@ class InterpBase:
     def __init__(self, name, default):
       self.name = name
       self.default = default
+      self.widget = None
 
     def value(self):
       if hasattr(self, 'value_'):
@@ -52,13 +53,25 @@ class InterpBase:
       return self.default
 
     def setValue(self, value):
+      if value == self.value():
+        return
       self.value_ = value
+      self.updateWidgetValue(self.widget, value)
+
+    def getWidget(self):
+      if self.widget is None:
+        self.widget = self.createWidget()
+      return self.widget
 
   class ParamInt(ParamBase):
     def __init__(self, name, min_, max_, default):
       super().__init__(name, default)
       self.min = min_
       self.max = max_
+
+    def updateWidgetValue(self, widget, value):
+      if self.widget:
+        self.widget.setValue(value)
 
     def createWidget(self):
       spin = QSpinBox()
@@ -72,6 +85,7 @@ class InterpBase:
   def __init__(self):
     self.params = []
     self.paramsMap = {}
+    self.optionsWidget = None
 
   def do(self, line):
     raise NotImplementedError()
@@ -85,6 +99,11 @@ class InterpBase:
       return self.paramsMap[name]
     raise AttributeError()
 
+  def getOptionsWidget(self):
+    if self.optionsWidget is None:
+      self.optionsWidget = self.createOptionsWidget()
+    return self.optionsWidget
+
   def createOptionsWidget(self):
     if not self.params:
       return None
@@ -92,16 +111,24 @@ class InterpBase:
     grid.setContentsMargins(0, 0, 0, 0)
     for r, p in enumerate(self.params):
       grid.addWidget(QLabel(p.name), r, 0)
-      grid.addWidget(p.createWidget(), r, 1)
+      grid.addWidget(p.getWidget(), r, 1)
 
     widget = QWidget()
     widget.setLayout(grid)
     return widget
 
+  def saveState(self):
+    return [{'name': p.name, 'value': p.value()} for p in self.params]
+
+  def restoreState(self, state):
+    for p in state:
+      self.paramsMap[p['name']].setValue(p['value'])
+
 
 
 class CubicSpline(InterpBase):
-  name = 'Cubic spline'
+  name  = 'cubic_spline'
+  label = 'Cubic spline'
 
   def __init__(self):
     super().__init__()
@@ -158,7 +185,8 @@ class FitTool(NopTool):
 
 
 class IADTool(ToolBase):
-  name = 'IAD'
+  name = 'iad'
+  label = 'IAD'
   xoffUpdated = pyqtSignal(name='xoffUpdated')
   iadYUpdated = pyqtSignal(name='iadYUpdated')
   peaksUpdated = pyqtSignal(name='peaksUpdated')
@@ -166,7 +194,7 @@ class IADTool(ToolBase):
   def __init__(self):
     super().__init__()
     self.mode = 'orig'
-    self.base = 0
+    self.base = -1
     self.interp = None
     self.interpEnabled = True
     self.threshold = 1e-10
@@ -209,7 +237,7 @@ class IADTool(ToolBase):
     self.wc = []
     self.xoff = []
     for i, l in enumerate(self.lines):
-      if i == self.base:
+      if l == base:
         self.wc.append(wc)
         self.xoff.append(0)
       else:

@@ -1,7 +1,8 @@
-import os
+import sys, os
 import logging
 import html
-from PyQt5.QtCore import Qt
+import json, base64
+from PyQt5.QtCore import Qt, QRectF
 from PyQt5.QtGui import QIcon, QTextCursor, QKeySequence
 from PyQt5.QtWidgets import \
   QApplication, QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, \
@@ -9,6 +10,7 @@ from PyQt5.QtWidgets import \
   QCheckBox, QTextEdit, QSplitter, QDockWidget, QPushButton
 
 
+import log
 import fileloader
 from sheetwidgets import SheetWidget
 from graphwidgets import GraphWidget
@@ -89,23 +91,23 @@ class MainWindow(QMainWindow):
     self.sourcesTabWidget.tabCloseRequested.connect(self.sourceTabCloseRequested)
     self.sourcesTabWidget.hide()
     self.sourcesDockWidget = QDockWidget('Sources')
-    self.sourcesDockWidget.setObjectName('dock_Sources')
+    self.sourcesDockWidget.setObjectName('dock_sources')
     self.sourcesDockWidget.setWidget(self.sourcesTabWidget)
 
     self.logTextEdit = QTextEdit()
     self.logTextEdit.setReadOnly(True)
     self.logDockWidget = QDockWidget('Log')
-    self.logDockWidget.setObjectName('dock_Log')
+    self.logDockWidget.setObjectName('dock_log')
     self.logDockWidget.setWidget(self.logTextEdit)
 
     dock_p = None
-    toolWidgets = [IADToolWidget()]
     toolDockWidgets = []
+    self.toolWidgets = [IADToolWidget()]
     self.tools = []
-    self.curTool = toolWidgets[0].tool
-    for t in toolWidgets:
+    self.curTool = self.toolWidgets[0].tool
+    for t in self.toolWidgets:
       t.plotRequested.connect(self.plotRequested)
-      dock = QDockWidget(t.name())
+      dock = QDockWidget(t.label())
       dock.setObjectName('dock_%s' % t.name())
       dock.setWidget(t)
       toolDockWidgets.append(dock)
@@ -117,7 +119,7 @@ class MainWindow(QMainWindow):
 
     self.addDockWidget(Qt.BottomDockWidgetArea, self.sourcesDockWidget)
     self.resizeDocks(toolDockWidgets, [400] * len(toolDockWidgets), Qt.Horizontal)
-    toolWidgets[0].raise_()
+    self.toolWidgets[0].raise_()
 
     self.addDockWidget(Qt.BottomDockWidgetArea, self.logDockWidget)
     self.tabifyDockWidget(self.logDockWidget, self.sourcesDockWidget)
@@ -258,13 +260,16 @@ class MainWindow(QMainWindow):
     if not os.path.exists(self.config_filename):
       return
 
-    import toml
-    obj = toml.load(open(self.config_filename))
-    self.loadState(obj['mainwindow']['state'])
+    obj = json.load(open(self.config_filename))
+    state = base64.b64decode(obj['mainwindow']['state'])
+    try:
+      self.restoreState(state, self.saveStateVersion)
+    except:
+      log.excepthook(*sys.exc_info())
 
     files = {}
     for sheet in obj['sheets']:
-      filename = sheet.filename
+      filename = sheet['filename']
       f = files.get(filename, None)
       if f is False:
         continue
@@ -272,7 +277,7 @@ class MainWindow(QMainWindow):
         try:
           f = fileloader.load(filename)
         except:
-          logging.error('Failed to load file: %s' % filename)
+          log.excepthook(*sys.exc_info())
           files[filename] = False
           continue
         files[filename] = f
@@ -281,9 +286,23 @@ class MainWindow(QMainWindow):
       sw.setX(sheet['x'])
       sw.setY(sheet['y'])
 
-  def saveConfig(self):
-    import toml
+    r = obj.get('graph', {}).get('range')
+    if r:
+      self.graphWidget.setRange(QRectF(*r))
 
+    tools = obj['tools']
+    for t in self.toolWidgets:
+      if t.name() in tools:
+        try:
+          t.restoreState(tools[t.name()])
+        except:
+          log.excepthook(*sys.exc_info())
+          pass
+
+    self.update()
+    self.sourcesDockWidget.raise_()
+
+  def saveConfig(self):
     sheets = []
     for i, sw in enumerate(self.sourcesTabWidget.getAllWidgets()):
       sheets.append({
@@ -294,11 +313,16 @@ class MainWindow(QMainWindow):
         'y': sw.y
       })
 
+    r = self.graphWidget.viewRect()
     obj = {
       'sheets': sheets,
       'mainwindow': {
-        'state': self.saveState(self.saveStateVersion)
+        'state': str(base64.b64encode(self.saveState(self.saveStateVersion)), 'ascii')
+      },
+      'tools': dict([(t.name(), t.saveState()) for t in self.toolWidgets]),
+      'graph': {
+        'range': [r.x(), r.y(), r.width(), r.height()]
       }
     }
 
-    toml.dump(obj, open(self.config_filename, 'w'))
+    json.dump(obj, open(self.config_filename, 'w'))

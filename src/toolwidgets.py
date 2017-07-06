@@ -24,6 +24,9 @@ class ToolWidgetBase(QWidget):
   def name(self):
     return self.toolClass.name
 
+  def label(self):
+    return self.toolClass.label
+
   def clear(self):
     raise NotImplementedError()
 
@@ -89,8 +92,8 @@ class IADToolWidget(ToolWidgetBase):
 
     self.interpOptions = []
     for interp in [CubicSpline()]:
-      opt = interp.createOptionsWidget()
-      self.interpComboBox.addItem(interp.name, [interp, opt])
+      opt = interp.getOptionsWidget()
+      self.interpComboBox.addItem(interp.label, [interp, opt])
       if opt:
         self.interpOptionsLayout.addWidget(opt)
         self.interpOptions.append(opt)
@@ -157,6 +160,10 @@ class IADToolWidget(ToolWidgetBase):
     self.tool.interpEnabled = state == Qt.Checked
     self.replot()
 
+  def baseRadioClicked(self, b):
+    self.toolSetBase()
+    self.replot()
+
   def clear(self):
     self.linesTable.clear()
     self.linesTable.verticalHeader().hide()
@@ -166,7 +173,7 @@ class IADToolWidget(ToolWidgetBase):
     self.linesTable.setSizeAdjustPolicy(QAbstractScrollArea.AdjustToContents)
 
     self.selectBaseGroup = QButtonGroup()
-    self.selectBaseGroup.buttonClicked.connect(lambda b: self.toolSetBase())
+    self.selectBaseGroup.buttonClicked.connect(self.baseRadioClicked)
     self.lines = []
 
   def add(self, data):
@@ -178,9 +185,10 @@ class IADToolWidget(ToolWidgetBase):
     m = re.search(r'^([\+\-]?\d*(?:\.\d+)?)', data.name)
     if m: self.setIADx(r, m.group(1))
 
-    self.selectBaseGroup.addButton(radio, len(self.selectBaseGroup.buttons()))
-    radio.setChecked(True)
-    self.toolSetBase()
+    idx = len(self.selectBaseGroup.buttons())
+    if self.tool.base < 0 or self.tool.base == idx:
+      radio.setChecked(True)
+    self.selectBaseGroup.addButton(radio, idx)
 
     self.lines.append(data)
 
@@ -256,3 +264,27 @@ class IADToolWidget(ToolWidgetBase):
     self.toolSetIADx()
     self.toolSetWCthreshold()
     self.plotRequested.emit(self.tool, autoRange)
+
+  def getInterpList(self):
+    return [self.interpComboBox.itemData(i)[0] for i in range(self.interpComboBox.count())]
+
+  def saveState(self):
+    curr_interp, opt_ = self.interpComboBox.currentData()
+    return {
+      'interp_enabled': self.interpCheckBox.isChecked(),
+      'curr_interp': curr_interp.name,
+      'interp': dict([(item.name, item.saveState()) for item in self.getInterpList()]),
+      'wc_threshold': self.WCthreshold.text(),
+      'plot_mode': self.tool.mode,
+      'base': self.tool.base
+    }
+
+  def restoreState(self, state):
+    interp = dict([(item.name, (i, item)) for i, item in enumerate(self.getInterpList())])
+    self.interpCheckBox.setChecked(state['interp_enabled'])
+    self.interpComboBox.setCurrentIndex(interp[state['curr_interp']][0])
+    for name, istate in state.get('interp', {}).items():
+      interp[name][1].restoreState(istate)
+    if 'wc_threshold' in state: self.WCthreshold.setText(state['wc_threshold'])
+    if 'plot_mode' in state: self.tool.mode = state['plot_mode']
+    if 'base' in state: self.tool.base = state['base']

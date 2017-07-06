@@ -217,9 +217,13 @@ class IADToolWidget(ToolWidgetBase):
     self.plot(self.tool.mode)
 
   def plot(self, mode):
-    logging.info('IAD: Plot %s' % mode)
+    if not self.tool.lines:
+      return
 
-    autoRange = mode != self.tool.mode and set([mode, self.tool.mode]) > set(['orig', 'xoff'])
+    autoRange = (mode != self.tool.mode
+                 and not set([mode, self.tool.mode]) <= set(['orig', 'xoff']))
+
+    logging.info('IAD: Plot %s (auto range: %s)' % (mode, autoRange))
 
     self.tool.mode = mode
     self.toolSetBase()

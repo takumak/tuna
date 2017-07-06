@@ -78,7 +78,9 @@ class MainWindow(QMainWindow):
     self.setCentralWidget(self.graphWidget)
 
     self.sourcesTabWidget = TabWidgetWithCheckBox()
+    self.sourcesTabWidget.setTabsClosable(True)
     self.sourcesTabWidget.selectionChanged.connect(self.update)
+    self.sourcesTabWidget.tabCloseRequested.connect(self.sourceTabCloseRequested)
     self.sourcesTabWidget.hide()
     self.sourcesDockWidget = QDockWidget('Sources')
     self.sourcesDockWidget.setWidget(self.sourcesTabWidget)
@@ -196,6 +198,10 @@ class MainWindow(QMainWindow):
   def useColumnForAllSheetRequested(self, c, useFor):
     for sw in self.sourcesTabWidget.getAllWidgets():
       sw.useColumn(c, useFor)
+
+  def sourceTabCloseRequested(self, idx):
+    self.sourcesTabWidget.removeTab(idx)
+    self.update()
 
   def update(self):
     for t in self.tools:

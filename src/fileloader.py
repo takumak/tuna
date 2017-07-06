@@ -13,7 +13,9 @@ class UnsupportedFileException(Exception):
 class FileLoaderBase:
 
   class Sheet:
-    def __init__(self, name):
+    def __init__(self, filename, idx, name):
+      self.filename = filename
+      self.idx = idx
       self.name = name
 
     def getColumn(self, c):
@@ -73,7 +75,7 @@ class FileLoaderText(FileLoaderBase):
 
   class Sheet(FileLoaderBase.Sheet):
     def __init__(self, filename, delimiter):
-      super().__init__(os.path.basename(filename))
+      super().__init__(filename, 0, os.path.basename(filename))
       text = open(filename).read()
 
       self.rows = []
@@ -117,8 +119,8 @@ class FileLoaderExcel(FileLoaderBase):
 
 
   class Sheet(FileLoaderBase.Sheet):
-    def __init__(self, sheet):
-      super().__init__(sheet.name)
+    def __init__(self, filename, idx, sheet):
+      super().__init__(filename, idx, sheet.name)
       self.sheet = sheet
 
     def colCount(self):
@@ -134,13 +136,14 @@ class FileLoaderExcel(FileLoaderBase):
   def __init__(self, filename):
     import pyexcel
     logging.info('Trying to load by pyexcel: %s' % filename)
+    self.filename = filename
     self.book = pyexcel.get_book(file_name=filename)
 
   def sheetCount(self):
     return self.book.number_of_sheets()
 
   def getSheet(self, idx):
-    return self.Sheet(self.book[idx])
+    return self.Sheet(self.filename, idx, self.book[idx])
 
   @classmethod
   def canLoad(cls, mimetype):

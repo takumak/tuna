@@ -1,19 +1,23 @@
+import sys, os
 import logging
 import html
-from PyQt5.QtCore import Qt
+import json, base64
+from PyQt5.QtCore import Qt, QRectF
 from PyQt5.QtGui import QIcon, QTextCursor, QKeySequence
 from PyQt5.QtWidgets import \
   QApplication, QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, \
-  QToolBar, QFileDialog, QDialog, QLabel, QTabWidget, QTabBar, \
+  QFileDialog, QDialog, QLabel, QTabWidget, QTabBar, \
   QCheckBox, QTextEdit, QSplitter, QDockWidget, QPushButton
 
 
+import log
 import fileloader
 from sheetwidgets import SheetWidget
 from graphwidgets import GraphWidget
 from tools import Line, NopTool
 from toolwidgets import FitToolWidget, IADToolWidget
 from commonwidgets import TabWidgetWithCheckBox
+
 
 
 class SelectColumnDialog(QDialog):
@@ -67,9 +71,13 @@ class SelectColumnDialog(QDialog):
 
 
 class MainWindow(QMainWindow):
-  def __init__(self):
+  saveStateVersion = 1
+
+  def __init__(self, config_filename):
     super().__init__()
+    self.config_filename = config_filename
     self.fileToolBar = self.addToolBar('File')
+    self.fileToolBar.setObjectName('toolbar_File')
     act_open = self.fileToolBar.addAction('Open')
     act_open.setShortcut(QKeySequence.Open)
     act_open.triggered.connect(self.showOpenFileDialog)
@@ -78,25 +86,29 @@ class MainWindow(QMainWindow):
     self.setCentralWidget(self.graphWidget)
 
     self.sourcesTabWidget = TabWidgetWithCheckBox()
+    self.sourcesTabWidget.setTabsClosable(True)
     self.sourcesTabWidget.selectionChanged.connect(self.update)
+    self.sourcesTabWidget.tabCloseRequested.connect(self.sourceTabCloseRequested)
     self.sourcesTabWidget.hide()
     self.sourcesDockWidget = QDockWidget('Sources')
+    self.sourcesDockWidget.setObjectName('dock_sources')
     self.sourcesDockWidget.setWidget(self.sourcesTabWidget)
 
     self.logTextEdit = QTextEdit()
     self.logTextEdit.setReadOnly(True)
     self.logDockWidget = QDockWidget('Log')
+    self.logDockWidget.setObjectName('dock_log')
     self.logDockWidget.setWidget(self.logTextEdit)
 
-    self.curTool = NopTool()
-    self.tools = [self.curTool]
-
     dock_p = None
-    toolWidgets = [FitToolWidget(), IADToolWidget()]
     toolDockWidgets = []
-    for t in toolWidgets:
-      t.activated.connect(self.toolActivated)
-      dock = QDockWidget(t.name())
+    self.toolWidgets = [IADToolWidget()]
+    self.tools = []
+    self.curTool = self.toolWidgets[0].tool
+    for t in self.toolWidgets:
+      t.plotRequested.connect(self.plotRequested)
+      dock = QDockWidget(t.label())
+      dock.setObjectName('dock_%s' % t.name())
       dock.setWidget(t)
       toolDockWidgets.append(dock)
       self.tools.append(t.tool)
@@ -107,13 +119,17 @@ class MainWindow(QMainWindow):
 
     self.addDockWidget(Qt.BottomDockWidgetArea, self.sourcesDockWidget)
     self.resizeDocks(toolDockWidgets, [400] * len(toolDockWidgets), Qt.Horizontal)
+    self.toolWidgets[0].raise_()
 
     self.addDockWidget(Qt.BottomDockWidgetArea, self.logDockWidget)
     self.tabifyDockWidget(self.logDockWidget, self.sourcesDockWidget)
     self.resizeDocks([self.sourcesDockWidget, self.logDockWidget], [200, 200], Qt.Vertical)
+    self.logDockWidget.raise_()
 
     self.resize(1000, 800)
     self.setAcceptDrops(True)
+
+    self.loadConfig()
 
     logging.info('Drag and drop here to open multiple files')
 
@@ -155,15 +171,17 @@ class MainWindow(QMainWindow):
       for sheet in f:
         self.addSheet(sheet)
     self.update()
+    self.sourcesDockWidget.raise_()
 
-  def addSheet(self, sheet):
+  def addSheet(self, sheet, checked = True):
     logging.info('Add sheet: %s' % sheet.name)
     self.sourcesTabWidget.show()
 
     sheetwidget = SheetWidget(sheet)
     sheetwidget.horizontalHeader().sectionClicked.connect(
       lambda c: self.headerClicked(sheetwidget, c))
-    self.sourcesTabWidget.addTab(sheetwidget, sheet.name, True)
+    self.sourcesTabWidget.addTab(sheetwidget, sheet.name, checked)
+    return sheetwidget
 
   def headerClicked(self, sheetwidget, c):
     unselect, x, y = sheetwidget.useColumnCandidates(c)
@@ -194,6 +212,10 @@ class MainWindow(QMainWindow):
     for sw in self.sourcesTabWidget.getAllWidgets():
       sw.useColumn(c, useFor)
 
+  def sourceTabCloseRequested(self, idx):
+    self.sourcesTabWidget.removeTab(idx)
+    self.update()
+
   def update(self):
     for t in self.tools:
       t.clear()
@@ -214,18 +236,96 @@ class MainWindow(QMainWindow):
 
     self.updateGraph()
 
-  def toolActivated(self, tool):
+  def plotRequested(self, tool, autoRange):
     self.curTool = tool
     self.updateGraph()
-    self.graphWidget.autoRange()
+    if autoRange:
+      self.graphWidget.autoRange()
 
   def updateGraph(self):
     self.graphWidget.clearItems()
     for item in self.curTool.getGraphItems():
       self.graphWidget.addItem(item)
 
-  def log_(self, html):
+  def log_(self, html, activate=False):
     self.logTextEdit.moveCursor(QTextCursor.End)
     self.logTextEdit.insertHtml(html)
     s = self.logTextEdit.verticalScrollBar()
     s.setValue(s.maximum())
+    if activate:
+      self.logDockWidget.raise_()
+
+  def closeEvent(self, ev):
+    self.saveConfig()
+    ev.accept()
+
+  def loadConfig(self):
+    if not os.path.exists(self.config_filename):
+      return
+
+    obj = json.load(open(self.config_filename))
+    state = base64.b64decode(obj['mainwindow']['state'])
+    try:
+      self.restoreState(state, self.saveStateVersion)
+    except:
+      log.excepthook(*sys.exc_info())
+
+    files = {}
+    for sheet in obj['sheets']:
+      filename = sheet['filename']
+      f = files.get(filename, None)
+      if f is False:
+        continue
+      elif f is None:
+        try:
+          f = fileloader.load(filename)
+        except:
+          log.excepthook(*sys.exc_info())
+          files[filename] = False
+          continue
+        files[filename] = f
+
+      sw = self.addSheet(f.getSheet(sheet['index']), sheet['enabled'])
+      sw.setX(sheet['x'])
+      sw.setY(sheet['y'])
+
+    r = obj.get('graph', {}).get('range')
+    if r:
+      self.graphWidget.setRange(QRectF(*r))
+
+    tools = obj['tools']
+    for t in self.toolWidgets:
+      if t.name() in tools:
+        try:
+          t.restoreState(tools[t.name()])
+        except:
+          log.excepthook(*sys.exc_info())
+          pass
+
+    self.update()
+    self.sourcesDockWidget.raise_()
+
+  def saveConfig(self):
+    sheets = []
+    for i, sw in enumerate(self.sourcesTabWidget.getAllWidgets()):
+      sheets.append({
+        'enabled': self.sourcesTabWidget.isChecked(i),
+        'filename': sw.sheet.filename,
+        'index': sw.sheet.idx,
+        'x': sw.x,
+        'y': sw.y
+      })
+
+    r = self.graphWidget.viewRect()
+    obj = {
+      'sheets': sheets,
+      'mainwindow': {
+        'state': str(base64.b64encode(self.saveState(self.saveStateVersion)), 'ascii')
+      },
+      'tools': dict([(t.name(), t.saveState()) for t in self.toolWidgets]),
+      'graph': {
+        'range': [r.x(), r.y(), r.width(), r.height()]
+      }
+    }
+
+    json.dump(obj, open(self.config_filename, 'w'))

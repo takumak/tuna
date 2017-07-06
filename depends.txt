@@ -1,0 +1,8 @@
+numpy
+scipy
+pyqt5
+pyqtgraph
+pyexcel
+pyexcel-io
+pyexcel-xls
+pyexcel-odsr

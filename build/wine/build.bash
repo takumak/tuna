@@ -45,10 +45,7 @@ PYTHON=wine/drive_c/python/python.exe
 wine $PYTHON -m ensurepip
 wine $PYTHON -m pip install $NUMPY
 wine $PYTHON -m pip install $SCIPY
-wine $PYTHON -m pip install \
-    pyqt5 pyqtgraph \
-    pyexcel pyexcel-io pyexcel-xls pyexcel-odsr \
-    pyinstaller
+wine $PYTHON -m pip install $(cat ../../depends.txt) pyinstaller
 
 wine wine/drive_c/python/Scripts/pyinstaller.exe $SPEC
 mkdir -p $OUTDIR

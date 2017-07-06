@@ -1,8 +1,10 @@
-import sys, os
+import sys, os, re
 
 if not os.path.exists('venv'):
   np = 'numpy-1.13.0+mkl-cp35-cp35m-win_amd64.whl'
   sp = 'scipy-0.19.1-cp35-cp35m-win_amd64.whl'
+
+  depends = re.split(r'[\s]+', open('../../depends.txt').read().strip())
 
   if not (os.path.exists(np) and os.path.exists(sp)):
     print('''
@@ -27,12 +29,7 @@ and place these files into:
   import subprocess
   subprocess.run(['venv/Scripts/pip.exe', 'install', np], check=True)
   subprocess.run(['venv/Scripts/pip.exe', 'install', sp], check=True)
-  subprocess.run([
-    'venv/Scripts/pip.exe', 'install',
-    'pyqt5', 'pyqtgraph',
-    'pyexcel', 'pyexcel-io', 'pyexcel-xls', 'pyexcel-odsr',
-    'pyinstaller'
-  ], check=True)
+  subprocess.run(['venv/Scripts/pip.exe', 'install', 'pyinstaller'] + depends, check=True)
 
 
 import shutil
@@ -42,5 +39,8 @@ for name in 'build', 'dist':
 
 import subprocess
 subprocess.run(['venv/Scripts/pyinstaller.exe', '../tuna.spec'], check=True)
-os.makedirs('../../dist')
+if not os.path.exists('../../dist'):
+  os.makedirs('../../dist')
+if os.path.exists('../../dist/Tuna.exe'):
+  os.remove('../../dist/Tuna.exe')
 os.rename('dist/Tuna.exe', '../../dist/Tuna.exe')

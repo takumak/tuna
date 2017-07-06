@@ -43,12 +43,16 @@ class Line:
       raise RuntimeError('x is not same')
     return self.__class__(self.x, self.y - other.y, self.name)
 
+  def peak(self):
+    return max(zip(self.x, self.y), key=lambda p: p[1])
+
 
 class InterpBase:
   class ParamBase:
     def __init__(self, name, default):
       self.name = name
       self.default = default
+      self.widget = None
 
     def value(self):
       if hasattr(self, 'value_'):
@@ -56,13 +60,25 @@ class InterpBase:
       return self.default
 
     def setValue(self, value):
+      if value == self.value():
+        return
       self.value_ = value
+      self.updateWidgetValue(self.widget, value)
+
+    def getWidget(self):
+      if self.widget is None:
+        self.widget = self.createWidget()
+      return self.widget
 
   class ParamInt(ParamBase):
     def __init__(self, name, min_, max_, default):
       super().__init__(name, default)
       self.min = min_
       self.max = max_
+
+    def updateWidgetValue(self, widget, value):
+      if self.widget:
+        self.widget.setValue(value)
 
     def createWidget(self):
       spin = QSpinBox()
@@ -76,6 +92,7 @@ class InterpBase:
   def __init__(self):
     self.params = []
     self.paramsMap = {}
+    self.optionsWidget = None
 
   def do(self, line):
     raise NotImplementedError()
@@ -89,6 +106,11 @@ class InterpBase:
       return self.paramsMap[name]
     raise AttributeError()
 
+  def getOptionsWidget(self):
+    if self.optionsWidget is None:
+      self.optionsWidget = self.createOptionsWidget()
+    return self.optionsWidget
+
   def createOptionsWidget(self):
     if not self.params:
       return None
@@ -96,22 +118,24 @@ class InterpBase:
     grid.setContentsMargins(0, 0, 0, 0)
     for r, p in enumerate(self.params):
       grid.addWidget(QLabel(p.name), r, 0)
-      grid.addWidget(p.createWidget(), r, 1)
+      grid.addWidget(p.getWidget(), r, 1)
 
     widget = QWidget()
     widget.setLayout(grid)
     return widget
 
+  def saveState(self):
+    return [{'name': p.name, 'value': p.value()} for p in self.params]
 
-class NopInterp(InterpBase):
-  name = 'None'
+  def restoreState(self, state):
+    for p in state:
+      self.paramsMap[p['name']].setValue(p['value'])
 
-  def do(self, line):
-    return line
 
 
 class CubicSpline(InterpBase):
-  name = 'Cubic spline'
+  name  = 'cubic_spline'
+  label = 'Cubic spline'
 
   def __init__(self):
     super().__init__()
@@ -193,15 +217,18 @@ class NopTool(ToolBase):
 
 
 class IADTool(ToolBase):
-  name = 'IAD'
+  name = 'iad'
+  label = 'IAD'
   xoffUpdated = pyqtSignal(name='xoffUpdated')
   iadYUpdated = pyqtSignal(name='iadYUpdated')
+  peaksUpdated = pyqtSignal(name='peaksUpdated')
 
   def __init__(self):
     super().__init__()
     self.mode = 'orig'
-    self.base = 0
+    self.base = -1
     self.interp = None
+    self.interpEnabled = True
     self.threshold = 1e-10
     self.lines = None
 
@@ -219,12 +246,22 @@ class IADTool(ToolBase):
       xoff += dx
       line = line_.xoff(xoff)
 
+  def doInterpIfEnabled(self, lines):
+    if self.interpEnabled:
+      return [self.interp.do(l) for l in lines]
+    return lines
+
+  def updatePeaks(self, lines):
+    self.peaks = [l.peak() for l in lines]
+    self.peaksUpdated.emit()
+    return lines
+
   def getLines(self):
     if not self.lines:
       return []
 
     if self.mode == 'orig':
-      return self.lines
+      return self.updatePeaks(self.doInterpIfEnabled(self.lines))
 
     base = self.lines[self.base]
     wc = self.interp.do(base).weightCenter()
@@ -232,7 +269,7 @@ class IADTool(ToolBase):
     self.wc = []
     self.xoff = []
     for i, l in enumerate(self.lines):
-      if i == self.base:
+      if l == base:
         self.wc.append(wc)
         self.xoff.append(0)
       else:
@@ -242,7 +279,8 @@ class IADTool(ToolBase):
     self.xoffUpdated.emit()
 
     if self.mode == 'xoff':
-      return [l.xoff(xoff) for l, xoff in zip(self.lines, self.xoff)]
+      return self.updatePeaks(self.doInterpIfEnabled(
+        [l.xoff(xoff) for l, xoff in zip(self.lines, self.xoff)]))
 
     diff = []
     for l, xoff in zip(self.lines, self.xoff):

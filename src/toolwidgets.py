@@ -4,18 +4,18 @@ import re
 from PyQt5.QtCore import Qt, pyqtSignal
 from PyQt5.QtGui import QDoubleValidator
 from PyQt5.QtWidgets import \
-  QWidget, QLabel, QVBoxLayout, QGridLayout, QLineEdit, QFrame, \
-  QCheckBox, QSpinBox, QPushButton, QButtonGroup, QRadioButton, \
-  QComboBox, QTableWidgetItem, QAbstractScrollArea, \
-  QHeaderView
+  QWidget, QLabel, QVBoxLayout, QHBoxLayout, QGridLayout, \
+  QLineEdit, QFrame, QCheckBox, QSpinBox, QPushButton, \
+  QButtonGroup, QRadioButton, QComboBox, QTableWidgetItem, \
+  QAbstractScrollArea, QHeaderView, QApplication
 
-from tools import NopInterp, CubicSpline, ToolBase, FitTool, IADTool
+from tools import CubicSpline, ToolBase, FitTool, IADTool
 from commonwidgets import TableWidget
 from fit_functions import FitFuncGaussian, FitFuncAsym2Sig
 
 
 class ToolWidgetBase(QWidget):
-  activated = pyqtSignal(ToolBase, name='activated')
+  plotRequested = pyqtSignal(ToolBase, bool, name='plotRequested')
 
   def __init__(self):
     super().__init__()
@@ -26,6 +26,9 @@ class ToolWidgetBase(QWidget):
   def name(self):
     return self.toolClass.name
 
+  def label(self):
+    return self.toolClass.label
+
   def clear(self):
     pass
 
@@ -35,49 +38,61 @@ class ToolWidgetBase(QWidget):
 
 class IADToolWidget(ToolWidgetBase):
   toolClass = IADTool
+  columnLabels = ['Name', 'IAD X', 'IAD Y', 'X offset', 'Weight center', 'Peak x', 'Peak y']
 
   def __init__(self):
     super().__init__()
 
-    self.vbox = QVBoxLayout()
-    self.setLayout(self.vbox)
+    vbox = QVBoxLayout()
+    self.setLayout(vbox)
 
     self.linesTable = TableWidget()
     self.linesTable.cellChanged.connect(self.linesTableCellChanged)
-    self.vbox.addWidget(self.linesTable)
+    vbox.addWidget(self.linesTable)
 
-    self.vbox.addStretch(1)
+    self.linesTableCopyButton = QPushButton('Copy')
+    self.linesTableCopyButton.clicked.connect(lambda c: self.copyLinesTable())
+    hbox = QHBoxLayout()
+    hbox.addWidget(self.linesTableCopyButton)
+    hbox.addStretch(1)
+    vbox.addLayout(hbox)
+
+    vbox.addStretch(1)
     line = QFrame()
     line.setFrameShape(QFrame.HLine)
     line.setFrameShadow(QFrame.Sunken)
-    self.vbox.addWidget(line)
+    vbox.addWidget(line)
 
 
     self.optionsGrid = QGridLayout()
-    self.vbox.addLayout(self.optionsGrid)
+    vbox.addLayout(self.optionsGrid)
 
     self.interpComboBox = QComboBox()
     self.interpComboBox.currentIndexChanged.connect(self.interpSelected)
     self.interpOptionsLayout = QVBoxLayout()
     self.interpOptionsLayout.setContentsMargins(40, 0, 0, 0)
-    self.optionsGrid.addWidget(QLabel('Interpolation'), 0, 0)
+    self.interpCheckBox = QCheckBox('Interpolation')
+    self.interpCheckBox.setChecked(False)
+    self.interpStateChanged(Qt.Unchecked)
+    self.interpCheckBox.stateChanged.connect(self.interpStateChanged)
+    self.optionsGrid.addWidget(self.interpCheckBox, 0, 0)
     self.optionsGrid.addWidget(self.interpComboBox, 0, 1)
     self.optionsGrid.addLayout(self.interpOptionsLayout, 1, 0, 1, 2)
 
     self.interpOptions = []
-    for interp in [NopInterp(), CubicSpline()]:
-      opt = interp.createOptionsWidget()
-      self.interpComboBox.addItem(interp.name, [interp, opt])
+    for interp in [CubicSpline()]:
+      opt = interp.getOptionsWidget()
+      self.interpComboBox.addItem(interp.label, [interp, opt])
       if opt:
         self.interpOptionsLayout.addWidget(opt)
         self.interpOptions.append(opt)
-    self.interpComboBox.setCurrentIndex(1)
+    self.interpComboBox.setCurrentIndex(0)
 
     self.WCthreshold = QLineEdit()
     self.WCthreshold.setValidator(QDoubleValidator())
     self.WCthreshold.textChanged.connect(lambda t: self.toolSetWCthreshold)
     self.WCthreshold.setText('%g' % self.tool.threshold)
-    self.optionsGrid.addWidget(QLabel('WC threshold'), 2, 0)
+    self.optionsGrid.addWidget(QLabel('Weight center threshold'), 2, 0)
     self.optionsGrid.addWidget(self.WCthreshold, 2, 1)
 
     for l, f in [('Plot original', self.plotOriginal),
@@ -86,10 +101,20 @@ class IADToolWidget(ToolWidgetBase):
                  ('Plot IAD', self.plotIAD)]:
       btn = QPushButton(l)
       btn.clicked.connect(f)
-      self.vbox.addWidget(btn)
+      vbox.addWidget(btn)
 
     self.tool.xoffUpdated.connect(self.updateXoff)
     self.tool.iadYUpdated.connect(self.updateIADy)
+    self.tool.peaksUpdated.connect(self.updatePeaks)
+
+  def copyLinesTable(self):
+    rows = [self.columnLabels]
+    for r in range(self.linesTable.rowCount()):
+      row = [self.linesTable.cellWidget(r, 0).text()]
+      for c in range(1, self.linesTable.columnCount()):
+        row.append(self.linesTable.item(r, c).text())
+      rows.append(row)
+    QApplication.clipboard().setText('\n'.join(['\t'.join(r) for r in rows]))
 
   def linesTableCellChanged(self, r, c):
     if c == 1:
@@ -118,17 +143,27 @@ class IADToolWidget(ToolWidgetBase):
         opt.show()
       else:
         opt.hide()
+    self.replot()
+
+  def interpStateChanged(self, state):
+    self.tool.interpEnabled = state == Qt.Checked
+    self.replot()
+
+  def baseRadioClicked(self, b):
+    self.toolSetBase()
+    self.replot()
 
   def clear(self):
     self.linesTable.clear()
     self.linesTable.verticalHeader().hide()
     self.linesTable.horizontalHeader().setResizeMode(QHeaderView.ResizeToContents)
-    self.linesTable.setColumnCount(5)
-    self.linesTable.setHorizontalHeaderLabels(['Name', 'IAD X', 'IAD Y', 'X offset', 'Weight center'])
+    self.linesTable.setColumnCount(len(self.columnLabels))
+    self.linesTable.setHorizontalHeaderLabels(self.columnLabels)
     self.linesTable.setSizeAdjustPolicy(QAbstractScrollArea.AdjustToContents)
 
     self.selectBaseGroup = QButtonGroup()
-    self.selectBaseGroup.buttonClicked.connect(lambda b: self.toolSetBase())
+    self.selectBaseGroup.buttonClicked.connect(self.baseRadioClicked)
+    self.lines = []
 
   def linesUpdated(self, lines):
     self.linesTable.setRowCount(len(lines) + 1)
@@ -141,8 +176,10 @@ class IADToolWidget(ToolWidgetBase):
       m = re.search(r'^([\+\-]?\d*(?:\.\d+)?)', line.name)
       if m: self.setIADx(r, m.group(1))
 
-    radio.setChecked(True)
-    self.toolSetBase()
+    idx = len(self.selectBaseGroup.buttons())
+    if self.tool.base < 0 or self.tool.base == idx:
+      radio.setChecked(True)
+    self.selectBaseGroup.addButton(radio, idx)
 
   def setLinesTableCell(self, r, c, v):
     self.linesTable.setItem(r, c, QTableWidgetItem(str(v)))
@@ -167,6 +204,10 @@ class IADToolWidget(ToolWidgetBase):
   def setWC(self, i, v):
     self.setLinesTableCell(i, 4, v)
 
+  def setPeak(self, i, x, y):
+    self.setLinesTableCell(i, 5, x)
+    self.setLinesTableCell(i, 6, y)
+
   def getIADx(self):
     return self.getLinesTableCol(1)
 
@@ -183,6 +224,10 @@ class IADToolWidget(ToolWidgetBase):
     for i, iadY in enumerate(self.tool.iadY):
       self.setIADy(i, '%g' % iadY)
 
+  def updatePeaks(self):
+    for i, peak in enumerate(self.tool.peaks):
+      self.setPeak(i, *peak)
+
   def plotOriginal(self):
     self.plot('orig')
 
@@ -195,13 +240,48 @@ class IADToolWidget(ToolWidgetBase):
   def plotIAD(self):
     self.plot('iad')
 
+  def replot(self):
+    self.plot(self.tool.mode)
+
   def plot(self, mode):
-    logging.info('IAD: Plot %s' % mode)
+    if not self.tool.lines:
+      return
+
+    autoRange = (mode != self.tool.mode
+                 and not set([mode, self.tool.mode]) <= set(['orig', 'xoff']))
+
+    logging.info('IAD: Plot %s (auto range: %s)' % (mode, autoRange))
+
     self.tool.mode = mode
     self.toolSetBase()
     self.toolSetIADx()
     self.toolSetWCthreshold()
-    self.activated.emit(self.tool)
+    self.plotRequested.emit(self.tool, autoRange)
+
+  def getInterpList(self):
+    return [self.interpComboBox.itemData(i)[0] for i in range(self.interpComboBox.count())]
+
+  def saveState(self):
+    curr_interp, opt_ = self.interpComboBox.currentData()
+    return {
+      'interp_enabled': self.interpCheckBox.isChecked(),
+      'curr_interp': curr_interp.name,
+      'interp': dict([(item.name, item.saveState()) for item in self.getInterpList()]),
+      'wc_threshold': self.WCthreshold.text(),
+      'plot_mode': self.tool.mode,
+      'base': self.tool.base
+    }
+
+  def restoreState(self, state):
+    interp = dict([(item.name, (i, item)) for i, item in enumerate(self.getInterpList())])
+    self.interpCheckBox.setChecked(state['interp_enabled'])
+    self.interpComboBox.setCurrentIndex(interp[state['curr_interp']][0])
+    for name, istate in state.get('interp', {}).items():
+      interp[name][1].restoreState(istate)
+    if 'wc_threshold' in state: self.WCthreshold.setText(state['wc_threshold'])
+    if 'plot_mode' in state: self.tool.mode = state['plot_mode']
+    if 'base' in state: self.tool.base = state['base']
+
 
 
 class FitToolWidget(ToolWidgetBase):

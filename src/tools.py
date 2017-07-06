@@ -96,12 +96,6 @@ class InterpBase:
     return widget
 
 
-class NopInterp(InterpBase):
-  name = 'None'
-
-  def do(self, line):
-    return line
-
 
 class CubicSpline(InterpBase):
   name = 'Cubic spline'

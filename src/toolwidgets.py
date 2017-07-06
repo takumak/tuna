@@ -13,7 +13,7 @@ from commonwidgets import TableWidget
 
 
 class ToolWidgetBase(QWidget):
-  plotRequested = pyqtSignal(ToolBase, name='plotRequested')
+  plotRequested = pyqtSignal(ToolBase, bool, name='plotRequested')
 
   def __init__(self):
     super().__init__()
@@ -204,10 +204,16 @@ class IADToolWidget(ToolWidgetBase):
   def plotIAD(self):
     self.plot('iad')
 
+  def replot(self):
+    self.plot(self.tool.mode)
+
   def plot(self, mode):
     logging.info('IAD: Plot %s' % mode)
+
+    autoRange = mode != self.tool.mode and set([mode, self.tool.mode]) > set(['orig', 'xoff'])
+
     self.tool.mode = mode
     self.toolSetBase()
     self.toolSetIADx()
     self.toolSetWCthreshold()
-    self.plotRequested.emit(self.tool)
+    self.plotRequested.emit(self.tool, autoRange)

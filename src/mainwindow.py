@@ -90,12 +90,11 @@ class MainWindow(QMainWindow):
     self.logDockWidget = QDockWidget('Log')
     self.logDockWidget.setWidget(self.logTextEdit)
 
-    self.curTool = NopTool()
-    self.tools = [self.curTool]
-
     dock_p = None
     toolWidgets = [IADToolWidget()]
     toolDockWidgets = []
+    self.tools = []
+    self.curTool = toolWidgets[0].tool
     for t in toolWidgets:
       t.plotRequested.connect(self.plotRequested)
       dock = QDockWidget(t.name())
@@ -220,10 +219,11 @@ class MainWindow(QMainWindow):
 
     self.updateGraph()
 
-  def plotRequested(self, tool):
+  def plotRequested(self, tool, autoRange):
     self.curTool = tool
     self.updateGraph()
-    self.graphWidget.autoRange()
+    if autoRange:
+      self.graphWidget.autoRange()
 
   def updateGraph(self):
     self.graphWidget.clearItems()

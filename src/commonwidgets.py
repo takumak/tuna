@@ -1,3 +1,4 @@
+import logging
 from PyQt5.QtCore import Qt, pyqtSignal
 from PyQt5.QtGui import QKeySequence, QCursor
 from PyQt5.QtWidgets import QApplication, QTableWidget, QMenu, \
@@ -52,11 +53,11 @@ class TabWidgetWithCheckBox(QTabWidget):
     tabbar.setContextMenuPolicy(Qt.CustomContextMenu)
     tabbar.customContextMenuRequested.connect(self.showTabMenu)
 
-  def isChecked(self, i):
-    return self.tabBar().tabButton(i, QTabBar.LeftSide).isChecked()
+  def isChecked(self, idx):
+    return self.tabBar().tabData(idx)[0].isChecked()
 
-  def setChecked(self, i, checked):
-    self.tabBar().tabButton(i, QTabBar.LeftSide).setChecked(checked)
+  def setChecked(self, idx, checked):
+    self.tabBar().tabData(idx)[0].setChecked(checked)
 
   def selectAll(self, func = None):
     for i in range(self.count()):
@@ -100,7 +101,10 @@ class TabWidgetWithCheckBox(QTabWidget):
     check = QCheckBox()
     check.setChecked(checked)
     check.clicked.connect(self.selectionChanged)
-    self.tabBar().setTabButton(idx, QTabBar.LeftSide, check)
+
+    bar = self.tabBar()
+    bar.setTabButton(idx, QTabBar.LeftSide, check)
+    bar.setTabData(idx, (check,))
 
   def getAllWidgets(self):
     return [self.widget(i) for i in range(self.count())]

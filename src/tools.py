@@ -231,7 +231,11 @@ class IADTool(ToolBase):
     if self.mode == 'orig':
       return self.updatePeaks(self.doInterpIfEnabled(self.lines))
 
-    base = self.lines[self.base]
+    try:
+      base = self.lines[self.base]
+    except IndexError:
+      self.base = -1
+      base = self.lines[-1]
     wc = self.interp.do(base).weightCenter()
 
     self.wc = []

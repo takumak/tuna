@@ -5,7 +5,7 @@ set -xe
 test ! -d venv && rm -rf venv && tools/make_virtualenv.bash
 source venv/bin/activate
 platform=$(python -c 'from sys import platform;print(platform)')
-if test x"$platform" = darwin; then
+if test x"$platform" = xdarwin; then
   reattach-to-user-namespace python src/tuna.py
 else
   python src/tuna.py

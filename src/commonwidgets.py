@@ -2,7 +2,7 @@ import logging
 from PyQt5.QtCore import Qt, pyqtSignal
 from PyQt5.QtGui import QKeySequence, QCursor
 from PyQt5.QtWidgets import QApplication, QTableWidget, QMenu, \
-  QTabWidget, QTabBar, QCheckBox
+  QTabWidget, QTabBar, QCheckBox, QFrame
 
 
 class TableWidget(QTableWidget):
@@ -103,3 +103,11 @@ class TabWidgetWithCheckBox(QTabWidget):
 
   def getAllWidgets(self):
     return [self.widget(i) for i in range(self.count())]
+
+
+
+class HSeparator(QFrame):
+  def __init__(self):
+    super().__init__()
+    self.setFrameShape(QFrame.HLine)
+    self.setFrameShadow(QFrame.Sunken)

@@ -244,11 +244,11 @@ class IADToolWidget(ToolWidgetBase):
   def updateXoff(self):
     for i, (wc, xoff) in enumerate(zip(self.tool.wc, self.tool.xoff)):
       if i == self.tool.base:
-        self.setWC(i, '%g' % wc)
+        self.setWC(i, '%.10f' % wc)
       else:
         b = self.tool.wc[self.tool.base]
-        self.setWC(i, '%g%+g' % (b, wc - b))
-      self.setXoff(i, '%g' % xoff)
+        self.setWC(i, '%.10f%+.10f' % (b, wc - b))
+      self.setXoff(i, '%+.10f' % xoff)
 
   def updateIADy(self):
     for i, iadY in enumerate(self.tool.iadY):

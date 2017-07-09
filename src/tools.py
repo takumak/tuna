@@ -1,6 +1,8 @@
+import logging
 import numpy as np
 from PyQt5.QtCore import QObject, pyqtSignal
-from PyQt5.QtWidgets import QWidget, QGridLayout, QLabel, QSpinBox
+from PyQt5.QtGui import QDoubleValidator
+from PyQt5.QtWidgets import QWidget, QGridLayout, QLabel, QSpinBox, QLineEdit
 
 
 class Line:
@@ -82,6 +84,20 @@ class InterpBase:
       return spin
 
 
+  class ParamDouble(ParamBase):
+    def __init__(self, name, default):
+      super().__init__(name, default)
+
+    def updateWidgetValue(self, widget, value):
+      self.widget.setText(str(value))
+
+    def createWidget(self):
+      edit = QLineEdit()
+      edit.setValidator(QDoubleValidator())
+      edit.textChanged.connect(lambda t: self.setValue(float(t)))
+      return edit
+
+
   def __init__(self):
     self.params = []
     self.paramsMap = {}
@@ -132,21 +148,20 @@ class CubicSpline(InterpBase):
 
   def __init__(self):
     super().__init__()
-    self.addParam(self.ParamInt('N', 1, 999, 9))
+    self.addParam(self.ParamDouble('dx', 0.01))
 
   def do(self, line, xrange = None):
-    if xrange:
+    if len(line.x) == 0:
+      return Line([], [], line.name)
+
+    if xrange is not None:
       X1, X2 = xrange
     else:
       X1, X2 = min(line.x), max(line.x)
 
-    n = sum([1 if v >= X1 and v <= X2 else 0 for v in line.x])
-    npoints = n * (self.N.value() + 1)
-
     from scipy import interpolate
     tck = interpolate.splrep(line.x, line.y, s=0)
-    dx = (X2 - X1)/npoints
-    x2 = np.arange(X1, X2, dx)
+    x2 = np.arange(X1, X2, self.dx.value())
     y2 = interpolate.splev(x2, tck, der=0)
     return Line(x2, y2, line.name)
 

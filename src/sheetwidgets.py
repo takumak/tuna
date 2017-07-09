@@ -40,7 +40,14 @@ class SheetWidget(TableWidget):
     return unselect, x, y
 
   def getColumn(self, c):
-    return [self.item(r, c).text() for r in range(self.rowCount())]
+    ret = []
+    for r in range(self.rowCount()):
+      item = self.item(r, c)
+      if item:
+        ret.append(item.text())
+      else:
+        ret.append(0)
+    return ret
 
   def getX(self):
     return self.getHeaderLabel(self.x), self.getColumn(self.x)

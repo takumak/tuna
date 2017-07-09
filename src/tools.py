@@ -245,12 +245,12 @@ class IADTool(ToolBase):
     self.peaksUpdated.emit()
     return lines
 
-  def getLines(self):
+  def getLines(self, mode=None):
     if not self.lines:
       return []
 
-    if self.mode == 'orig':
-      return self.updatePeaks(self.doInterpIfEnabled(self.lines))
+    if mode is None:
+      mode = self.mode
 
     try:
       base = self.lines[self.base]
@@ -271,28 +271,37 @@ class IADTool(ToolBase):
         self.xoff.append(xoff)
     self.xoffUpdated.emit()
 
-    if self.mode == 'xoff':
-      return self.updatePeaks(self.doInterpIfEnabled(
-        [l.xoff(xoff) for l, xoff in zip(self.lines, self.xoff)]))
-
     diff = []
     for l, xoff in zip(self.lines, self.xoff):
-      x1 = l.x + xoff
+      if len(l.x) == 0 or len(base.x) == 0:
+        diff.append(Line([], [], l.name))
+        continue
+      loff = l.xoff(xoff)
+      x1 = loff.x
       x2 = base.x
       X1 = max([min(x1), min(x2)])
       X2 = min([max(x1), max(x2)])
-      l1 = self.interp.do(l.xoff(xoff), (X1, X2))
-      l2 = self.interp.do(base,         (X1, X2))
+      l1 = self.interp.do(loff, (X1, X2))
+      l2 = self.interp.do(base, (X1, X2))
       diff.append(l1 - l2)
 
-    if self.mode == 'diff':
+    x = self.iadX
+    y = [sum(np.abs(d.y)) for d in diff]
+    self.iadY = y
+    self.iadYUpdated.emit()
+    IAD = Line(x, y, 'IAD')
+
+    if mode == 'orig':
+      return self.updatePeaks(self.doInterpIfEnabled(self.lines))
+
+    if mode == 'xoff':
+      return self.updatePeaks(self.doInterpIfEnabled(
+        [l.xoff(xoff) for l, xoff in zip(self.lines, self.xoff)]))
+
+    if mode == 'diff':
       return diff
 
-    if self.mode == 'iad':
-      x = self.iadX
-      y = [sum(np.abs(d.y))*(d.x[1]-d.x[0]) for d in diff]
-      self.iadY = y
-      self.iadYUpdated.emit()
-      return [Line(x, y, 'IAD')]
+    if mode == 'iad':
+      return [IAD]
 
     raise RuntimeError()

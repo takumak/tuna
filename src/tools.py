@@ -22,6 +22,8 @@ class Line:
     self.name = name
 
   def weightCenter(self):
+    if len(self.y) == 0:
+      return 0
     return sum(self.x*self.y)/sum(self.y)
 
   def integrate(self):
@@ -39,6 +41,8 @@ class Line:
     return self.__class__(self.x, self.y - other.y, self.name)
 
   def peak(self):
+    if len(self.x) == 0:
+      return 0, 0
     return max(zip(self.x, self.y), key=lambda p: p[1])
 
 
@@ -58,7 +62,8 @@ class InterpBase:
       if value == self.value():
         return
       self.value_ = value
-      self.updateWidgetValue(self.widget, value)
+      if self.widget and not self.widget.hasFocus():
+        self.updateWidgetValue(self.widget, value)
 
     def getWidget(self):
       if self.widget is None:
@@ -72,8 +77,7 @@ class InterpBase:
       self.max = max_
 
     def updateWidgetValue(self, widget, value):
-      if self.widget:
-        self.widget.setValue(value)
+      self.widget.setValue(value)
 
     def createWidget(self):
       spin = QSpinBox()
@@ -138,7 +142,9 @@ class InterpBase:
 
   def restoreState(self, state):
     for p in state:
-      self.paramsMap[p['name']].setValue(p['value'])
+      n = p['name']
+      if n in self.paramsMap:
+        self.paramsMap[n].setValue(p['value'])
 
 
 

@@ -106,8 +106,22 @@ class InterpBase:
     self.params = []
     self.paramsMap = {}
     self.optionsWidget = None
+    self.addParam(self.ParamDouble('dx', 0.01))
 
-  def do(self, line):
+  def do(self, line, xrange = None):
+    if len(line.x) == 0:
+      return Line([], [], line.name)
+
+    if xrange is not None:
+      X1, X2 = xrange
+    else:
+      X1, X2 = min(line.x), max(line.x)
+
+    x = np.arange(X1, X2, self.dx.value())
+    y = self.calcY(line, x)
+    return Line(x, y, line.name)
+
+  def calcY(self, line, x):
     raise NotImplementedError()
 
   def addParam(self, param):
@@ -148,28 +162,35 @@ class InterpBase:
 
 
 
-class CubicSpline(InterpBase):
-  name  = 'cubic_spline'
-  label = 'Cubic spline'
+class InterpScipy(InterpBase):
+  def calcY(self, line, x):
+    import scipy.interpolate as interp
+    return getattr(interp, self.clsname)(line.x, line.y)(x)
 
-  def __init__(self):
-    super().__init__()
-    self.addParam(self.ParamDouble('dx', 0.01))
+class CubicSpline(InterpScipy):
+  name    = 'cubic_spline'
+  label   = 'Cubic spline'
+  clsname = 'CubicSpline'
 
-  def do(self, line, xrange = None):
-    if len(line.x) == 0:
-      return Line([], [], line.name)
+class Barycentric(InterpScipy):
+  name    = 'barycentric'
+  label   = 'Barycentric'
+  clsname = 'BarycentricInterpolator'
 
-    if xrange is not None:
-      X1, X2 = xrange
-    else:
-      X1, X2 = min(line.x), max(line.x)
+class Krogh(InterpScipy):
+  name    = 'krogh'
+  label   = 'Krogh'
+  clsname = 'KroghInterpolator'
 
-    from scipy import interpolate
-    tck = interpolate.splrep(line.x, line.y, s=0)
-    x2 = np.arange(X1, X2, self.dx.value())
-    y2 = interpolate.splev(x2, tck, der=0)
-    return Line(x2, y2, line.name)
+class Pchip(InterpScipy):
+  name    = 'pchip'
+  label   = 'Pchip'
+  clsname = 'PchipInterpolator'
+
+class Akima(InterpScipy):
+  name    = 'akima'
+  label   = 'Akima'
+  clsname = 'Akima1DInterpolator'
 
 
 

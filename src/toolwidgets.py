@@ -9,7 +9,8 @@ from PyQt5.QtWidgets import \
   QButtonGroup, QRadioButton, QComboBox, QTableWidgetItem, \
   QAbstractScrollArea, QHeaderView, QApplication
 
-from tools import CubicSpline, ToolBase, FitTool, IADTool
+from tools import CubicSpline, Barycentric, Krogh, Pchip, Akima, \
+  ToolBase, FitTool, IADTool
 from commonwidgets import TableWidget, HSeparator
 
 
@@ -92,7 +93,7 @@ class IADToolWidget(ToolWidgetBase):
     self.optionsGrid.addLayout(self.interpOptionsLayout, 1, 0, 1, 2)
 
     self.interpOptions = []
-    for interp in [CubicSpline()]:
+    for interp in [CubicSpline(), Pchip(), Akima(), Krogh(), Barycentric()]:
       opt = interp.getOptionsWidget()
       self.interpComboBox.addItem(interp.label, [interp, opt])
       if opt:

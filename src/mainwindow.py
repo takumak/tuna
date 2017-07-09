@@ -3,11 +3,9 @@ import logging
 import html
 import json, base64
 from PyQt5.QtCore import Qt, QRectF
-from PyQt5.QtGui import QIcon, QTextCursor, QKeySequence
+from PyQt5.QtGui import QTextCursor, QKeySequence
 from PyQt5.QtWidgets import \
-  QApplication, QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, \
-  QFileDialog, QDialog, QLabel, QTabWidget, QTabBar, \
-  QCheckBox, QTextEdit, QSplitter, QDockWidget, QPushButton
+  QMainWindow, QFileDialog, QTextEdit, QDockWidget
 
 
 import log
@@ -158,7 +156,7 @@ class MainWindow(QMainWindow):
     dlg = QFileDialog()
     dlg.setAcceptMode(QFileDialog.AcceptOpen)
     dlg.setFileMode(QFileDialog.ExistingFiles)
-    if dlg.exec_() == QDialog.Accepted:
+    if dlg.exec_() == dlg.Accepted:
       self.openFiles(dlg.selectedFiles())
 
   def openFiles(self, filenames):
@@ -186,7 +184,7 @@ class MainWindow(QMainWindow):
   def headerClicked(self, sheetwidget, c):
     unselect, x, y = sheetwidget.useColumnCandidates(c)
     dlg = SelectColumnDialog(c, sheetwidget.getHeaderLabel(c), unselect, x, y)
-    if dlg.exec_() == QDialog.Accepted:
+    if dlg.exec_() == dlg.Accepted:
       if dlg.applyToAllSheets.isChecked():
         sheets = self.sourcesTabWidget.getAllWidgets()
       else:

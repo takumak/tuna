@@ -1,15 +1,16 @@
 import logging
 import re
+import numpy as np
 from PyQt5.QtCore import Qt, pyqtSignal
 from PyQt5.QtGui import QDoubleValidator
 from PyQt5.QtWidgets import \
   QWidget, QLabel, QVBoxLayout, QHBoxLayout, QGridLayout, \
-  QLineEdit, QFrame, QCheckBox, QSpinBox, QPushButton, \
+  QLineEdit, QCheckBox, QSpinBox, QPushButton, \
   QButtonGroup, QRadioButton, QComboBox, QTableWidgetItem, \
   QAbstractScrollArea, QHeaderView, QApplication
 
 from tools import CubicSpline, ToolBase, FitTool, IADTool
-from commonwidgets import TableWidget
+from commonwidgets import TableWidget, HSeparator
 
 
 class ToolWidgetBase(QWidget):
@@ -61,18 +62,18 @@ class IADToolWidget(ToolWidgetBase):
     self.linesTable.cellChanged.connect(self.linesTableCellChanged)
     vbox.addWidget(self.linesTable)
 
-    self.linesTableCopyButton = QPushButton('Copy')
-    self.linesTableCopyButton.clicked.connect(lambda c: self.copyLinesTable())
+    self.copyResultButton = QPushButton('Copy result')
+    self.copyResultButton.clicked.connect(lambda c: self.copyResult())
+    self.copyLinesButton = QPushButton('Copy lines')
+    self.copyLinesButton.clicked.connect(lambda c: self.copyLines())
     hbox = QHBoxLayout()
-    hbox.addWidget(self.linesTableCopyButton)
+    hbox.addWidget(self.copyResultButton)
+    hbox.addWidget(self.copyLinesButton)
     hbox.addStretch(1)
     vbox.addLayout(hbox)
 
     vbox.addStretch(1)
-    line = QFrame()
-    line.setFrameShape(QFrame.HLine)
-    line.setFrameShadow(QFrame.Sunken)
-    vbox.addWidget(line)
+    vbox.addWidget(HSeparator())
 
 
     self.optionsGrid = QGridLayout()
@@ -118,14 +119,36 @@ class IADToolWidget(ToolWidgetBase):
     self.tool.iadYUpdated.connect(self.updateIADy)
     self.tool.peaksUpdated.connect(self.updatePeaks)
 
-  def copyLinesTable(self):
+  def copyResult(self):
     rows = [self.columnLabels]
     for r in range(self.linesTable.rowCount()):
       row = [self.linesTable.cellWidget(r, 0).text()]
       for c in range(1, self.linesTable.columnCount()):
-        row.append(self.linesTable.item(r, c).text())
+        row.append(self.linesTable.item(r, c).text().strip())
       rows.append(row)
     QApplication.clipboard().setText('\n'.join(['\t'.join(r) for r in rows]))
+
+  def copyLines(self):
+    dx = self.tool.interp.dx.value()
+    xoff = list(map(int, np.round(np.array(self.tool.xoff)/dx)))
+    lines = self.tool.getLines('orig')
+
+    x = lines[0].x
+    x = np.concatenate((np.array(range(min(xoff), 0))*dx + x[0],
+                        x,
+                        np.array(range(1, max(xoff)+1))*dx + x[-1]))
+    y = []
+    for i, l in enumerate(lines):
+      y_ = [''] * (xoff[i]-min(xoff))
+      y_ += list(l.y)
+      y_ += [''] * (max(xoff) - xoff[i])
+      y.append(y_)
+
+    rows = [['x'] + [l.name for l in lines]]
+    rows += list(zip(*([x] + y)))
+    print(rows[0])
+    print(rows[1])
+    QApplication.clipboard().setText('\n'.join(['\t'.join(map(str, r)) for r in rows]))
 
   def linesTableCellChanged(self, r, c):
     if c == 1:

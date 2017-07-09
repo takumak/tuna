@@ -30,7 +30,7 @@ class TableWidget(QTableWidget):
         row = []
         rows.append(row)
         curRow = cell.row()
-      row.append(cell.data())
+      row.append(str(cell.data()).strip())
     QApplication.clipboard().setText('\n'.join(['\t'.join(r) for r in rows]))
 
 

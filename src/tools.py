@@ -103,9 +103,8 @@ class InterpBase:
     self.params = []
     self.paramsMap = {}
     self.optionsWidget = None
-    self.addParam(self.ParamDouble('dx', 0.01))
 
-  def do(self, line, xrange = None):
+  def do(self, line, dx, xrange = None):
     if len(line.x) == 0:
       return Line([], [], line.name)
 
@@ -114,7 +113,7 @@ class InterpBase:
     else:
       X1, X2 = min(line.x), max(line.x)
 
-    x = np.arange(X1, X2, self.dx.value())
+    x = np.arange(X1, X2, dx)
     y = self.calcY(line, x)
     return Line(x, y, line.name)
 
@@ -236,11 +235,15 @@ class IADTool(ToolBase):
     self.base = -1
     self.interp = None
     self.interpEnabled = True
+    self.interpdx = 0.01
     self.threshold = 1e-10
     self.lines = None
 
+  def doInterp(self, line, *args):
+    return self.interp.do(line, self.interpdx, *args)
+
   def calcXoff(self, line, wc):
-    line_ = self.interp.do(line).normalize()
+    line_ = self.doInterp(line).normalize()
     line = line_
     xoff = 0
     cnt = 0
@@ -254,8 +257,8 @@ class IADTool(ToolBase):
       line = line_.xoff(xoff)
 
   def doInterpIfEnabled(self, lines):
-    if force or self.interpEnabled:
-      return [self.interp.do(l) for l in lines]
+    if self.interpEnabled:
+      return [self.doInterp(l) for l in lines]
     return lines
 
   def updatePeaks(self, lines):
@@ -275,7 +278,7 @@ class IADTool(ToolBase):
     except IndexError:
       self.base = -1
       base = self.lines[-1]
-    wc = self.interp.do(base).weightCenter()
+    wc = self.doInterp(base).weightCenter()
 
     self.wc = []
     self.xoff = []
@@ -291,7 +294,7 @@ class IADTool(ToolBase):
 
     X1 = max([min(l.x+xoff) for l, xoff in zip(self.lines, self.xoff)])
     X2 = min([max(l.x+xoff) for l, xoff in zip(self.lines, self.xoff)])
-    lines_off = [self.interp.do(l.xoff(xoff), (X1, X2)).normalize()
+    lines_off = [self.doInterp(l.xoff(xoff), (X1, X2)).normalize()
                  for l, xoff in zip(self.lines, self.xoff)]
 
     diff = []

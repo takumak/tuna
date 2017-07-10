@@ -82,6 +82,10 @@ class IADToolWidget(ToolWidgetBase):
 
     self.interpComboBox = QComboBox()
     self.interpComboBox.currentIndexChanged.connect(self.interpSelected)
+    self.interpdxLineEdit = QLineEdit()
+    self.interpdxLineEdit.setValidator(QDoubleValidator())
+    self.interpdxLineEdit.textChanged.connect(lambda t: self.toolSetInterpdx)
+    self.interpdxLineEdit.setText('%g' % self.tool.interpdx)
     self.interpOptionsLayout = QVBoxLayout()
     self.interpOptionsLayout.setContentsMargins(40, 0, 0, 0)
     self.interpCheckBox = QCheckBox('Interpolation')
@@ -89,7 +93,11 @@ class IADToolWidget(ToolWidgetBase):
     self.interpStateChanged(Qt.Unchecked)
     self.interpCheckBox.stateChanged.connect(self.interpStateChanged)
     self.optionsGrid.addWidget(self.interpCheckBox, 0, 0)
-    self.optionsGrid.addWidget(self.interpComboBox, 0, 1)
+    hbox = QHBoxLayout()
+    hbox.addWidget(self.interpComboBox)
+    hbox.addWidget(QLabel('dx'))
+    hbox.addWidget(self.interpdxLineEdit)
+    self.optionsGrid.addLayout(hbox, 0, 1)
     self.optionsGrid.addLayout(self.interpOptionsLayout, 1, 0, 1, 2)
 
     self.interpOptions = []
@@ -100,6 +108,7 @@ class IADToolWidget(ToolWidgetBase):
         self.interpOptionsLayout.addWidget(opt)
         self.interpOptions.append(opt)
     self.interpComboBox.setCurrentIndex(0)
+    self.interpSelected(self.interpComboBox.currentIndex())
 
     self.WCthreshold = QLineEdit()
     self.WCthreshold.setValidator(QDoubleValidator())
@@ -204,6 +213,9 @@ class IADToolWidget(ToolWidgetBase):
       except:
         x = None
       self.tool.iadX.append(x)
+
+  def toolSetInterpdx(self):
+    self.tool.interpdx = float(self.interpdxLineEdit.text())
 
   def toolSetWCthreshold(self):
     self.tool.threshold = float(self.WCthreshold.text())
@@ -324,6 +336,7 @@ class IADToolWidget(ToolWidgetBase):
     self.tool.mode = mode
     self.toolSetBase()
     self.toolSetIADx()
+    self.toolSetInterpdx()
     self.toolSetWCthreshold()
     self.plotRequested.emit(self.tool, autoRange)
 
@@ -336,6 +349,7 @@ class IADToolWidget(ToolWidgetBase):
       'interp_enabled': self.interpCheckBox.isChecked(),
       'curr_interp': curr_interp.name,
       'interp': dict([(item.name, item.saveState()) for item in self.getInterpList()]),
+      'interpdx': self.tool.interpdx,
       'wc_threshold': self.WCthreshold.text(),
       'plot_mode': self.tool.mode,
       'base': self.tool.base
@@ -350,3 +364,4 @@ class IADToolWidget(ToolWidgetBase):
     if 'wc_threshold' in state: self.WCthreshold.setText(state['wc_threshold'])
     if 'plot_mode' in state: self.tool.mode = state['plot_mode']
     if 'base' in state: self.tool.base = state['base']
+    if 'interpdx' in state: self.tool.interpdx = state['interpdx']

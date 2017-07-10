@@ -22,15 +22,12 @@ class Line:
     self.name = name
 
   def weightCenter(self):
-    if len(self.y) == 0:
+    if len(self.x) == 0:
       return 0
     return sum(self.x*self.y)/sum(self.y)
 
-  def integrate(self):
-    return sum(self.y[:-1]*(self.x[1:]-self.x[:-1]))
-
   def normalize(self):
-    return self.__class__(self.x, self.y/self.integrate(), self.name)
+    return self.__class__(self.x, self.y, self.name)
 
   def xoff(self, off):
     return self.__class__(self.x + off, self.y, self.name)
@@ -243,7 +240,7 @@ class IADTool(ToolBase):
     self.lines = None
 
   def calcXoff(self, line, wc):
-    line_ = self.interp.do(line)
+    line_ = self.interp.do(line).normalize()
     line = line_
     xoff = 0
     cnt = 0
@@ -257,7 +254,7 @@ class IADTool(ToolBase):
       line = line_.xoff(xoff)
 
   def doInterpIfEnabled(self, lines):
-    if self.interpEnabled:
+    if force or self.interpEnabled:
       return [self.interp.do(l) for l in lines]
     return lines
 
@@ -292,19 +289,18 @@ class IADTool(ToolBase):
         self.xoff.append(xoff)
     self.xoffUpdated.emit()
 
+    X1 = max([min(l.x+xoff) for l, xoff in zip(self.lines, self.xoff)])
+    X2 = min([max(l.x+xoff) for l, xoff in zip(self.lines, self.xoff)])
+    lines_off = [self.interp.do(l.xoff(xoff), (X1, X2)).normalize()
+                 for l, xoff in zip(self.lines, self.xoff)]
+
     diff = []
-    for l, xoff in zip(self.lines, self.xoff):
+    base = lines_off[self.base]
+    for l in lines_off:
       if len(l.x) == 0 or len(base.x) == 0:
         diff.append(Line([], [], l.name))
         continue
-      loff = l.xoff(xoff)
-      x1 = loff.x
-      x2 = base.x
-      X1 = max([min(x1), min(x2)])
-      X2 = min([max(x1), max(x2)])
-      l1 = self.interp.do(loff, (X1, X2))
-      l2 = self.interp.do(base, (X1, X2))
-      diff.append(l1 - l2)
+      diff.append(l - base)
 
     x = self.iadX
     y = [sum(np.abs(d.y)) for d in diff]
@@ -316,8 +312,7 @@ class IADTool(ToolBase):
       return self.updatePeaks(self.doInterpIfEnabled(self.lines))
 
     if mode == 'xoff':
-      return self.updatePeaks(self.doInterpIfEnabled(
-        [l.xoff(xoff) for l, xoff in zip(self.lines, self.xoff)]))
+      return self.updatePeaks(lines_off)
 
     if mode == 'diff':
       return diff

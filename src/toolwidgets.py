@@ -7,7 +7,7 @@ from PyQt5.QtWidgets import \
   QWidget, QLabel, QVBoxLayout, QHBoxLayout, QGridLayout, \
   QLineEdit, QCheckBox, QSpinBox, QPushButton, \
   QButtonGroup, QRadioButton, QComboBox, QTableWidgetItem, \
-  QAbstractScrollArea, QHeaderView, QApplication
+  QAbstractScrollArea, QHeaderView, QApplication, QFileDialog
 
 from tools import CubicSpline, Barycentric, Krogh, Pchip, Akima, \
   ToolBase, FitTool, IADTool
@@ -65,11 +65,11 @@ class IADToolWidget(ToolWidgetBase):
 
     self.copyResultButton = QPushButton('Copy result')
     self.copyResultButton.clicked.connect(lambda c: self.copyResult())
-    self.copyLinesButton = QPushButton('Copy lines')
-    self.copyLinesButton.clicked.connect(lambda c: self.copyLines())
+    self.exportXlsxButton = QPushButton('Export xlsx')
+    self.exportXlsxButton.clicked.connect(lambda c: self.exportXlsx())
     hbox = QHBoxLayout()
     hbox.addWidget(self.copyResultButton)
-    hbox.addWidget(self.copyLinesButton)
+    hbox.addWidget(self.exportXlsxButton)
     hbox.addStretch(1)
     vbox.addLayout(hbox)
 
@@ -129,27 +129,65 @@ class IADToolWidget(ToolWidgetBase):
       rows.append(row)
     QApplication.clipboard().setText('\n'.join(['\t'.join(r) for r in rows]))
 
-  def copyLines(self):
-    dx = self.tool.interp.dx.value()
-    xoff = list(map(int, np.round(np.array(self.tool.xoff)/dx)))
-    lines = self.tool.getLines('orig')
+  def exportXlsx(self):
+    from functions import getTableColumnLabel
+    def cellName(r, c, absx='', absy=''):
+      return '%s%s%s%d' % (absx, getTableColumnLabel(c), absy, r+1)
 
-    x = lines[0].x
-    x = np.concatenate((np.array(range(min(xoff), 0))*dx + x[0],
-                        x,
-                        np.array(range(1, max(xoff)+1))*dx + x[-1]))
-    y = []
-    for i, l in enumerate(lines):
-      y_ = [''] * (xoff[i]-min(xoff))
-      y_ += list(l.y)
-      y_ += [''] * (max(xoff) - xoff[i])
-      y.append(y_)
+    dlg = QFileDialog()
+    dlg.setAcceptMode(QFileDialog.AcceptSave)
+    dlg.setFileMode(QFileDialog.AnyFile)
+    if dlg.exec_() != dlg.Accepted:
+      return
+    filename = dlg.selectedFiles()[0]
 
-    rows = [['x'] + [l.name for l in lines]]
-    rows += list(zip(*([x] + y)))
-    print(rows[0])
-    print(rows[1])
-    QApplication.clipboard().setText('\n'.join(['\t'.join(map(str, r)) for r in rows]))
+
+    lines = self.tool.getLines('xoff')
+    base = lines.index(lines[self.tool.base])
+
+    import xlwt
+    wb = xlwt.Workbook()
+    ws = wb.add_sheet('IAD')
+
+    c0, r0 = 0, 0
+    c1, r1 = c0+1, r0+1
+    for c, l in enumerate(lines):
+      if c == 0:
+        ws.write(r0, c0, 'x')
+        for r, x in enumerate(l.x):
+          ws.write(r1+r, c0, x)
+
+      ws.write(r0, c1+c, l.name)
+      for r, y in enumerate(l.y):
+        ws.write(r1+r, c1+c, y)
+
+    c2 = c1 + len(lines) + 1
+
+    for c, l in enumerate(lines):
+      ws.write(r0, c2+c, l.name)
+      for r, y in enumerate(l.y):
+        f = 'abs(%s-%s)' % (cellName(r1+r, c1+c), cellName(r1+r, c1+base, '$'))
+        ws.write(r1+r, c2+c, xlwt.Formula(f))
+
+    c3 = c2 + len(lines) + 1
+    c4 = c3 + 1
+    ws.write(r0, c4, 'IAD')
+    ws.write(r0, c4+1, 'weight center')
+    for r, l in enumerate(lines):
+      n = l.name
+      m = re.search(r'^([\+\-]?\d*(?:\.\d+)?)', l.name)
+      if m: n = m.group(1)
+
+      f1 = 'sum(%s:%s)' % (cellName(r1, c2+c), cellName(r1+len(l.y), c2+c))
+      ry = '%s:%s' % (cellName(r1, c1+c), cellName(r1+len(l.y), c1+c))
+      f2 = 'sumproduct(%s:%s,%s)/sum(%s)' % (
+        cellName(r1, c0), cellName(r1+len(l.y), c0), ry, ry)
+
+      ws.write(r1+r, c3, n)
+      ws.write(r1+r, c3+1, xlwt.Formula(f1))
+      ws.write(r1+r, c3+2, xlwt.Formula(f2))
+
+    wb.save(filename)
 
   def linesTableCellChanged(self, r, c):
     if c == 1:

@@ -6,3 +6,4 @@ pyexcel
 pyexcel-io
 pyexcel-xls
 pyexcel-odsr
+xlwt

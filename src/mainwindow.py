@@ -133,8 +133,9 @@ class MainWindow(QMainWindow):
     return sheetwidget
 
   def headerClicked(self, sheetwidget, c):
+    from functions import getTableColumnLabel
     unselect, x, y = sheetwidget.useColumnCandidates(c)
-    dlg = SelectColumnDialog(c, sheetwidget.getHeaderLabel(c), unselect, x, y)
+    dlg = SelectColumnDialog(c, getTableColumnLabel(c), unselect, x, y)
     if dlg.exec_() == dlg.Accepted:
       if dlg.applyToAllSheets.isChecked():
         sheets = self.sourcesTabWidget.getAllWidgets()

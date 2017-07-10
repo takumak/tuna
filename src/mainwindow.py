@@ -15,7 +15,7 @@ from graphwidgets import GraphWidget
 from tools import NopTool
 from toolwidgets import FitToolWidget, IADToolWidget
 from commonwidgets import TabWidgetWithCheckBox
-from widgets import SelectColumnDialog
+from widgets import SourcesWidget
 
 
 
@@ -34,14 +34,12 @@ class MainWindow(QMainWindow):
     self.graphWidget = GraphWidget()
     self.setCentralWidget(self.graphWidget)
 
-    self.sourcesTabWidget = TabWidgetWithCheckBox()
-    self.sourcesTabWidget.setTabsClosable(True)
-    self.sourcesTabWidget.selectionChanged.connect(self.update)
-    self.sourcesTabWidget.tabCloseRequested.connect(self.sourceTabCloseRequested)
-    self.sourcesTabWidget.hide()
+    self.sourcesWidget = SourcesWidget()
+    self.sourcesWidget.selectionChanged.connect(self.update)
+    self.sourcesWidget.hide()
     self.sourcesDockWidget = QDockWidget('Sources')
     self.sourcesDockWidget.setObjectName('dock_sources')
-    self.sourcesDockWidget.setWidget(self.sourcesTabWidget)
+    self.sourcesDockWidget.setWidget(self.sourcesWidget)
 
     self.logTextEdit = QTextEdit()
     self.logTextEdit.setReadOnly(True)
@@ -108,7 +106,7 @@ class MainWindow(QMainWindow):
     dlg.setAcceptMode(QFileDialog.AcceptOpen)
     dlg.setFileMode(QFileDialog.ExistingFiles)
     if dlg.exec_() == dlg.Accepted:
-      self.openFiles(dlg.selectedFiles())
+      self.openFiles([os.path.realpath(f) for f in dlg.selectedFiles()])
 
   def openFiles(self, filenames):
     for filename in filenames:
@@ -117,65 +115,24 @@ class MainWindow(QMainWindow):
       except fileloader.UnsupportedFileException as ex:
         logging.error('Unsupported file: %s %s' % (ex.mimetype, ex.filename))
         continue
-      for sheet in f:
-        self.addSheet(sheet)
+      self.addFile(filename, True, [(s, True, 0, [1]) for s in f])
     self.update()
     self.sourcesDockWidget.raise_()
 
-  def addSheet(self, sheet, checked = True):
-    logging.info('Add sheet: %s' % sheet.name)
-    self.sourcesTabWidget.show()
-
-    sheetwidget = SheetWidget(sheet)
-    sheetwidget.horizontalHeader().sectionClicked.connect(
-      lambda c: self.headerClicked(sheetwidget, c))
-    self.sourcesTabWidget.addTab(sheetwidget, sheet.name, checked)
-    return sheetwidget
-
-  def headerClicked(self, sheetwidget, c):
-    from functions import getTableColumnLabel
-    unselect, x, y = sheetwidget.useColumnCandidates(c)
-    dlg = SelectColumnDialog(c, getTableColumnLabel(c), unselect, x, y)
-    if dlg.exec_() == dlg.Accepted:
-      if dlg.applyToAllSheets.isChecked():
-        sheets = self.sourcesTabWidget.getAllWidgets()
-      else:
-        sheets = [sheetwidget]
-
-      if dlg.useFor is None:
-        func = 'unselect'
-        args = [c]
-      elif dlg.useFor is 'x':
-        func = 'setX'
-        args = [c]
-      elif dlg.useFor[0] == 'y':
-        func = 'selectY'
-        args = [c, int(dlg.useFor[1:])]
-
-      useFor = dlg.useFor
-      for sheet in sheets:
-        getattr(sheet, func)(*args)
-
-      self.update()
-
-  def useColumnForAllSheetRequested(self, c, useFor):
-    for sw in self.sourcesTabWidget.getAllWidgets():
-      sw.useColumn(c, useFor)
-
-  def sourceTabCloseRequested(self, idx):
-    self.sourcesTabWidget.removeTab(idx)
-    self.update()
+  def addFile(self, filename, checked, sheets):
+    logging.debug('Add file: %s' % filename)
+    self.sourcesWidget.show()
+    self.sourcesWidget.addFile(filename, checked, sheets)
 
   def update(self):
     for t in self.tools:
       t.clear()
 
-    for i, sw in enumerate(self.sourcesTabWidget.getAllWidgets()):
-      if not self.sourcesTabWidget.isChecked(i): continue
+    for sw in self.sourcesWidget.enabledSheetWidgets():
       x = sw.getX()[1]
       y_ = sw.getY()
       for n, y in y_:
-        name = self.sourcesTabWidget.tabText(i)
+        name = sw.sheet.name
         if len(y_) > 1:
           name += ':%s' % n
         for t in self.tools:
@@ -211,61 +168,76 @@ class MainWindow(QMainWindow):
       return
 
     obj = json.load(open(self.config_filename))
-    state = base64.b64decode(obj['mainwindow']['state'])
-    try:
-      self.restoreState(state, self.saveStateVersion)
-    except:
-      log.excepthook(*sys.exc_info())
 
-    files = {}
-    for sheet in obj['sheets']:
-      filename = sheet['filename']
-      f = files.get(filename, None)
-      if f is False:
-        continue
-      elif f is None:
+    if 'mainwindow' in obj:
+      mw = obj['mainwindow']
+      if 'state' in mw:
+        state = base64.b64decode(mw['state'])
         try:
-          f = fileloader.load(filename)
+          self.restoreState(state, self.saveStateVersion)
         except:
           log.excepthook(*sys.exc_info())
-          files[filename] = False
+
+    if 'files' in obj:
+      for f in obj['files']:
+        checked = f['enabled']
+        filename = f['filename']
+        sheets = []
+
+        try:
+          book = fileloader.load(filename)
+        except:
+          log.excepthook(*sys.exc_info())
           continue
-        files[filename] = f
 
-      sw = self.addSheet(f.getSheet(sheet['index']), sheet['enabled'])
-      sw.setX(sheet['x'])
-      sw.setY(sheet['y'])
 
-    r = obj.get('graph', {}).get('range')
-    if r:
-      self.graphWidget.setRange(QRectF(*r))
+        for s in f['sheets']:
+          c = s['enabled']
+          i = s['index']
+          x = s['x']
+          y = s['y']
+          sheets.append((book.getSheet(i), c, x, y))
 
-    tools = obj['tools']
-    for t in self.toolWidgets:
-      if t.name() in tools:
-        try:
-          t.restoreState(tools[t.name()])
-        except:
-          log.excepthook(*sys.exc_info())
-          pass
+        self.addFile(filename, checked, sheets)
+
+    if 'graph' in obj:
+      graph = obj['graph']
+      if 'range' in graph:
+        self.graphWidget.setRange(QRectF(*graph['range']))
+
+    if 'tools' in obj:
+      tools = obj['tools']
+      for t in self.toolWidgets:
+        if t.name() in tools:
+          try:
+            t.restoreState(tools[t.name()])
+          except:
+            log.excepthook(*sys.exc_info())
+            pass
 
     self.update()
     self.sourcesDockWidget.raise_()
 
   def saveConfig(self):
-    sheets = []
-    for i, sw in enumerate(self.sourcesTabWidget.getAllWidgets()):
-      sheets.append({
-        'enabled': self.sourcesTabWidget.isChecked(i),
-        'filename': sw.sheet.filename,
-        'index': sw.sheet.idx,
-        'x': sw.x,
-        'y': sw.y
+    files = []
+    for fn, fc, sw_ in self.sourcesWidget.files():
+      sheets = []
+      for sw, sc in sw_:
+        sheets.append({
+          'enabled': sc,
+          'index': sw.sheet.idx,
+          'x': sw.x,
+          'y': sw.y
+        })
+      files.append({
+        'enabled': fc,
+        'filename': fn,
+        'sheets': sheets
       })
 
     r = self.graphWidget.viewRect()
     obj = {
-      'sheets': sheets,
+      'files': files,
       'mainwindow': {
         'state': str(base64.b64encode(self.saveState(self.saveStateVersion)), 'ascii')
       },

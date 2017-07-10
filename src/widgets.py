@@ -1,8 +1,11 @@
-from PyQt5.QtCore import Qt
+import os
+from PyQt5.QtCore import Qt, pyqtSignal
 from PyQt5.QtWidgets import \
   QVBoxLayout, QHBoxLayout, \
   QWidget, QDialog, QPushButton, QCheckBox, QLabel, \
-  QSplitter
+  QSplitter, QTreeWidget, QTreeWidgetItem
+
+from sheetwidgets import SheetWidget
 
 class SelectColumnDialog(QDialog):
   def __init__(self, c, cname, unselect, x, y):
@@ -55,14 +58,106 @@ class SelectColumnDialog(QDialog):
 
 
 
-# class SourcesWidget(QSplitter):
-#   def __init__(self):
-#     super().__init__(Qt.Horizontal)
-#     self.list = QListWidget()
-#     self.blank = QWidget()
-#     self.addWidget(self.list)
-#     self.addWidget(self.blank)
+class SourcesWidget(QSplitter):
+  selectionChanged = pyqtSignal(name='selectionChanged')
 
-#     self.sheets = []
+  def __init__(self):
+    super().__init__(Qt.Horizontal)
+    self.tree = QTreeWidget()
+    self.blank = QWidget()
+    self.addWidget(self.tree)
+    self.addWidget(self.blank)
 
-#   def add(self, sheet):
+    self.tree.itemSelectionChanged.connect(self.itemSelectionChanged)
+
+    self.sheets = []
+
+  def itemSelectionChanged(self):
+    items = self.tree.selectedItems()
+    if len(items) == 0:
+      self.replaceWidget(1, self.blank)
+      return
+
+    item = items[0]
+    data = item.data(0, Qt.UserRole)[0]
+    if isinstance(data, SheetWidget):
+      self.replaceWidget(1, data)
+
+  def headerClicked(self, sheetwidget, c):
+    from functions import getTableColumnLabel
+    unselect, x, y = sheetwidget.useColumnCandidates(c)
+    dlg = SelectColumnDialog(c, getTableColumnLabel(c), unselect, x, y)
+    if dlg.exec_() == dlg.Accepted:
+      if dlg.applyToAllSheets.isChecked():
+        sheets = self.sourcesTabWidget.getAllWidgets()
+      else:
+        sheets = [sheetwidget]
+
+      if dlg.useFor is None:
+        func = 'unselect'
+        args = [c]
+      elif dlg.useFor is 'x':
+        func = 'setX'
+        args = [c]
+      elif dlg.useFor[0] == 'y':
+        func = 'selectY'
+        args = [c, int(dlg.useFor[1:])]
+
+      useFor = dlg.useFor
+      for sheet in sheets:
+        getattr(sheet, func)(*args)
+
+      self.update()
+
+  def topLevelItemForFilename(self, filename):
+    for i in range(self.tree.topLevelItemCount()):
+      item = self.tree.topLevelItem(i)
+      if item.data(0, Qt.UserRole)[0] == filename:
+        return item
+    return None
+
+  def addFile(self, filename, checked, sheets):
+    pitem = self.topLevelItemForFilename(filename)
+    if pitem is not None:
+      self.tree.takeTopLevelItem(pitem)
+
+    pitem = QTreeWidgetItem([os.path.basename(filename)])
+    pitem.setData(0, Qt.UserRole, (filename,))
+    pitem.setFlags((pitem.flags() | Qt.ItemIsUserCheckable) & ~Qt.ItemIsSelectable)
+    pitem.setCheckState(0, Qt.Checked if checked else Qt.Unchecked)
+    self.tree.addTopLevelItem(pitem)
+    pitem.setExpanded(True)
+
+    for sheet, checked, x, y in sheets:
+      sw = SheetWidget(sheet)
+      sw.setX(x)
+      sw.setY(y)
+      sw.horizontalHeader().sectionClicked.connect(
+        (lambda sw: (lambda c: self.headerClicked(sw, c)))(sw))
+
+      item = QTreeWidgetItem([sheet.name])
+      item.setFlags(item.flags() | Qt.ItemIsUserCheckable)
+      item.setData(0, Qt.UserRole, (sw,))
+      item.setCheckState(0, Qt.Checked if checked else Qt.Unchecked)
+      pitem.addChild(item)
+
+  def files(self):
+    files = []
+
+    for i in range(self.tree.topLevelItemCount()):
+      fitem = self.tree.topLevelItem(i)
+      filename = fitem.data(0, Qt.UserRole)[0]
+
+      sheets = []
+      for j in range(fitem.childCount()):
+        sitem = fitem.child(j)
+        sw = sitem.data(0, Qt.UserRole)[0]
+        sheets.append((sw, sitem.checkState(0) == Qt.Checked))
+
+      if len(sheets) > 0:
+        files.append((filename, fitem.checkState(0) == Qt.Checked, sheets))
+
+    return files
+
+  def enabledSheetWidgets(self):
+    return sum([[sw for sw, c in sheets if c] for fn, c, sheets in self.files() if c], [])

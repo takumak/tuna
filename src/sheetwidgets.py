@@ -3,6 +3,7 @@ from PyQt5.QtGui import QBrush
 from PyQt5.QtWidgets import QTableWidgetItem
 
 from commonwidgets import TableWidget
+from functions import getTableColumnLabel
 
 
 class SheetWidget(TableWidget):
@@ -15,7 +16,7 @@ class SheetWidget(TableWidget):
     self.setRowCount(sheet.rowCount())
 
     for c in range(sheet.colCount()):
-      self.setHorizontalHeaderItem(c, QTableWidgetItem(self.getHeaderLabel(c)))
+      self.setHorizontalHeaderItem(c, QTableWidgetItem(getTableColumnLabel(c)))
       for r in range(sheet.rowCount()):
         self.setItem(r, c, QTableWidgetItem(str(self.sheet.getValue(r, c))))
 
@@ -23,15 +24,6 @@ class SheetWidget(TableWidget):
     self.y = []
     self.setX(0)
     self.selectY(1, 0)
-
-  def getHeaderLabel(self, c):
-    label = ''
-    while True:
-      label += 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'[c % 26]
-      if c <= 26:
-        break
-      c = int(c/26)
-    return label
 
   def useColumnCandidates(self, c):
     unselect = c in self.y and len(self.y) >= 2
@@ -50,10 +42,10 @@ class SheetWidget(TableWidget):
     return ret
 
   def getX(self):
-    return self.getHeaderLabel(self.x), self.getColumn(self.x)
+    return getTableColumnLabel(self.x), self.getColumn(self.x)
 
   def getY(self):
-    return [(self.getHeaderLabel(c), self.getColumn(c)) for c in self.y]
+    return [(getTableColumnLabel(c), self.getColumn(c)) for c in self.y]
 
   def setX(self, c):
     if c in self.y:
@@ -85,7 +77,7 @@ class SheetWidget(TableWidget):
   def updateHeaderState(self):
     for c in range(self.columnCount()):
       item = self.horizontalHeaderItem(c)
-      label = self.getHeaderLabel(c)
+      label = getTableColumnLabel(c)
       if c == self.x:
         item.setBackground(Qt.red)
         label += ' (X)'

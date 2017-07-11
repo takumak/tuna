@@ -4,14 +4,14 @@ import numpy as np
 from PyQt5.QtCore import Qt, pyqtSignal
 from PyQt5.QtGui import QDoubleValidator
 from PyQt5.QtWidgets import \
-  QWidget, QLabel, QVBoxLayout, QHBoxLayout, QGridLayout, \
+  QWidget, QLabel, QGridLayout, \
   QLineEdit, QCheckBox, QSpinBox, QPushButton, \
   QButtonGroup, QRadioButton, QComboBox, QTableWidgetItem, \
   QAbstractScrollArea, QHeaderView, QApplication, QFileDialog
 
 from tools import CubicSpline, Barycentric, Krogh, Pchip, Akima, \
   ToolBase, FitTool, IADTool
-from commonwidgets import TableWidget, HSeparator
+from commonwidgets import TableWidget, HSeparator, VBoxLayout, HBoxLayout
 
 
 class ToolWidgetBase(QWidget):
@@ -56,7 +56,8 @@ class IADToolWidget(ToolWidgetBase):
   def __init__(self):
     super().__init__()
 
-    vbox = QVBoxLayout()
+    vbox = VBoxLayout()
+    vbox.setContentsMargins(4, 4, 4, 4)
     self.setLayout(vbox)
 
     self.linesTable = TableWidget()
@@ -67,7 +68,7 @@ class IADToolWidget(ToolWidgetBase):
     self.copyResultButton.clicked.connect(lambda c: self.copyResult())
     self.exportXlsxButton = QPushButton('Export xlsx')
     self.exportXlsxButton.clicked.connect(lambda c: self.exportXlsx())
-    hbox = QHBoxLayout()
+    hbox = HBoxLayout()
     hbox.addWidget(self.copyResultButton)
     hbox.addWidget(self.exportXlsxButton)
     hbox.addStretch(1)
@@ -88,14 +89,14 @@ class IADToolWidget(ToolWidgetBase):
     self.interpdxLineEdit.setValidator(QDoubleValidator())
     self.interpdxLineEdit.textChanged.connect(lambda t: self.toolSetInterpdx)
     self.interpdxLineEdit.setText('%g' % self.tool.interpdx)
-    hbox = QHBoxLayout()
+    hbox = HBoxLayout()
     hbox.addWidget(self.interpCheckBox)
     hbox.addWidget(self.interpComboBox)
     hbox.addWidget(QLabel('dx'))
     hbox.addWidget(self.interpdxLineEdit)
     vbox.addLayout(hbox)
 
-    self.interpOptionsLayout = QVBoxLayout()
+    self.interpOptionsLayout = VBoxLayout()
     self.interpOptionsLayout.setContentsMargins(40, 0, 0, 0)
     vbox.addLayout(self.interpOptionsLayout)
 
@@ -113,7 +114,7 @@ class IADToolWidget(ToolWidgetBase):
     self.WCthreshold.setValidator(QDoubleValidator())
     self.WCthreshold.textChanged.connect(lambda t: self.toolSetWCthreshold)
     self.WCthreshold.setText('%g' % self.tool.threshold)
-    hbox = QHBoxLayout()
+    hbox = HBoxLayout()
     hbox.addWidget(QLabel('Weight center threshold'))
     hbox.addWidget(self.WCthreshold)
     vbox.addLayout(hbox)
@@ -313,7 +314,7 @@ class IADToolWidget(ToolWidgetBase):
         self.setWC(i, '%.10f' % wc)
       else:
         b = self.tool.wc[self.tool.base]
-        self.setWC(i, '%.10f%+.10f' % (b, wc - b))
+        self.setWC(i, '%.10f' % b)
       self.setXoff(i, '%+.10f' % xoff)
 
   def updateIADy(self):

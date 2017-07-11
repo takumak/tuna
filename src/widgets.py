@@ -1,11 +1,13 @@
 import os
 from PyQt5.QtCore import Qt, pyqtSignal
 from PyQt5.QtWidgets import \
-  QVBoxLayout, QHBoxLayout, \
   QWidget, QDialog, QPushButton, QCheckBox, QLabel, \
   QSplitter, QTreeWidget, QTreeWidgetItem
 
 from sheetwidgets import SheetWidget
+from commonwidgets import VBoxLayout, HBoxLayout
+
+
 
 class SelectColumnDialog(QDialog):
   def __init__(self, c, cname, unselect, x, y):
@@ -18,9 +20,9 @@ class SelectColumnDialog(QDialog):
     buttons.append([(True, 'Y%d' % (y_ + 1), (lambda y_: lambda: self.Y(y_))(y_)) for y_ in y])
 
 
-    btnlayout = QVBoxLayout()
+    btnlayout = VBoxLayout()
     for r in buttons:
-      row = QHBoxLayout()
+      row = HBoxLayout()
       btnlayout.addLayout(row)
       for enable, text, func in r:
         btn = QPushButton(text)
@@ -32,11 +34,11 @@ class SelectColumnDialog(QDialog):
 
     btn = QPushButton('Cancel')
     btn.clicked.connect(self.reject)
-    btnbar2 = QHBoxLayout()
+    btnbar2 = HBoxLayout()
     btnbar2.addStretch(1)
     btnbar2.addWidget(btn)
 
-    vbox = QVBoxLayout()
+    vbox = VBoxLayout()
     vbox.addWidget(QLabel('Use column "%s" for:' % cname))
     vbox.addLayout(btnlayout)
     vbox.addWidget(self.applyToAllSheets)

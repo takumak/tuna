@@ -9,8 +9,8 @@ from PyQt5.QtWidgets import \
   QButtonGroup, QRadioButton, QComboBox, QTableWidgetItem, \
   QAbstractScrollArea, QHeaderView, QApplication, QFileDialog
 
-from tools import CubicSpline, Barycentric, Krogh, Pchip, Akima, \
-  ToolBase, FitTool, IADTool
+from tools import ToolBase, FitTool, IADTool
+from interpolation import CubicSpline, Barycentric, Krogh, Pchip, Akima
 from commonwidgets import TableWidget, HSeparator, VBoxLayout, HBoxLayout
 
 

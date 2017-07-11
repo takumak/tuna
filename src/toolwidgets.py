@@ -64,13 +64,10 @@ class IADToolWidget(ToolWidgetBase):
     self.linesTable.cellChanged.connect(self.linesTableCellChanged)
     vbox.addWidget(self.linesTable)
 
-    self.copyResultButton = QPushButton('Copy result')
+    self.copyResultButton = QPushButton('Copy')
     self.copyResultButton.clicked.connect(lambda c: self.copyResult())
-    self.exportXlsxButton = QPushButton('Export xlsx')
-    self.exportXlsxButton.clicked.connect(lambda c: self.exportXlsx())
     hbox = HBoxLayout()
     hbox.addWidget(self.copyResultButton)
-    hbox.addWidget(self.exportXlsxButton)
     hbox.addStretch(1)
     vbox.addLayout(hbox)
 
@@ -123,10 +120,11 @@ class IADToolWidget(ToolWidgetBase):
     vbox.addWidget(HSeparator())
 
 
-    buttons = [('Plot original', self.plotOriginal),
+    buttons = [('Plot original',      self.plotOriginal),
                ('Plot with X offset', self.plotXoffset),
-               ('Plot differences', self.plotDifferences),
-               ('Plot IAD', self.plotIAD)]
+               ('Plot differences',   self.plotDifferences),
+               ('Plot IAD',           self.plotIAD),
+               ('Export xls',         self.exportXls)]
     grid = QGridLayout()
     vbox.addLayout(grid)
     for i, (l, f) in enumerate(buttons):
@@ -150,7 +148,7 @@ class IADToolWidget(ToolWidgetBase):
       rows.append(row)
     QApplication.clipboard().setText('\n'.join(['\t'.join(r) for r in rows]))
 
-  def exportXlsx(self):
+  def exportXls(self):
     from functions import getTableColumnLabel
     def cellName(r, c, absx='', absy=''):
       return '%s%s%s%d' % (absx, getTableColumnLabel(c), absy, r+1)

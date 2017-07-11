@@ -59,7 +59,7 @@ class SelectColumnDialog(QDialog):
 
 
 class SourcesWidget(QSplitter):
-  selectionChanged = pyqtSignal(name='selectionChanged')
+  updateRequested = pyqtSignal(name='updateRequested')
 
   def __init__(self):
     super().__init__(Qt.Horizontal)
@@ -69,6 +69,7 @@ class SourcesWidget(QSplitter):
     self.addWidget(self.blank)
 
     self.tree.itemSelectionChanged.connect(self.itemSelectionChanged)
+    self.tree.itemChanged.connect(lambda item, col: self.updateRequested.emit())
 
     self.sheets = []
 
@@ -89,7 +90,7 @@ class SourcesWidget(QSplitter):
     dlg = SelectColumnDialog(c, getTableColumnLabel(c), unselect, x, y)
     if dlg.exec_() == dlg.Accepted:
       if dlg.applyToAllSheets.isChecked():
-        sheets = self.sourcesTabWidget.getAllWidgets()
+        sheets = self.siblingSheetWidgets(sheetwidget)
       else:
         sheets = [sheetwidget]
 
@@ -107,7 +108,7 @@ class SourcesWidget(QSplitter):
       for sheet in sheets:
         getattr(sheet, func)(*args)
 
-      self.update()
+      self.updateRequested.emit()
 
   def topLevelItemForFilename(self, filename):
     for i in range(self.tree.topLevelItemCount()):
@@ -161,3 +162,16 @@ class SourcesWidget(QSplitter):
 
   def enabledSheetWidgets(self):
     return sum([[sw for sw, c in sheets if c] for fn, c, sheets in self.files() if c], [])
+
+  def siblingSheetWidgets(self, sheetwidget):
+    for i in range(self.tree.topLevelItemCount()):
+      fitem = self.tree.topLevelItem(i)
+      widgets = []
+      hit = False
+      for j in range(fitem.childCount()):
+        sitem = fitem.child(j)
+        sw = sitem.data(0, Qt.UserRole)[0]
+        if sitem.checkState(0) == Qt.Checked: widgets.append(sw)
+        if sw == sheetwidget: hit = True
+      return widgets
+    return []

@@ -35,7 +35,7 @@ class MainWindow(QMainWindow):
     self.setCentralWidget(self.graphWidget)
 
     self.sourcesWidget = SourcesWidget()
-    self.sourcesWidget.selectionChanged.connect(self.update)
+    self.sourcesWidget.updateRequested.connect(self.update)
     self.sourcesWidget.hide()
     self.sourcesDockWidget = QDockWidget('Sources')
     self.sourcesDockWidget.setObjectName('dock_sources')

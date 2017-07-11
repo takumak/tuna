@@ -2,7 +2,7 @@ import os
 from PyQt5.QtCore import Qt, pyqtSignal
 from PyQt5.QtWidgets import \
   QWidget, QDialog, QPushButton, QCheckBox, QLabel, \
-  QSplitter, QTreeWidget, QTreeWidgetItem
+  QSplitter, QTreeWidget, QTreeWidgetItem, QFileDialog
 
 from sheetwidgets import SheetWidget
 from commonwidgets import VBoxLayout, HBoxLayout
@@ -145,6 +145,10 @@ class SourcesWidget(QSplitter):
       item.setCheckState(0, Qt.Checked if checked else Qt.Unchecked)
       pitem.addChild(item)
 
+  def removeAllFiles(self):
+    while self.tree.topLevelItemCount() > 0:
+      self.tree.takeTopLevelItem(0)
+
   def files(self):
     files = []
 
@@ -178,3 +182,39 @@ class SourcesWidget(QSplitter):
         if sw == sheetwidget: hit = True
       return widgets
     return []
+
+
+
+class FileDialog(QFileDialog):
+  params = {
+    'file_import':    ('Import file',  QFileDialog.AcceptOpen, QFileDialog.ExistingFiles, 'Any files (*)', None),
+    'session_open':   ('Open session', QFileDialog.AcceptOpen, QFileDialog.ExistingFiles, 'Session files (*.json)', None),
+    'session_save':   ('Save session', QFileDialog.AcceptSave, QFileDialog.AnyFile,       'Session files (*.json)', 'json'),
+    'iad_export_xls': ('Export xls',   QFileDialog.AcceptSave, QFileDialog.AnyFile,       'Excel files (*.xls)', 'xls')
+  }
+  state = None
+  states = {}
+
+  def __init__(self, name):
+    super().__init__()
+    title, acceptmode, filemode, namefilter, suffix = self.params[name]
+    self.name = name
+    self.setWindowTitle(title)
+    self.setAcceptMode(acceptmode)
+    self.setFileMode(filemode)
+    self.setNameFilter(namefilter)
+    if suffix: self.setDefaultSuffix(suffix)
+
+  def exec_(self):
+    cls = self.__class__
+    if self.name in cls.states:
+      if cls.state: self.restoreState(cls.state)
+      st = cls.states[self.name]
+      if 'dir' in st: self.setDirectory(st['dir'])
+
+    ret = super().exec_()
+
+    if ret == self.Accepted:
+      cls.state = self.saveState()
+      cls.states[self.name] = {'dir': self.directory().absolutePath()}
+    return ret

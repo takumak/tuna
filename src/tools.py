@@ -51,7 +51,6 @@ class IADTool(ToolBase):
     self.base = -1
     self.bgsub = None
     self.interp = None
-    self.interpEnabled = True
     self.interpdx = 0.01
     self.threshold = 1e-10
     self.lines = None
@@ -91,11 +90,6 @@ class IADTool(ToolBase):
 
     return xoff, X1, X2
 
-  def doInterpIfEnabled(self, lines):
-    if self.interpEnabled:
-      return [self.doInterp(l) for l in lines]
-    return lines
-
   def updatePeaks(self, lines):
     self.peaks = [l.peak() for l in lines]
     self.peaksUpdated.emit()
@@ -113,12 +107,12 @@ class IADTool(ToolBase):
     if mode is None:
       mode = self.mode
 
+    baseidx = self.base
     try:
-      base = self.lines[self.base]
+      base = self.lines[baseidx]
     except IndexError:
-      self.base = -1
       base = self.lines[-1]
-    # wc = self.doInterp(base).weightCenter()
+      baseidx = -1
 
 
     lines = self.lines
@@ -137,7 +131,7 @@ class IADTool(ToolBase):
 
 
     diff = []
-    base = lines_off[self.base]
+    base = lines_off[baseidx]
     for l in lines_off:
       if len(l.x) == 0 or len(base.x) == 0:
         diff.append(Line([], [], l.name))
@@ -152,7 +146,7 @@ class IADTool(ToolBase):
 
 
     if mode == 'orig':
-      return self.updatePeaks(self.doInterpIfEnabled(lines))
+      return self.updatePeaks(lines)
 
     if mode == 'xoff':
       return self.updatePeaks(lines_off)

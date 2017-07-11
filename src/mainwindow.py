@@ -1,11 +1,13 @@
 import sys, os
 import logging
 import html
-import json, base64
+import json
+from base64 import b64decode, b64encode
 from PyQt5.QtCore import Qt, QRectF
 from PyQt5.QtGui import QTextCursor, QKeySequence
 from PyQt5.QtWidgets import \
-  QMainWindow, QFileDialog, QTextEdit, QDockWidget
+  QMainWindow, QTextEdit, QDockWidget, \
+  QMenuBar, QMenu, QAction
 
 
 import log
@@ -15,21 +17,40 @@ from graphwidgets import GraphWidget
 from tools import NopTool
 from toolwidgets import FitToolWidget, IADToolWidget
 from commonwidgets import TabWidgetWithCheckBox
-from widgets import SourcesWidget
+from widgets import SourcesWidget, FileDialog
 
 
 
 class MainWindow(QMainWindow):
   saveStateVersion = 1
 
-  def __init__(self, config_filename):
+  def __init__(self, configFilename):
     super().__init__()
-    self.config_filename = config_filename
-    self.fileToolBar = self.addToolBar('File')
-    self.fileToolBar.setObjectName('toolbar_File')
-    act_open = self.fileToolBar.addAction('Open')
-    act_open.setShortcut(QKeySequence.Open)
-    act_open.triggered.connect(self.showOpenFileDialog)
+    self.configFilename = configFilename
+
+
+    actions = [
+      ('act_file_import',     '&Import file',    QKeySequence(Qt.CTRL | Qt.Key_I), self.showImportFileDialog),
+      ('act_session_open',    '&Open session',   QKeySequence.Open, self.showOpenSessionDialog),
+      ('act_session_save',    '&Save session',   QKeySequence.Save, self.saveSession),
+      ('act_session_save_as', 'Save session as', QKeySequence.SaveAs, lambda: self.saveSession(True)),
+    ]
+
+    for name, label, key, func in actions:
+      act = QAction(label)
+      act.setShortcut(key)
+      act.triggered.connect(func)
+      setattr(self, name, act)
+
+    menubar = self.menuBar()
+    filemenu = menubar.addMenu('&File')
+    filemenu.addAction(self.act_file_import)
+
+    sessionmenu = menubar.addMenu('&Session')
+    sessionmenu.addAction(self.act_session_open)
+    sessionmenu.addAction(self.act_session_save)
+    sessionmenu.addAction(self.act_session_save_as)
+
 
     self.graphWidget = GraphWidget()
     self.setCentralWidget(self.graphWidget)
@@ -76,6 +97,7 @@ class MainWindow(QMainWindow):
     self.resize(1000, 800)
     self.setAcceptDrops(True)
 
+    self.sessionFilename = None
     self.loadConfig()
 
     logging.info('Drag and drop here to open multiple files')
@@ -101,14 +123,12 @@ class MainWindow(QMainWindow):
       ev.acceptProposedAction()
       self.openFiles(files)
 
-  def showOpenFileDialog(self):
-    dlg = QFileDialog()
-    dlg.setAcceptMode(QFileDialog.AcceptOpen)
-    dlg.setFileMode(QFileDialog.ExistingFiles)
+  def showImportFileDialog(self):
+    dlg = FileDialog('file_import')
     if dlg.exec_() == dlg.Accepted:
-      self.openFiles([os.path.realpath(f) for f in dlg.selectedFiles()])
+      self.importFiles([os.path.realpath(f) for f in dlg.selectedFiles()])
 
-  def openFiles(self, filenames):
+  def importFiles(self, filenames):
     for filename in filenames:
       try:
         f = fileloader.load(filename)
@@ -163,23 +183,38 @@ class MainWindow(QMainWindow):
     self.saveConfig()
     ev.accept()
 
-  def loadConfig(self):
-    if not os.path.exists(self.config_filename):
+  def showOpenSessionDialog(self):
+    dlg = FileDialog('session_open')
+    if dlg.exec_() != dlg.Accepted:
       return
 
-    obj = json.load(open(self.config_filename))
+    filename = os.path.realpath(dlg.selectedFiles()[0])
+    try:
+      self.loadSession(json.load(open(filename)))
+    except:
+      log.excepthook(*sys.exc_info())
+      return
 
-    if 'mainwindow' in obj:
-      mw = obj['mainwindow']
-      if 'state' in mw:
-        state = base64.b64decode(mw['state'])
-        try:
-          self.restoreState(state, self.saveStateVersion)
-        except:
-          log.excepthook(*sys.exc_info())
+    self.sessionFilename = filename
+    self.update()
 
-    if 'files' in obj:
-      for f in obj['files']:
+  def saveSession(self, forceShowDialog=False):
+    if self.sessionFilename is None or forceShowDialog:
+      dlg = FileDialog('session_save')
+      if dlg.exec_() != dlg.Accepted:
+        return
+      self.sessionFilename = os.path.realpath(dlg.selectedFiles()[0])
+
+    obj = self.createSessionData()
+    json.dump(obj, open(self.sessionFilename, 'w'))
+
+  def loadSession(self, sess):
+    logging.debug('Loading session')
+
+    self.sourcesWidget.removeAllFiles()
+
+    if 'files' in sess:
+      for f in sess['files']:
         checked = f['enabled']
         filename = f['filename']
         sheets = []
@@ -200,13 +235,13 @@ class MainWindow(QMainWindow):
 
         self.addFile(filename, checked, sheets)
 
-    if 'graph' in obj:
-      graph = obj['graph']
+    if 'graph' in sess:
+      graph = sess['graph']
       if 'range' in graph:
         self.graphWidget.setRange(QRectF(*graph['range']))
 
-    if 'tools' in obj:
-      tools = obj['tools']
+    if 'tools' in sess:
+      tools = sess['tools']
       for t in self.toolWidgets:
         if t.name() in tools:
           try:
@@ -215,10 +250,7 @@ class MainWindow(QMainWindow):
             log.excepthook(*sys.exc_info())
             pass
 
-    self.update()
-    self.sourcesDockWidget.raise_()
-
-  def saveConfig(self):
+  def createSessionData(self):
     files = []
     for fn, fc, sw_ in self.sourcesWidget.files():
       sheets = []
@@ -238,13 +270,50 @@ class MainWindow(QMainWindow):
     r = self.graphWidget.viewRect()
     obj = {
       'files': files,
-      'mainwindow': {
-        'state': str(base64.b64encode(self.saveState(self.saveStateVersion)), 'ascii')
-      },
-      'tools': dict([(t.name(), t.saveState()) for t in self.toolWidgets]),
       'graph': {
         'range': [r.x(), r.y(), r.width(), r.height()]
-      }
+      },
+      'tools': dict([(t.name(), t.saveState()) for t in self.toolWidgets]),
     }
 
-    json.dump(obj, open(self.config_filename, 'w'))
+    return obj
+
+  def loadConfig(self):
+    if not os.path.exists(self.configFilename):
+      return
+
+    logging.debug('Loading config file')
+    obj = json.load(open(self.configFilename))
+
+    if 'mainwindow' in obj:
+      mw = obj['mainwindow']
+      if 'state' in mw:
+        state = b64decode(mw['state'])
+        try:
+          self.restoreState(state, self.saveStateVersion)
+        except:
+          log.excepthook(*sys.exc_info())
+
+    if 'filedialogs' in obj:
+      fd = obj['filedialogs']
+      if 'state' in fd: FileDialog.state = b64decode(fd['state'])
+      if 'states' in fd: FileDialog.states.update(fd['states'])
+
+    if 'session' in obj:
+      self.loadSession(obj['session'])
+
+    self.update()
+    self.sourcesDockWidget.raise_()
+
+  def saveConfig(self):
+    obj = {
+      'session': self.createSessionData(),
+      'mainwindow': {
+        'state': str(b64encode(self.saveState(self.saveStateVersion)), 'ascii')
+      },
+      'filedialogs': {
+        'state': str(b64encode(FileDialog.state), 'ascii'),
+        'states': FileDialog.states
+      }
+    }
+    json.dump(obj, open(self.configFilename, 'w'))

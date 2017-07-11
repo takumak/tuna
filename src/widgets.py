@@ -68,6 +68,7 @@ class SourcesWidget(QSplitter):
     self.addWidget(self.tree)
     self.addWidget(self.blank)
 
+    self.tree.header().hide()
     self.tree.itemSelectionChanged.connect(self.itemSelectionChanged)
     self.tree.itemChanged.connect(lambda item, col: self.updateRequested.emit())
 

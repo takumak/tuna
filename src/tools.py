@@ -245,8 +245,9 @@ class IADTool(ToolBase):
   def calcXoff(self, lines, base):
     xoff = [0] * len(lines)
 
-    while True:
+    for _p in range(100):
       X1_, X2_ = self.linesInnerRange(lines, xoff)
+      if X1_ == X2_: break
 
       for i, line in enumerate(lines):
         if line == base:
@@ -260,13 +261,16 @@ class IADTool(ToolBase):
 
           dx = wc1 - wc2
           cnt += 1
-          if abs(dx) < self.threshold or cnt > 100:
+          if abs(dx) < self.threshold or cnt > 10:
             break
 
           xoff[i] += dx
 
       if X1 == X1_ and X2 == X2_:
         break
+
+    else:
+      raise RuntimeError('Maximum loop count exceeded')
 
     return xoff, X1, X2
 
@@ -281,8 +285,8 @@ class IADTool(ToolBase):
     return lines
 
   def linesInnerRange(self, lines, xoff):
-    X1 = max([min(l.x+o) for l, o in zip(lines, xoff)])
-    X2 = min([max(l.x+o) for l, o in zip(lines, xoff)])
+    X1 = max([min(l.x+o) for l, o in zip(lines, xoff) if len(l.x) >= 1])
+    X2 = min([max(l.x+o) for l, o in zip(lines, xoff) if len(l.x) >= 1])
     return X1, X2
 
   def getLines(self, mode=None):

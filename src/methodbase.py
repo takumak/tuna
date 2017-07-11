@@ -1,3 +1,6 @@
+from PyQt5.QtWidgets import QGridLayout, QWidget, \
+  QLabel, QSpinBox
+
 class ParamBase:
   def __init__(self, name, label, default):
     self.name = name

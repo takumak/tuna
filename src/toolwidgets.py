@@ -11,6 +11,7 @@ from PyQt5.QtWidgets import \
 
 from tools import ToolBase, FitTool, IADTool
 from interpolation import CubicSpline, Barycentric, Krogh, Pchip, Akima
+from bgsubtraction import BGSubNop, BGSubMinimum, BGSubLeftEdge, BGSubRightEdge
 from commonwidgets import TableWidget, HSeparator, VBoxLayout, HBoxLayout
 
 
@@ -76,6 +77,28 @@ class IADToolWidget(ToolWidgetBase):
     vbox.addWidget(HSeparator())
 
 
+    self.bgsubComboBox = QComboBox()
+    self.bgsubComboBox.currentIndexChanged.connect(self.bgsubSelected)
+    hbox = HBoxLayout()
+    hbox.addWidget(QLabel('BG subtraction'))
+    hbox.addWidget(self.bgsubComboBox)
+    vbox.addLayout(hbox)
+
+    bgsubOptionsLayout = VBoxLayout()
+    bgsubOptionsLayout.setContentsMargins(40, 0, 0, 0)
+    vbox.addLayout(bgsubOptionsLayout)
+
+    self.bgsubOptions = []
+    for bgsub in [BGSubNop(), BGSubMinimum(), BGSubLeftEdge(), BGSubRightEdge()]:
+      opt = bgsub.getOptionsWidget()
+      self.bgsubComboBox.addItem(bgsub.label, [bgsub, opt])
+      if opt:
+        bgsubOptionsLayout.addWidget(opt)
+        self.bgsubOptions.append(opt)
+    self.bgsubComboBox.setCurrentIndex(0)
+    self.bgsubSelected(self.bgsubComboBox.currentIndex())
+
+
     self.interpCheckBox = QCheckBox('Interpolation')
     self.interpCheckBox.setChecked(False)
     self.interpStateChanged(Qt.Unchecked)
@@ -93,16 +116,16 @@ class IADToolWidget(ToolWidgetBase):
     hbox.addWidget(self.interpdxLineEdit)
     vbox.addLayout(hbox)
 
-    self.interpOptionsLayout = VBoxLayout()
-    self.interpOptionsLayout.setContentsMargins(40, 0, 0, 0)
-    vbox.addLayout(self.interpOptionsLayout)
+    interpOptionsLayout = VBoxLayout()
+    interpOptionsLayout.setContentsMargins(40, 0, 0, 0)
+    vbox.addLayout(interpOptionsLayout)
 
     self.interpOptions = []
     for interp in [CubicSpline(), Pchip(), Akima(), Krogh(), Barycentric()]:
       opt = interp.getOptionsWidget()
       self.interpComboBox.addItem(interp.label, [interp, opt])
       if opt:
-        self.interpOptionsLayout.addWidget(opt)
+        interpOptionsLayout.addWidget(opt)
         self.interpOptions.append(opt)
     self.interpComboBox.setCurrentIndex(0)
     self.interpSelected(self.interpComboBox.currentIndex())
@@ -233,6 +256,16 @@ class IADToolWidget(ToolWidgetBase):
 
   def toolSetWCthreshold(self):
     self.tool.threshold = float(self.WCthreshold.text())
+
+  def bgsubSelected(self, idx):
+    bgsub, opt_ = self.bgsubComboBox.currentData()
+    self.tool.bgsub = bgsub
+    for opt in self.bgsubOptions:
+      if opt == opt_:
+        opt.show()
+      else:
+        opt.hide()
+    self.replot()
 
   def interpSelected(self, idx):
     interp, opt_ = self.interpComboBox.currentData()

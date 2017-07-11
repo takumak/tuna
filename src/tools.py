@@ -1,8 +1,6 @@
 import logging
 import numpy as np
 from PyQt5.QtCore import QObject, pyqtSignal
-from PyQt5.QtGui import QDoubleValidator
-from PyQt5.QtWidgets import QWidget, QGridLayout, QLabel, QSpinBox, QLineEdit
 
 
 from line import Line
@@ -51,6 +49,7 @@ class IADTool(ToolBase):
     super().__init__()
     self.mode = 'orig'
     self.base = -1
+    self.bgsub = None
     self.interp = None
     self.interpEnabled = True
     self.interpdx = 0.01
@@ -121,13 +120,21 @@ class IADTool(ToolBase):
       base = self.lines[-1]
     # wc = self.doInterp(base).weightCenter()
 
-    self.xoff, X1, X2 = self.calcXoff(self.lines, base)
+
+    lines = self.lines
+    if self.bgsub:
+      logging.info('Subtract bg: %s' % self.bgsub.label)
+      lines = [l-Line(l.x, self.bgsub.calcY(l, l.x), 'bg') for l in lines]
+
+
+    self.xoff, X1, X2 = self.calcXoff(lines, base)
     self.wc = [self.doInterp(line.xoff(xoff), (X1, X2)).weightCenter()
-               for line, xoff in zip(self.lines, self.xoff)]
+               for line, xoff in zip(lines, self.xoff)]
     self.xoffUpdated.emit()
 
     lines_off = [self.doInterp(l.xoff(xoff), (X1, X2)).normalize()
-                 for l, xoff in zip(self.lines, self.xoff)]
+                 for l, xoff in zip(lines, self.xoff)]
+
 
     diff = []
     base = lines_off[self.base]
@@ -143,8 +150,9 @@ class IADTool(ToolBase):
     self.iadYUpdated.emit()
     IAD = Line(x, y, 'IAD')
 
+
     if mode == 'orig':
-      return self.updatePeaks(self.doInterpIfEnabled(self.lines))
+      return self.updatePeaks(self.doInterpIfEnabled(lines))
 
     if mode == 'xoff':
       return self.updatePeaks(lines_off)

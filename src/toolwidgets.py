@@ -73,32 +73,31 @@ class IADToolWidget(ToolWidgetBase):
     hbox.addStretch(1)
     vbox.addLayout(hbox)
 
+
     vbox.addStretch(1)
     vbox.addWidget(HSeparator())
 
 
-    self.optionsGrid = QGridLayout()
-    vbox.addLayout(self.optionsGrid)
-
+    self.interpCheckBox = QCheckBox('Interpolation')
+    self.interpCheckBox.setChecked(False)
+    self.interpStateChanged(Qt.Unchecked)
+    self.interpCheckBox.stateChanged.connect(self.interpStateChanged)
     self.interpComboBox = QComboBox()
     self.interpComboBox.currentIndexChanged.connect(self.interpSelected)
     self.interpdxLineEdit = QLineEdit()
     self.interpdxLineEdit.setValidator(QDoubleValidator())
     self.interpdxLineEdit.textChanged.connect(lambda t: self.toolSetInterpdx)
     self.interpdxLineEdit.setText('%g' % self.tool.interpdx)
-    self.interpOptionsLayout = QVBoxLayout()
-    self.interpOptionsLayout.setContentsMargins(40, 0, 0, 0)
-    self.interpCheckBox = QCheckBox('Interpolation')
-    self.interpCheckBox.setChecked(False)
-    self.interpStateChanged(Qt.Unchecked)
-    self.interpCheckBox.stateChanged.connect(self.interpStateChanged)
-    self.optionsGrid.addWidget(self.interpCheckBox, 0, 0)
     hbox = QHBoxLayout()
+    hbox.addWidget(self.interpCheckBox)
     hbox.addWidget(self.interpComboBox)
     hbox.addWidget(QLabel('dx'))
     hbox.addWidget(self.interpdxLineEdit)
-    self.optionsGrid.addLayout(hbox, 0, 1)
-    self.optionsGrid.addLayout(self.interpOptionsLayout, 1, 0, 1, 2)
+    vbox.addLayout(hbox)
+
+    self.interpOptionsLayout = QVBoxLayout()
+    self.interpOptionsLayout.setContentsMargins(40, 0, 0, 0)
+    vbox.addLayout(self.interpOptionsLayout)
 
     self.interpOptions = []
     for interp in [CubicSpline(), Pchip(), Akima(), Krogh(), Barycentric()]:
@@ -114,16 +113,28 @@ class IADToolWidget(ToolWidgetBase):
     self.WCthreshold.setValidator(QDoubleValidator())
     self.WCthreshold.textChanged.connect(lambda t: self.toolSetWCthreshold)
     self.WCthreshold.setText('%g' % self.tool.threshold)
-    self.optionsGrid.addWidget(QLabel('Weight center threshold'), 2, 0)
-    self.optionsGrid.addWidget(self.WCthreshold, 2, 1)
+    hbox = QHBoxLayout()
+    hbox.addWidget(QLabel('Weight center threshold'))
+    hbox.addWidget(self.WCthreshold)
+    vbox.addLayout(hbox)
 
-    for l, f in [('Plot original', self.plotOriginal),
-                 ('Plot with X offset', self.plotXoffset),
-                 ('Plot differences', self.plotDifferences),
-                 ('Plot IAD', self.plotIAD)]:
+
+    vbox.addWidget(HSeparator())
+
+
+    buttons = [('Plot original', self.plotOriginal),
+               ('Plot with X offset', self.plotXoffset),
+               ('Plot differences', self.plotDifferences),
+               ('Plot IAD', self.plotIAD)]
+    grid = QGridLayout()
+    vbox.addLayout(grid)
+    for i, (l, f) in enumerate(buttons):
+      c = i%2
+      r = i//2
+
       btn = QPushButton(l)
       btn.clicked.connect(f)
-      vbox.addWidget(btn)
+      grid.addWidget(btn, r, c)
 
     self.tool.xoffUpdated.connect(self.updateXoff)
     self.tool.iadYUpdated.connect(self.updateIADy)
@@ -180,20 +191,20 @@ class IADToolWidget(ToolWidgetBase):
 
     c3 = c2 + len(lines) + 1
     c4 = c3 + 1
-    ws.write(r0, c4, 'Intensity sum')
-    ws.write(r0, c4+1, 'IAD')
-    ws.write(r0, c4+2, 'Weight center')
+    ws.write(r0, c4+0, 'IAD')
+    ws.write(r0, c4+1, 'Weight center')
+    ws.write(r0, c4+2, 'Intensity sum')
     for i, l in enumerate(lines):
       n = l.name
       m = re.search(r'^([\+\-]?\d*(?:\.\d+)?)', l.name)
       if m: n = m.group(1)
 
       r2 = r1+len(l.y)-1
-      f1 = 'sum(%s:%s)' % (cellName(r1, c1+i), cellName(r2, c1+i))
-      f2 = 'sum(%s:%s)' % (cellName(r1, c2+i), cellName(r2, c2+i))
+      f1 = 'sum(%s:%s)' % (cellName(r1, c2+i), cellName(r2, c2+i))
       ry = '%s:%s'      % (cellName(r1, c1+i), cellName(r2, c1+i))
-      f3 = 'sumproduct(%s:%s,%s)/sum(%s)' % (
+      f2 = 'sumproduct(%s:%s,%s)/sum(%s)' % (
         cellName(r1, c0), cellName(r2, c0), ry, ry)
+      f3 = 'sum(%s:%s)' % (cellName(r1, c1+i), cellName(r2, c1+i))
 
       ws.write(r1+i, c3, n)
       ws.write(r1+i, c3+1, xlwt.Formula(f1))

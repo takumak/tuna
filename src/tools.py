@@ -27,7 +27,7 @@ class Line:
     return sum(self.x*self.y)/sum(self.y)
 
   def normalize(self):
-    return self.__class__(self.x, self.y, self.name)
+    return self.__class__(self.x, self.y/sum(self.y), self.name)
 
   def xoff(self, off):
     return self.__class__(self.x + off, self.y, self.name)
@@ -243,7 +243,7 @@ class IADTool(ToolBase):
     return self.interp.do(line, self.interpdx, *args)
 
   def calcXoff(self, line, wc):
-    line_ = self.doInterp(line).normalize()
+    line_ = self.doInterp(line)
     line = line_
     xoff = 0
     cnt = 0

@@ -180,21 +180,25 @@ class IADToolWidget(ToolWidgetBase):
 
     c3 = c2 + len(lines) + 1
     c4 = c3 + 1
-    ws.write(r0, c4, 'IAD')
-    ws.write(r0, c4+1, 'weight center')
-    for r, l in enumerate(lines):
+    ws.write(r0, c4, 'Intensity sum')
+    ws.write(r0, c4+1, 'IAD')
+    ws.write(r0, c4+2, 'Weight center')
+    for i, l in enumerate(lines):
       n = l.name
       m = re.search(r'^([\+\-]?\d*(?:\.\d+)?)', l.name)
       if m: n = m.group(1)
 
-      f1 = 'sum(%s:%s)' % (cellName(r1, c2+c), cellName(r1+len(l.y), c2+c))
-      ry = '%s:%s' % (cellName(r1, c1+c), cellName(r1+len(l.y), c1+c))
-      f2 = 'sumproduct(%s:%s,%s)/sum(%s)' % (
-        cellName(r1, c0), cellName(r1+len(l.y), c0), ry, ry)
+      r2 = r1+len(l.y)-1
+      f1 = 'sum(%s:%s)' % (cellName(r1, c1+i), cellName(r2, c1+i))
+      f2 = 'sum(%s:%s)' % (cellName(r1, c2+i), cellName(r2, c2+i))
+      ry = '%s:%s'      % (cellName(r1, c1+i), cellName(r2, c1+i))
+      f3 = 'sumproduct(%s:%s,%s)/sum(%s)' % (
+        cellName(r1, c0), cellName(r2, c0), ry, ry)
 
-      ws.write(r1+r, c3, n)
-      ws.write(r1+r, c3+1, xlwt.Formula(f1))
-      ws.write(r1+r, c3+2, xlwt.Formula(f2))
+      ws.write(r1+i, c3, n)
+      ws.write(r1+i, c3+1, xlwt.Formula(f1))
+      ws.write(r1+i, c3+2, xlwt.Formula(f2))
+      ws.write(r1+i, c3+3, xlwt.Formula(f3))
 
     wb.save(filename)
 
@@ -328,8 +332,7 @@ class IADToolWidget(ToolWidgetBase):
     if not self.tool.lines:
       return
 
-    autoRange = (mode != self.tool.mode
-                 and not set([mode, self.tool.mode]) <= set(['orig', 'xoff']))
+    autoRange = mode != self.tool.mode
 
     logging.info('IAD: Plot %s (auto range: %s)' % (mode, autoRange))
 

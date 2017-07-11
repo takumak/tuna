@@ -242,19 +242,33 @@ class IADTool(ToolBase):
   def doInterp(self, line, *args):
     return self.interp.do(line, self.interpdx, *args)
 
-  def calcXoff(self, line, wc):
-    line_ = self.doInterp(line)
-    line = line_
-    xoff = 0
-    cnt = 0
+  def calcXoff(self, lines, base):
+    xoff = [0] * len(lines)
+
     while True:
-      wc2 = line.weightCenter()
-      dx = wc - wc2
-      cnt += 1
-      if abs(dx) < self.threshold or cnt > 100:
-        return xoff, wc2
-      xoff += dx
-      line = line_.xoff(xoff)
+      X1_, X2_ = self.linesInnerRange(lines, xoff)
+
+      for i, line in enumerate(lines):
+        if line == base:
+          continue
+
+        cnt = 0
+        while True:
+          X1, X2 = self.linesInnerRange(lines, xoff)
+          wc1 = self.doInterp(base,               (X1, X2)).weightCenter()
+          wc2 = self.doInterp(line.xoff(xoff[i]), (X1, X2)).weightCenter()
+
+          dx = wc1 - wc2
+          cnt += 1
+          if abs(dx) < self.threshold or cnt > 100:
+            break
+
+          xoff[i] += dx
+
+      if X1 == X1_ and X2 == X2_:
+        break
+
+    return xoff, X1, X2
 
   def doInterpIfEnabled(self, lines):
     if self.interpEnabled:
@@ -265,6 +279,11 @@ class IADTool(ToolBase):
     self.peaks = [l.peak() for l in lines]
     self.peaksUpdated.emit()
     return lines
+
+  def linesInnerRange(self, lines, xoff):
+    X1 = max([min(l.x+o) for l, o in zip(lines, xoff)])
+    X2 = min([max(l.x+o) for l, o in zip(lines, xoff)])
+    return X1, X2
 
   def getLines(self, mode=None):
     if not self.lines:
@@ -278,22 +297,13 @@ class IADTool(ToolBase):
     except IndexError:
       self.base = -1
       base = self.lines[-1]
-    wc = self.doInterp(base).weightCenter()
+    # wc = self.doInterp(base).weightCenter()
 
-    self.wc = []
-    self.xoff = []
-    for i, l in enumerate(self.lines):
-      if l == base:
-        self.wc.append(wc)
-        self.xoff.append(0)
-      else:
-        xoff, wc = self.calcXoff(l, wc)
-        self.wc.append(wc)
-        self.xoff.append(xoff)
+    self.xoff, X1, X2 = self.calcXoff(self.lines, base)
+    self.wc = [self.doInterp(line.xoff(xoff), (X1, X2)).weightCenter()
+               for line, xoff in zip(self.lines, self.xoff)]
     self.xoffUpdated.emit()
 
-    X1 = max([min(l.x+xoff) for l, xoff in zip(self.lines, self.xoff)])
-    X2 = min([max(l.x+xoff) for l, xoff in zip(self.lines, self.xoff)])
     lines_off = [self.doInterp(l.xoff(xoff), (X1, X2)).normalize()
                  for l, xoff in zip(self.lines, self.xoff)]
 

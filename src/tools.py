@@ -52,7 +52,7 @@ class IADTool(ToolBase):
     self.base = -1
     self.bgsub = None
     self.interp = None
-    self.interpdx = 0.01
+    self.interpdx = 0.1
     self.threshold = 1e-10
     self.lines = None
 
@@ -121,6 +121,9 @@ class IADTool(ToolBase):
       logging.info('Subtract bg: %s' % self.bgsub.label)
       lines = [l-Line(l.x, self.bgsub.calcY(l, l.x), 'bg') for l in lines]
 
+    if mode == 'orig':
+      return self.updatePeaks(lines)
+
 
     self.xoff, X1, X2 = self.calcXoff(lines, base)
     self.wc = [self.doInterp(line.xoff(xoff), (X1, X2)).weightCenter()
@@ -145,9 +148,6 @@ class IADTool(ToolBase):
     self.iadYUpdated.emit()
     IAD = Line(x, y, 'IAD')
 
-
-    if mode == 'orig':
-      return self.updatePeaks(lines)
 
     if mode == 'xoff':
       return self.updatePeaks(lines_off)

@@ -152,7 +152,8 @@ class IADTool(ToolBase):
 
     self.xoff, X1, X2 = self.calcXoff(self.lines, linesF, baseF)
     x = np.arange(X1, X2, self.interpdx)
-    lines_off = [Line(x, f(x-xoff), l.name) for l, f, xoff in zip(self.lines, linesF, self.xoff)]
+    lines_off = [Line(x, f(x-xoff), l.name).normalize()
+                 for l, f, xoff in zip(self.lines, linesF, self.xoff)]
 
     self.wc = [l.weightCenter() for l in lines_off]
     self.xoffUpdated.emit()

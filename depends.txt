@@ -7,3 +7,4 @@ pyexcel-io
 pyexcel-xls
 pyexcel-odsr
 xlsxwriter
+sympy

@@ -1,3 +1,4 @@
+import re
 from PyQt5.QtCore import Qt, QVariant, pyqtSignal
 from PyQt5.QtGui import QBrush
 from PyQt5.QtWidgets import QTableWidgetItem
@@ -7,6 +8,8 @@ from functions import getTableColumnLabel
 
 
 class SheetWidget(TableWidget):
+  class InvalidFormulaError(Exception): pass
+
   useColumnRequested = pyqtSignal(int, str, bool, name='useColumnRequested')
 
   def __init__(self, sheet):
@@ -20,70 +23,53 @@ class SheetWidget(TableWidget):
       for r in range(sheet.rowCount()):
         self.setItem(r, c, QTableWidgetItem(str(self.sheet.getValue(r, c))))
 
-    self.x = None
-    self.y = []
-    self.setX(0)
-    self.selectY(1, 0)
+  def freeFunctions(self, expr):
+    from sympy.core.function import UndefinedFunction
+    ret = set()
+    if expr.is_Atom:
+      return ret
+    if expr.is_Function and isinstance(type(expr), UndefinedFunction):
+      ret.add(expr)
+    return ret.union(*(self.free_functions(a) for a in expr.args))
 
-  def useColumnCandidates(self, c):
-    unselect = c in self.y and len(self.y) >= 2
-    x = c != self.x
-    y = list(range(0, len(self.y) + (0 if c == self.x or c in self.y else 1)))
-    return unselect, x, y
+  def parseFormula(self, formula):
+    from functions import parseTableColumnLabel
+    from sympy.parsing.sympy_parser import parse_expr
 
-  def getColumn(self, c):
+    exprs = parse_expr(formula)
+    if not isinstance(expr, tuple):
+      exprs = exprs,
+
     ret = []
-    for r in range(self.rowCount()):
-      item = self.item(r, c)
-      if item:
-        ret.append(item.text())
-      else:
-        ret.append(0)
+    for expr in exprs:
+      freefunc = self.freeFunctions(expr)
+      if freefunc:
+        raise self.InvalidFormulaError('Undefined functions: %s' % ','.join(freefunc))
+
+      variables = []
+      for sym in expr.free_symbols:
+        if not re.match(r'\A[A-Z]+\Z', sym.name):
+          raise self.InvalidFormulaError('Invalid variable: %s' % sym.name)
+        c = parseTableColumnLabel(sym.name)
+        if c >= self.sheet.colCount():
+          raise self.InvalidFormulaError('The sheet does not have such a column: %s' % sym.name)
+        variables.append((sym, c))
+
+      ret.append((expr, variables))
+
     return ret
 
-  def getX(self):
-    return getTableColumnLabel(self.x), self.getColumn(self.x)
-
-  def getY(self):
-    return [(getTableColumnLabel(c), self.getColumn(c)) for c in self.y]
-
-  def setX(self, c):
-    if c in self.y:
-      self.y[self.y.index(c)] = self.x
-    self.x = c
-    self.updateHeaderState()
-
-  def setY(self, y):
-    self.y = y
-    self.updateHeaderState()
-
-  def selectY(self, c, yn):
-    if c == self.x:
-      self.x = self.y[yn]
-    elif c in self.y:
-      self.y[self.y.index(c)] = self.y[yn]
-
-    if yn == len(self.y):
-      self.y.append(c)
-    else:
-      self.y[yn] = c
-    self.updateHeaderState()
-
-  def unselect(self, c):
-    if c in self.y:
-      self.y.remove(c)
-    self.updateHeaderState()
-
-  def updateHeaderState(self):
-    for c in range(self.columnCount()):
-      item = self.horizontalHeaderItem(c)
-      label = getTableColumnLabel(c)
-      if c == self.x:
-        item.setBackground(Qt.red)
-        label += ' (X)'
-      elif c in self.y:
-        item.setBackground(Qt.blue)
-        label += ' (Y%d)' % (self.y.index(c) + 1)
-      else:
-        item.setData(Qt.BackgroundRole, QVariant())
-      item.setText(label)
+  def evalFormula(self, formula):
+    exprs = self.parseFormula(formula)
+    rows = []
+    for r in range(self.rowCount()):
+      cols = []
+      for expr, variables in exprs:
+        try:
+          subs = dict([(sym, sheet.getValue(r, c)) for sym, c in variables])
+          val = expr.evalf(**subs)
+        except:
+          val = None
+        cols.append(val)
+      rows.append(cols)
+    return rows

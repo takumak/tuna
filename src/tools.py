@@ -60,34 +60,47 @@ class IADTool(ToolBase):
     return self.interp.do(line, self.interpdx, *args)
 
   def calcXoff(self, lines, base):
-    xoff = [0] * len(lines)
+    import cProfile, pstats, io
+    pr = cProfile.Profile()
+    pr.enable()
 
-    for _p in range(100):
-      X1_, X2_ = self.linesInnerRange(lines, xoff)
-      if X1_ == X2_: break
+    try:
+      xoff = [0] * len(lines)
 
-      for i, line in enumerate(lines):
-        if line == base:
-          continue
+      for _p in range(len(lines)*2):
+        X1_, X2_ = self.linesInnerRange(lines, xoff)
+        if X1_ == X2_: break
 
-        cnt = 0
-        while True:
-          X1, X2 = self.linesInnerRange(lines, xoff)
-          wc1 = self.doInterp(base,               (X1, X2)).weightCenter()
-          wc2 = self.doInterp(line.xoff(xoff[i]), (X1, X2)).weightCenter()
+        for i, line in enumerate(lines):
+          if line == base:
+            continue
 
-          dx = wc1 - wc2
-          cnt += 1
-          if abs(dx) < self.threshold or cnt > 10:
-            break
+          cnt = 0
+          while True:
+            X1, X2 = self.linesInnerRange(lines, xoff)
+            wc1 = self.doInterp(base,               (X1, X2)).weightCenter()
+            wc2 = self.doInterp(line.xoff(xoff[i]), (X1, X2)).weightCenter()
 
-          xoff[i] += dx
+            dx = wc1 - wc2
+            cnt += 1
+            if abs(dx) < self.threshold or cnt > 10:
+              break
 
-      if X1 == X1_ and X2 == X2_:
-        break
+            xoff[i] += dx
 
-    else:
-      raise RuntimeError('Maximum loop count exceeded')
+        if X1 == X1_ and X2 == X2_:
+          break
+
+      else:
+        raise RuntimeError('Maximum loop count exceeded')
+
+    finally:
+      pr.disable()
+      s = io.StringIO()
+      sortby = 'cumulative'
+      ps = pstats.Stats(pr, stream=s).sort_stats(sortby)
+      ps.print_stats()
+      logging.info(s.getvalue())
 
     return xoff, X1, X2
 

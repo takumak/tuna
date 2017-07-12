@@ -121,7 +121,7 @@ class MainWindow(QMainWindow):
 
     if files:
       ev.acceptProposedAction()
-      self.openFiles(files)
+      self.importFiles(files)
 
   def showImportFileDialog(self):
     dlg = FileDialog('file_import')
@@ -296,7 +296,8 @@ class MainWindow(QMainWindow):
 
     if 'filedialogs' in obj:
       fd = obj['filedialogs']
-      if 'state' in fd: FileDialog.state = b64decode(fd['state'])
+      if 'state' in fd and fd['state'] is not None:
+        FileDialog.state = b64decode(fd['state'])
       if 'states' in fd: FileDialog.states.update(fd['states'])
 
     if 'session' in obj:
@@ -306,13 +307,15 @@ class MainWindow(QMainWindow):
     self.sourcesDockWidget.raise_()
 
   def saveConfig(self):
+    fdstate = None
+    if FileDialog.state is not None: fdstate = str(b64encode(FileDialog.state), 'ascii')
     obj = {
       'session': self.createSessionData(),
       'mainwindow': {
         'state': str(b64encode(self.saveState(self.saveStateVersion)), 'ascii')
       },
       'filedialogs': {
-        'state': str(b64encode(FileDialog.state), 'ascii'),
+        'state': fdstate,
         'states': FileDialog.states
       }
     }

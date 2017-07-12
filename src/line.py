@@ -25,7 +25,7 @@ class Line:
   def weightCenter(self):
     if len(self.x) == 0:
       return 0
-    return sum(self.x*self.y)/sum(self.y)
+    return np.sum(self.x*self.y)/np.sum(self.y)
 
   def normalize(self):
     return self.__class__(self.x, self.y/sum(self.y), self.name)

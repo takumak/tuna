@@ -19,6 +19,7 @@ class ToolBase(QObject):
     self.cleared.emit()
 
   def add(self, x, y, name):
+    x, y = Line.cleanUp(x, y)
     l = Line(x, y, name)
     self.lines.append(l)
     self.added.emit(l)

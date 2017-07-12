@@ -4,6 +4,12 @@ import numpy as np
 
 class Line:
   def __init__(self, x, y, name):
+    self.x = x
+    self.y = y
+    self.name = name
+
+  @classmethod
+  def cleanUp(cls, x, y):
     X, Y = [], []
     for _x, _y in zip(x, y):
       try:
@@ -14,9 +20,7 @@ class Line:
       except (ValueError, TypeError):
         pass
 
-    self.x = np.array(X)
-    self.y = np.array(Y)
-    self.name = name
+    return np.array(X), np.array(Y)
 
   def weightCenter(self):
     if len(self.x) == 0:

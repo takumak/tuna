@@ -136,8 +136,8 @@ class IADTool(ToolBase):
     if self.bgsub:
       logging.info('Subtract bg: %s' % self.bgsub.label)
       linesF_ = []
-      for f, x in zip(linesF, linesX):
-        fsub = self.bgsub.func(f, x)
+      for l, f, x in zip(self.lines, linesF, linesX):
+        fsub = self.bgsub.func(l, f, x)
         linesF_.append((lambda f, fsub: (lambda x: f(x)-fsub(x)))(f, fsub))
       linesF = linesF_
 

@@ -67,7 +67,7 @@ class IADTool(ToolBase):
     try:
       xoff = [0] * len(lines)
 
-      for _p in range(len(lines)*2):
+      for _p in range(len(lines)*10):
         X1_, X2_ = self.linesInnerRange(lines, xoff)
         if X1_ == X2_: break
 
@@ -121,14 +121,6 @@ class IADTool(ToolBase):
     if mode is None:
       mode = self.mode
 
-    baseidx = self.base
-    try:
-      base = self.lines[baseidx]
-    except IndexError:
-      base = self.lines[-1]
-      baseidx = -1
-
-
     lines = self.lines
     if self.bgsub:
       logging.info('Subtract bg: %s' % self.bgsub.label)
@@ -136,6 +128,14 @@ class IADTool(ToolBase):
 
     if mode == 'orig':
       return self.updatePeaks(lines)
+
+
+    baseidx = self.base
+    try:
+      base = self.lines[baseidx]
+    except IndexError:
+      base = self.lines[-1]
+      baseidx = -1
 
 
     self.xoff, X1, X2 = self.calcXoff(lines, base)

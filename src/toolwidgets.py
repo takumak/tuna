@@ -146,7 +146,7 @@ class IADToolWidget(ToolWidgetBase):
                ('Plot with X offset', self.plotXoffset),
                ('Plot differences',   self.plotDifferences),
                ('Plot IAD',           self.plotIAD),
-               ('Export xls',         self.exportXls)]
+               ('Export xlsx',        self.exportXlsx)]
     grid = QGridLayout()
     vbox.addLayout(grid)
     for i, (l, f) in enumerate(buttons):
@@ -172,12 +172,12 @@ class IADToolWidget(ToolWidgetBase):
       rows.append(row)
     QApplication.clipboard().setText('\n'.join(['\t'.join(r) for r in rows]))
 
-  def exportXls(self):
+  def exportXlsx(self):
     from functions import getTableColumnLabel
     def cellName(r, c, absx='', absy=''):
       return '%s%s%s%d' % (absx, getTableColumnLabel(c), absy, r+1)
 
-    dlg = FileDialog('iad_export_xls')
+    dlg = FileDialog('iad_export_xlsx')
     if dlg.exec_() != dlg.Accepted:
       return
     filename = dlg.selectedFiles()[0]
@@ -186,9 +186,9 @@ class IADToolWidget(ToolWidgetBase):
     lines = self.tool.getLines('xoff')
     base = lines.index(lines[self.tool.base])
 
-    import xlwt
-    wb = xlwt.Workbook()
-    ws = wb.add_sheet('IAD')
+    import xlsxwriter
+    wb = xlsxwriter.Workbook(filename)
+    ws = wb.add_worksheet('IAD')
 
     c0, r0 = 0, 0
     c1, r1 = c0+1, r0+1
@@ -207,8 +207,8 @@ class IADToolWidget(ToolWidgetBase):
     for c, l in enumerate(lines):
       ws.write(r0, c2+c, l.name)
       for r, y in enumerate(l.y):
-        f = 'abs(%s-%s)' % (cellName(r1+r, c1+c), cellName(r1+r, c1+base, '$'))
-        ws.write(r1+r, c2+c, xlwt.Formula(f))
+        f = '=abs(%s-%s)' % (cellName(r1+r, c1+c), cellName(r1+r, c1+base, '$'))
+        ws.write(r1+r, c2+c, f)
 
     c3 = c2 + len(lines) + 1
     c4 = c3 + 1
@@ -218,21 +218,21 @@ class IADToolWidget(ToolWidgetBase):
     for i, l in enumerate(lines):
       n = l.name
       m = re.search(r'^([\+\-]?\d*(?:\.\d+)?)', l.name)
-      if m: n = m.group(1)
+      if m: n = float(m.group(1))
 
       r2 = r1+len(l.y)-1
-      f1 = 'sum(%s:%s)' % (cellName(r1, c2+i), cellName(r2, c2+i))
+      f1 = '=sum(%s:%s)' % (cellName(r1, c2+i), cellName(r2, c2+i))
       ry = '%s:%s'      % (cellName(r1, c1+i), cellName(r2, c1+i))
-      f2 = 'sumproduct(%s:%s,%s)/sum(%s)' % (
+      f2 = '=sumproduct(%s:%s,%s)/sum(%s)' % (
         cellName(r1, c0), cellName(r2, c0), ry, ry)
-      f3 = 'sum(%s:%s)' % (cellName(r1, c1+i), cellName(r2, c1+i))
+      f3 = '=sum(%s:%s)' % (cellName(r1, c1+i), cellName(r2, c1+i))
 
       ws.write(r1+i, c3, n)
-      ws.write(r1+i, c3+1, xlwt.Formula(f1))
-      ws.write(r1+i, c3+2, xlwt.Formula(f2))
-      ws.write(r1+i, c3+3, xlwt.Formula(f3))
+      ws.write(r1+i, c3+1, f1)
+      ws.write(r1+i, c3+2, f2)
+      ws.write(r1+i, c3+3, f3)
 
-    wb.save(filename)
+    wb.close()
 
   def linesTableCellChanged(self, r, c):
     if c == 1:

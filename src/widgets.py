@@ -1,8 +1,10 @@
 import os
 from PyQt5.QtCore import Qt, pyqtSignal
+from PyQt5.QtGui import QCursor
 from PyQt5.QtWidgets import \
   QWidget, QDialog, QPushButton, QCheckBox, QLabel, \
-  QSplitter, QTreeWidget, QTreeWidgetItem, QFileDialog
+  QSplitter, QTreeWidget, QTreeWidgetItem, QFileDialog, \
+  QMenu
 
 from sheetwidgets import SheetWidget
 from commonwidgets import VBoxLayout, HBoxLayout
@@ -65,6 +67,7 @@ class SourcesWidget(QSplitter):
 
   def __init__(self):
     super().__init__(Qt.Horizontal)
+
     self.tree = QTreeWidget()
     self.blank = QWidget()
     self.addWidget(self.tree)
@@ -73,6 +76,12 @@ class SourcesWidget(QSplitter):
     self.tree.header().hide()
     self.tree.itemSelectionChanged.connect(self.itemSelectionChanged)
     self.tree.itemChanged.connect(lambda item, col: self.updateRequested.emit())
+    self.tree.setContextMenuPolicy(Qt.CustomContextMenu)
+    self.tree.customContextMenuRequested.connect(self.treeContextMenuRequested)
+
+    self.fileMenu = QMenu()
+    self.fileMenu.addAction('&Remove file').triggered.connect(
+      lambda: self.removeFile(self.fileMenu.target))
 
     self.sheets = []
 
@@ -182,6 +191,17 @@ class SourcesWidget(QSplitter):
         if sw == sheetwidget: hit = True
       return widgets
     return []
+
+  def removeFile(self, item):
+    idx = self.tree.indexOfTopLevelItem(item)
+    if idx >= 0:
+      self.tree.takeTopLevelItem(idx)
+
+  def treeContextMenuRequested(self, pos):
+    item = self.tree.itemAt(pos)
+    if self.tree.indexOfTopLevelItem(item) >= 0:
+      self.fileMenu.target = item
+      self.fileMenu.exec_(QCursor.pos())
 
 
 

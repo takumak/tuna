@@ -1,11 +1,11 @@
 import numpy as np
 
-from methodbase import MethodBase, ParamInt
+from methodbase import MethodBase, ParamInt, ParamDouble
 
 
 
 class BGSubBase(MethodBase):
-  def calcY(self, line, x):
+  def func(self, lineF, x):
     raise NotImplementedError()
 
 
@@ -14,8 +14,8 @@ class BGSubNop(BGSubBase):
   name  = 'nop'
   label = 'Do nothing'
 
-  def calcY(self, line, x):
-    return np.full(len(x), 0)
+  def func(self, lineF, x):
+    return lambda x: x*0
 
 
 
@@ -23,19 +23,22 @@ class BGSubMinimum(BGSubBase):
   name  = 'minimum'
   label = 'Minimum y'
 
-  def calcY(self, line, x):
-    return np.full(len(x), min(line.y))
+  def func(self, lineF, x):
+    v = min(lineF(x))
+    return lambda x: x/x*v
 
 
 
 class BGSubEdgeBase(BGSubBase):
   def __init__(self):
     super().__init__()
-    self.addParam(ParamInt('N', 'Avg by N pts', 1, 99999, 10))
+    self.addParam(ParamDouble('deltaX', '\u0394x', 1))
 
-  def calcY(self, line, x):
-    y = line.y[self.slice()]
-    return np.full(len(x), sum(y)/len(y))
+  def func(self, lineF, x):
+    x1, x2 = self.range(x)
+    y = lineF(np.array([xi for xi in x if x1 <= xi <= x2]))
+    v = np.average(y)
+    return lambda x: x/x*v
 
 
 
@@ -43,8 +46,9 @@ class BGSubLeftEdge(BGSubEdgeBase):
   name  = 'leftedge'
   label = 'Left edge'
 
-  def slice(self):
-    return slice(0, self.N.value())
+  def range(self, x):
+    x1 = min(x)
+    return x1, x1 + self.deltaX.value()
 
 
 
@@ -52,5 +56,6 @@ class BGSubRightEdge(BGSubEdgeBase):
   name  = 'rightedge'
   label = 'Right edge'
 
-  def slice(self):
-    return slice(-self.N.value(), None)
+  def range(self, x):
+    x2 = max(x)
+    return x2 - self.deltaX.value(), x2

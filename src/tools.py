@@ -56,13 +56,13 @@ class IADTool(ToolBase):
     self.threshold = 1e-10
     self.lines = None
 
-  def doInterp(self, line, *args):
-    return self.interp.do(line, self.interpdx, *args)
+  def calcXoff(self, lines, linesF, baseF):
+    # import cProfile, pstats, io
+    # pr = cProfile.Profile()
+    # pr.enable()
 
-  def calcXoff(self, lines, base):
-    import cProfile, pstats, io
-    pr = cProfile.Profile()
-    pr.enable()
+    def weightCenter(x, y):
+      return np.sum(x*y)/np.sum(y)
 
     try:
       xoff = [0] * len(lines)
@@ -71,15 +71,16 @@ class IADTool(ToolBase):
         X1_, X2_ = self.linesInnerRange(lines, xoff)
         if X1_ == X2_: break
 
-        for i, line in enumerate(lines):
-          if line == base:
+        for i, (line, lineF) in enumerate(zip(lines, linesF)):
+          if lineF == baseF:
             continue
 
           cnt = 0
           while True:
             X1, X2 = self.linesInnerRange(lines, xoff)
-            wc1 = self.doInterp(base,               (X1, X2)).weightCenter()
-            wc2 = self.doInterp(line.xoff(xoff[i]), (X1, X2)).weightCenter()
+            x = np.arange(X1, X2, self.interpdx)
+            wc1 = weightCenter(x, baseF(x))
+            wc2 = weightCenter(x, lineF(x-xoff[i]))
 
             dx = wc1 - wc2
             cnt += 1
@@ -95,12 +96,13 @@ class IADTool(ToolBase):
         raise RuntimeError('Maximum loop count exceeded')
 
     finally:
-      pr.disable()
-      s = io.StringIO()
-      sortby = 'cumulative'
-      ps = pstats.Stats(pr, stream=s).sort_stats(sortby)
-      ps.print_stats()
-      logging.info(s.getvalue())
+      # pr.disable()
+      # s = io.StringIO()
+      # sortby = 'cumulative'
+      # ps = pstats.Stats(pr, stream=s).sort_stats(sortby)
+      # ps.print_stats()
+      # logging.info('\n'+s.getvalue())
+      pass
 
     return xoff, X1, X2
 
@@ -114,6 +116,10 @@ class IADTool(ToolBase):
     X2 = min([max(l.x+o) for l, o in zip(lines, xoff) if len(l.x) >= 1])
     return X1, X2
 
+  def interpX(self, line):
+    X1, X2 = min(line.x), max(line.x)
+    return np.arange(X1, X2, self.interpdx)
+
   def getLines(self, mode=None):
     if not self.lines:
       return []
@@ -121,30 +127,35 @@ class IADTool(ToolBase):
     if mode is None:
       mode = self.mode
 
-    lines = self.lines
+    if mode == 'orig':
+      return self.updatePeaks(self.lines)
+
+
+    linesF = [self.interp.func(l) for l in self.lines]
+    linesX = [self.interpX(l) for l in self.lines]
     if self.bgsub:
       logging.info('Subtract bg: %s' % self.bgsub.label)
-      lines = [l-Line(l.x, self.bgsub.calcY(l, l.x), 'bg') for l in lines]
-
-    if mode == 'orig':
-      return self.updatePeaks(lines)
+      linesF_ = []
+      for f, x in zip(linesF, linesX):
+        fsub = self.bgsub.func(f, x)
+        linesF_.append((lambda f, fsub: (lambda x: f(x)-fsub(x)))(f, fsub))
+      linesF = linesF_
 
 
     baseidx = self.base
     try:
-      base = self.lines[baseidx]
+      baseF = linesF[baseidx]
     except IndexError:
-      base = self.lines[-1]
+      baseF = linesF[-1]
       baseidx = -1
 
 
-    self.xoff, X1, X2 = self.calcXoff(lines, base)
-    self.wc = [self.doInterp(line.xoff(xoff), (X1, X2)).weightCenter()
-               for line, xoff in zip(lines, self.xoff)]
-    self.xoffUpdated.emit()
+    self.xoff, X1, X2 = self.calcXoff(self.lines, linesF, baseF)
+    x = np.arange(X1, X2, self.interpdx)
+    lines_off = [Line(x, f(x-xoff), l.name) for l, f, xoff in zip(self.lines, linesF, self.xoff)]
 
-    lines_off = [self.doInterp(l.xoff(xoff), (X1, X2)).normalize()
-                 for l, xoff in zip(lines, self.xoff)]
+    self.wc = [l.weightCenter() for l in lines_off]
+    self.xoffUpdated.emit()
 
 
     diff = []
@@ -159,6 +170,7 @@ class IADTool(ToolBase):
     y = [sum(np.abs(d.y)) for d in diff]
     self.iadY = y
     self.iadYUpdated.emit()
+    x, y = Line.cleanUp(x, y)
     IAD = Line(x, y, 'IAD')
 
 

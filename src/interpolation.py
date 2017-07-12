@@ -24,34 +24,42 @@ class InterpBase(MethodBase):
 
 
 
+class InterpLinear(InterpBase):
+  name    = 'linear'
+  label   = 'Linear'
+
+  def calcY(self, line, x):
+    from scipy.interpolate import interp1d
+    return interp1d(line.x, line.y, 'linear')(x)
+
+
+
 class InterpScipy(InterpBase):
   def calcY(self, line, x):
     import scipy.interpolate as interp
     return getattr(interp, self.clsname)(line.x, line.y)(x)
 
-
-
-class CubicSpline(InterpScipy):
+class InterpCubicSpline(InterpScipy):
   name    = 'cubic_spline'
   label   = 'Cubic spline'
   clsname = 'CubicSpline'
 
-class Barycentric(InterpScipy):
+class InterpBarycentric(InterpScipy):
   name    = 'barycentric'
   label   = 'Barycentric'
   clsname = 'BarycentricInterpolator'
 
-class Krogh(InterpScipy):
+class InterpKrogh(InterpScipy):
   name    = 'krogh'
   label   = 'Krogh'
   clsname = 'KroghInterpolator'
 
-class Pchip(InterpScipy):
+class InterpPchip(InterpScipy):
   name    = 'pchip'
   label   = 'Pchip'
   clsname = 'PchipInterpolator'
 
-class Akima(InterpScipy):
+class InterpAkima(InterpScipy):
   name    = 'akima'
   label   = 'Akima'
   clsname = 'Akima1DInterpolator'

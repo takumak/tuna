@@ -9,7 +9,8 @@ from PyQt5.QtWidgets import \
   QAbstractScrollArea, QHeaderView, QApplication
 
 from tools import ToolBase, FitTool, IADTool
-from interpolation import CubicSpline, Barycentric, Krogh, Pchip, Akima
+from interpolation import InterpLinear, InterpCubicSpline, \
+  InterpBarycentric, InterpKrogh, InterpPchip, InterpAkima
 from bgsubtraction import BGSubNop, BGSubMinimum, BGSubLeftEdge, BGSubRightEdge
 from commonwidgets import TableWidget, HSeparator, VBoxLayout, HBoxLayout
 from widgets import FileDialog
@@ -118,7 +119,8 @@ class IADToolWidget(ToolWidgetBase):
     vbox.addLayout(interpOptionsLayout)
 
     self.interpOptions = []
-    for interp in [CubicSpline(), Pchip(), Akima(), Krogh(), Barycentric()]:
+    for interp in [InterpCubicSpline(), InterpLinear(), InterpPchip(),
+                   InterpAkima(), InterpKrogh(), InterpBarycentric()]:
       opt = interp.getOptionsWidget()
       self.interpComboBox.addItem(interp.label, [interp, opt])
       if opt:

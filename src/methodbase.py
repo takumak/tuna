@@ -2,6 +2,7 @@ from PyQt5.QtGui import QDoubleValidator
 from PyQt5.QtWidgets import QGridLayout, QWidget, \
   QLabel, QSpinBox, QLineEdit
 
+
 class ParamBase:
   def __init__(self, name, label, default):
     self.name = name
@@ -54,6 +55,7 @@ class ParamDouble(ParamBase):
   def createWidget(self):
     edit = QLineEdit()
     edit.setValidator(QDoubleValidator())
+    edit.setText(str(self.value()))
     edit.textChanged.connect(lambda t: self.setValue(float(t)))
     return edit
 

@@ -1,5 +1,4 @@
 import os
-from PyQt5.QtGui import QCursor
 from PyQt5.QtWidgets import \
   QDialog, QPushButton, QCheckBox, QLabel, QFileDialog
 

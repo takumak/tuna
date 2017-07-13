@@ -142,10 +142,11 @@ class IADToolWidget(ToolWidgetBase):
     vbox.addWidget(HSeparator())
 
 
-    buttons = [('Plot original',      self.plotOriginal),
-               ('Plot with X offset', self.plotXoffset),
-               ('Plot differences',   self.plotDifferences),
-               ('Plot IAD',           self.plotIAD),
+    buttons = [('Plot original',      lambda: self.plot('orig')),
+               ('Plot normalized',    lambda: self.plot('norm')),
+               ('Plot with X offset', lambda: self.plot('xoff')),
+               ('Plot differences',   lambda: self.plot('diff')),
+               ('Plot IAD',           lambda: self.plot('iad')),
                ('Export xlsx',        self.exportXlsx)]
     grid = QGridLayout()
     vbox.addLayout(grid)
@@ -345,18 +346,6 @@ class IADToolWidget(ToolWidgetBase):
   def updatePeaks(self):
     for i, peak in enumerate(self.tool.peaks):
       self.setPeak(i, *peak)
-
-  def plotOriginal(self):
-    self.plot('orig')
-
-  def plotXoffset(self):
-    self.plot('xoff')
-
-  def plotDifferences(self):
-    self.plot('diff')
-
-  def plotIAD(self):
-    self.plot('iad')
 
   def replot(self):
     self.plot(self.tool.mode)

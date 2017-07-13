@@ -133,6 +133,9 @@ class IADTool(ToolBase):
     if mode == 'orig':
       return self.updatePeaks(self.lines)
 
+    if mode == 'norm':
+      return self.updatePeaks([l.normalize() for l in self.lines])
+
 
     linesF = [self.interp.func(l) for l in self.lines]
     linesX = [self.interpX(l) for l in self.lines]

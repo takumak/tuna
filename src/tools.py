@@ -57,6 +57,9 @@ class IADTool(ToolBase):
     self.lines = None
 
   def calcXoff(self, lines, linesF, baseF):
+    if len(lines) == 1:
+      return [0], min(lines[0].x), max(lines[0].x)
+
     # import cProfile, pstats, io
     # pr = cProfile.Profile()
     # pr.enable()

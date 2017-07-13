@@ -1,75 +1,57 @@
 import re
+import numpy as np
 from PyQt5.QtCore import Qt, QVariant, pyqtSignal
 from PyQt5.QtGui import QBrush
-from PyQt5.QtWidgets import QTableWidgetItem
+from PyQt5.QtWidgets import \
+  QWidget, QTableWidgetItem, QGridLayout, QLabel, QLineEdit
 
-from commonwidgets import TableWidget
+from commonwidgets import TableWidget, VBoxLayout
 from functions import getTableColumnLabel
 
 
-class SheetWidget(TableWidget):
-  class InvalidFormulaError(Exception): pass
-
-  useColumnRequested = pyqtSignal(int, str, bool, name='useColumnRequested')
+class SheetWidget(QWidget):
 
   def __init__(self, sheet):
     super().__init__()
     self.sheet = sheet
-    self.setColumnCount(sheet.colCount())
-    self.setRowCount(sheet.rowCount())
+
+    vbox = VBoxLayout()
+    self.setLayout(vbox)
+
+    self.xLineEdit = QLineEdit()
+    self.yLineEdit = QLineEdit()
+
+    grid = QGridLayout()
+    grid.addWidget(QLabel('X'), 0, 0)
+    grid.addWidget(self.xLineEdit, 0, 1)
+    grid.addWidget(QLabel('Y'), 1, 0)
+    grid.addWidget(self.yLineEdit, 1, 1)
+    vbox.addLayout(grid)
+
+    self.table = TableWidget()
+    self.table.setColumnCount(sheet.colCount())
+    self.table.setRowCount(sheet.rowCount())
+    vbox.addWidget(self.table)
 
     for c in range(sheet.colCount()):
-      self.setHorizontalHeaderItem(c, QTableWidgetItem(getTableColumnLabel(c)))
+      self.table.setHorizontalHeaderItem(c, QTableWidgetItem(getTableColumnLabel(c)))
       for r in range(sheet.rowCount()):
-        self.setItem(r, c, QTableWidgetItem(str(self.sheet.getValue(r, c))))
+        self.table.setItem(r, c, QTableWidgetItem(str(self.sheet.getValue(r, c))))
 
-  def freeFunctions(self, expr):
-    from sympy.core.function import UndefinedFunction
-    ret = set()
-    if expr.is_Atom:
-      return ret
-    if expr.is_Function and isinstance(type(expr), UndefinedFunction):
-      ret.add(expr)
-    return ret.union(*(self.free_functions(a) for a in expr.args))
+  def x(self):
+    return self.xLineEdit.text()
 
-  def parseFormula(self, formula):
-    from functions import parseTableColumnLabel
-    from sympy.parsing.sympy_parser import parse_expr
+  def setX(self, text):
+    self.xLineEdit.setText(text)
 
-    exprs = parse_expr(formula)
-    if not isinstance(expr, tuple):
-      exprs = exprs,
+  def y(self):
+    return self.yLineEdit.text()
 
-    ret = []
-    for expr in exprs:
-      freefunc = self.freeFunctions(expr)
-      if freefunc:
-        raise self.InvalidFormulaError('Undefined functions: %s' % ','.join(freefunc))
+  def setY(self, text):
+    self.yLineEdit.setText(text)
 
-      variables = []
-      for sym in expr.free_symbols:
-        if not re.match(r'\A[A-Z]+\Z', sym.name):
-          raise self.InvalidFormulaError('Invalid variable: %s' % sym.name)
-        c = parseTableColumnLabel(sym.name)
-        if c >= self.sheet.colCount():
-          raise self.InvalidFormulaError('The sheet does not have such a column: %s' % sym.name)
-        variables.append((sym, c))
+  def xvalues(self):
+    return np.array(list(zip(*self.sheet.evalFormula(self.x()))))
 
-      ret.append((expr, variables))
-
-    return ret
-
-  def evalFormula(self, formula):
-    exprs = self.parseFormula(formula)
-    rows = []
-    for r in range(self.rowCount()):
-      cols = []
-      for expr, variables in exprs:
-        try:
-          subs = dict([(sym, sheet.getValue(r, c)) for sym, c in variables])
-          val = expr.evalf(**subs)
-        except:
-          val = None
-        cols.append(val)
-      rows.append(cols)
-    return rows
+  def yvalues(self):
+    return np.array(list(zip(*self.sheet.evalFormula(self.y()))))

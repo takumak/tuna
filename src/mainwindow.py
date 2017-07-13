@@ -17,7 +17,8 @@ from graphwidgets import GraphWidget
 from tools import NopTool
 from toolwidgets import FitToolWidget, IADToolWidget
 from commonwidgets import TabWidgetWithCheckBox
-from widgets import SourcesWidget, FileDialog
+from sourceswidget import SourcesWidget
+from widgets import FileDialog
 
 
 
@@ -97,6 +98,8 @@ class MainWindow(QMainWindow):
     self.resize(1000, 800)
     self.setAcceptDrops(True)
 
+    self._prevXY = None
+
     self.sessionFilename = None
     self.loadConfig()
 
@@ -135,7 +138,7 @@ class MainWindow(QMainWindow):
       except fileloader.UnsupportedFileException as ex:
         logging.error('Unsupported file: %s %s' % (ex.mimetype, ex.filename))
         continue
-      self.addFile(filename, True, [(s, True, 0, [1]) for s in f])
+      self.addFile(filename, True, [(s, True, 'A', 'B') for s in f])
     self.update()
     self.sourcesDockWidget.raise_()
 
@@ -144,24 +147,35 @@ class MainWindow(QMainWindow):
     self.sourcesWidget.show()
     self.sourcesWidget.addFile(filename, checked, sheets)
 
-  def update(self):
+  def update(self, autoRange=True):
     for t in self.tools:
       t.clear()
 
     for sw in self.sourcesWidget.enabledSheetWidgets():
-      x = sw.getX()[1]
-      y_ = sw.getY()
-      for n, y in y_:
+      x_ = sw.xvalues()
+      y_ = sw.yvalues()
+      if len(x_) == 0: x_ = list(x_) * len(y_)
+      if len(x_) != len(y_): raise RuntimeError('X and Y formulae count mismatch')
+
+      for i, (x, y) in enumerate(zip(x_, y_)):
         name = sw.sheet.name
-        if len(y_) > 1:
-          name += ':%s' % n
+        if len(y_) > 1: name += ':%s' % i
         for t in self.tools:
           t.add(x, y, name)
 
     self.updateGraph()
+    if autoRange:
+      self.graphWidget.autoRange()
 
   def plotRequested(self, tool, autoRange):
     self.curTool = tool
+
+    XY = [(sw.x(), sw.y()) for sw in self.sourcesWidget.enabledSheetWidgets()]
+    if XY != self._prevXY:
+      self._prevXY = XY
+      self.update()
+      return
+
     self.updateGraph()
     if autoRange:
       self.graphWidget.autoRange()
@@ -258,8 +272,8 @@ class MainWindow(QMainWindow):
         sheets.append({
           'enabled': sc,
           'index': sw.sheet.idx,
-          'x': sw.x,
-          'y': sw.y
+          'x': sw.x(),
+          'y': sw.y()
         })
       files.append({
         'enabled': fc,

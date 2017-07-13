@@ -1,6 +1,9 @@
+import os
 from PyQt5.QtCore import Qt, pyqtSignal
 from PyQt5.QtWidgets import \
   QWidget, QSplitter, QTreeWidget, QTreeWidgetItem, QMenu
+
+from sheetwidgets import SheetWidget
 
 
 
@@ -38,32 +41,6 @@ class SourcesWidget(QSplitter):
     if isinstance(data, SheetWidget):
       self.replaceWidget(1, data)
 
-  def headerClicked(self, sheetwidget, c):
-    from functions import getTableColumnLabel
-    unselect, x, y = sheetwidget.useColumnCandidates(c)
-    dlg = SelectColumnDialog(c, getTableColumnLabel(c), unselect, x, y)
-    if dlg.exec_() == dlg.Accepted:
-      if dlg.applyToAllSheets.isChecked():
-        sheets = self.siblingSheetWidgets(sheetwidget)
-      else:
-        sheets = [sheetwidget]
-
-      if dlg.useFor is None:
-        func = 'unselect'
-        args = [c]
-      elif dlg.useFor is 'x':
-        func = 'setX'
-        args = [c]
-      elif dlg.useFor[0] == 'y':
-        func = 'selectY'
-        args = [c, int(dlg.useFor[1:])]
-
-      useFor = dlg.useFor
-      for sheet in sheets:
-        getattr(sheet, func)(*args)
-
-      self.updateRequested.emit()
-
   def topLevelItemForFilename(self, filename):
     for i in range(self.tree.topLevelItemCount()):
       item = self.tree.topLevelItem(i)
@@ -87,8 +64,6 @@ class SourcesWidget(QSplitter):
       sw = SheetWidget(sheet)
       sw.setX(x)
       sw.setY(y)
-      sw.horizontalHeader().sectionClicked.connect(
-        (lambda sw: (lambda c: self.headerClicked(sw, c)))(sw))
 
       item = QTreeWidgetItem([sheet.name])
       item.setFlags(item.flags() | Qt.ItemIsUserCheckable)

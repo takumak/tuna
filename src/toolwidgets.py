@@ -13,7 +13,7 @@ from interpolation import InterpLinear, InterpCubicSpline, \
   InterpBarycentric, InterpKrogh, InterpPchip, InterpAkima
 from bgsubtraction import BGSubNop, BGSubMinimum, BGSubLeftEdge, BGSubRightEdge
 from commonwidgets import TableWidget, HSeparator, VBoxLayout, HBoxLayout
-from widgets import FileDialog
+from dialogs import FileDialog
 
 
 class ToolWidgetBase(QWidget):

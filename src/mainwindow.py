@@ -13,12 +13,12 @@ from PyQt5.QtWidgets import \
 import log
 import fileloader
 from sheetwidgets import SheetWidget
-from graphwidgets import GraphWidget
+from graphwidget import GraphWidget
 from tools import NopTool
 from toolwidgets import FitToolWidget, IADToolWidget
 from commonwidgets import TabWidgetWithCheckBox
 from sourceswidget import SourcesWidget
-from widgets import FileDialog
+from dialogs import FileDialog
 
 
 

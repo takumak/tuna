@@ -29,6 +29,16 @@ class SourcesWidget(QSplitter):
     self.fileMenu.addAction('&Remove file').triggered.connect(
       lambda: self.removeFile(self.fileMenu.target))
 
+    self.errtbl = TableWidget()
+    self.errtbl.setColumnCount(2)
+    self.errtbl.setRowCount(self.sheet.colCount())
+    self.errtbl.setHorizontalHeaderLabels(['Column', 'Error'])
+    # for c in range(self.sheet.colCount()):
+    #   l = getTableColumnLabel(c)
+    #   self.errtbl.setItem(c, 0, QTableWidgetItem(l))
+    #   self.errtbl.setItem(c, 1, QTableWidgetItem('sqrt(%s)' % l))
+    self.addWidget(self.errtbl)
+
     self.sheets = []
 
   def itemSelectionChanged(self):

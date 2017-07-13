@@ -38,6 +38,8 @@ class SheetWidget(QWidget):
       for r in range(sheet.rowCount()):
         self.table.setItem(r, c, QTableWidgetItem(str(self.sheet.getValue(r, c))))
 
+    self.errors = ['0']*sheet.colCount()
+
   def x(self):
     return self.xLineEdit.text()
 

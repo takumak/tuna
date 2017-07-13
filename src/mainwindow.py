@@ -12,7 +12,6 @@ from PyQt5.QtWidgets import \
 
 import log
 import fileloader
-from sheetwidgets import SheetWidget
 from graphwidget import GraphWidget
 from tools import NopTool
 from toolwidgets import FitToolWidget, IADToolWidget

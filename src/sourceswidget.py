@@ -4,7 +4,7 @@ from PyQt5.QtGui import QCursor
 from PyQt5.QtWidgets import \
   QWidget, QSplitter, QTreeWidget, QTreeWidgetItem, QMenu
 
-from sheetwidgets import SheetWidget
+from sheetwidget import SheetWidget
 
 
 

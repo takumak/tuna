@@ -2,7 +2,6 @@ import os
 from PyQt5.QtWidgets import \
   QDialog, QPushButton, QCheckBox, QLabel, QFileDialog
 
-from sheetwidgets import SheetWidget
 from commonwidgets import VBoxLayout, HBoxLayout
 
 

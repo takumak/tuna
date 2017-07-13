@@ -71,7 +71,8 @@ class MainWindow(QMainWindow):
 
     dock_p = None
     toolDockWidgets = []
-    self.toolWidgets = [IADToolWidget()]
+    self.toolIAD = IADToolWidget()
+    self.toolWidgets = [self.toolIAD]
     self.tools = []
     self.curTool = self.toolWidgets[0].tool
     for t in self.toolWidgets:
@@ -139,6 +140,7 @@ class MainWindow(QMainWindow):
         logging.error('Unsupported file: %s %s' % (ex.mimetype, ex.filename))
         continue
       self.addFile(filename, True, [(s, True, 'A', 'B') for s in f])
+    self.toolIAD.mode = 'orig'
     self.update()
     self.sourcesDockWidget.raise_()
 

@@ -3,6 +3,7 @@ import logging
 import html
 import json
 from base64 import b64decode, b64encode
+import numpy as np
 from PyQt5.QtCore import Qt, QRectF
 from PyQt5.QtGui import QTextCursor, QKeySequence
 from PyQt5.QtWidgets import \
@@ -157,16 +158,17 @@ class MainWindow(QMainWindow):
       t.clear()
 
     for sw in self.sourcesWidget.enabledSheetWidgets():
-      x_ = sw.sheet.xValues()
-      y_ = sw.sheet.yValues()
-      if len(x_) == 0: x_ = list(x_) * len(y_)
-      if len(x_) != len(y_): raise RuntimeError('X and Y formulae count mismatch')
+      X = sw.sheet.xValues()
+      Y = sw.sheet.yValues(True)
+      if len(X) == 1: X = list(X) * len(Y)
+      if len(X) != len(Y): raise RuntimeError('X and Y formulae count mismatch')
 
-      for i, (x, y) in enumerate(zip(x_, y_)):
+      for i, (x, y) in enumerate(zip(X, Y)):
         name = sw.sheet.name
-        if len(y_) > 1: name += ':%s' % i
+        if len(Y) > 1: name += ':%s' % i
+        y, y_ = zip(*y)
         for t in self.tools:
-          t.add(x, y, name)
+          t.add(name, x, np.array(y), np.array(y_))
 
     self.updateGraph()
     if autoRange:

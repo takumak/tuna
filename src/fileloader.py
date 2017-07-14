@@ -46,8 +46,8 @@ class SheetBase:
   def xValues(self):
     return np.array(list(zip(*self.evalFormula(self.xformula))))
 
-  def yValues(self):
-    return np.array(list(zip(*self.evalFormula(self.yformula))))
+  def yValues(self, withError=False):
+    return np.array(list(zip(*self.evalFormula(self.yformula, withError))))
 
   def freeFunctions(self, expr):
     from sympy.core.function import UndefinedFunction
@@ -85,25 +85,44 @@ class SheetBase:
 
     return ret
 
-  def evalFormula(self, formula):
+  def evalFormula(self, formula, withError=False):
     exprs = self.parseFormula(formula)
     rows = []
     for r in range(self.rowCount()):
       cols = []
       for expr, variables in exprs:
-        try:
-          subs = dict([(sym, float(self.getValue(r, c))) for sym, c in variables])
-          val = expr.evalf(subs=subs)
-        except ValueError:
-          val = None
-        except:
-          log.excepthook(*sys.exc_info())
-          print(formula)
-          val = None
-        cols.append(val)
+        cols.append(self.evalRowExpr(r, expr, variables, withError))
       rows.append(cols)
     return rows
 
+  def evalRowExpr(self, row, expr, variables, withError=False):
+    try:
+      vals = {}
+      errs = {}
+      for sym, c in variables:
+        v = self.getValue(row, c)
+        try:
+          v = float(v)
+        except ValueError:
+          return (None, None) if withError else None
+        vals[sym] = v
+        if withError:
+          errexpr, errvars = self.parseFormula(self.errors[c])[0]
+          errs[sym] = self.evalRowExpr(row, errexpr, errvars, False) or 0
+
+      val = expr.evalf(subs=vals)
+      if not withError: return val
+
+      err = []
+      for sym, v in vals.items():
+        grad = expr.diff(sym).evalf(subs=vals)
+        sigma = errs[sym]
+        err.append((grad*sigma)**2)
+      return val, np.sum(err)**.5
+
+    except:
+      log.excepthook(*sys.exc_info())
+      return (None, None) if withError else None
 
 class FileLoaderBase:
 

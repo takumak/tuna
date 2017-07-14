@@ -18,9 +18,9 @@ class ToolBase(QObject):
     self.lines = []
     self.cleared.emit()
 
-  def add(self, x, y, name):
-    x, y = Line.cleanUp(x, y)
-    l = Line(x, y, name)
+  def add(self, name, x, y, y_):
+    x, y, y_ = Line.cleanUp(x, y, y_)
+    l = Line(name, x, y, y_)
     self.lines.append(l)
     self.added.emit(l)
 
@@ -158,7 +158,7 @@ class IADTool(ToolBase):
 
     self.xoff, X1, X2 = self.calcXoff(self.lines, linesF, baseF)
     x = np.arange(X1, X2, self.interpdx)
-    lines_off = [Line(x, f(x-xoff), l.name).normalize()
+    lines_off = [Line(l.name, x, f(x-xoff), [0]*x).normalize()
                  for l, f, xoff in zip(self.lines, linesF, self.xoff)]
 
     self.wc = [l.weightCenter() for l in lines_off]
@@ -169,7 +169,7 @@ class IADTool(ToolBase):
     base = lines_off[baseidx]
     for l in lines_off:
       if len(l.x) == 0 or len(base.x) == 0:
-        diff.append(Line([], [], l.name))
+        diff.append(Line(l.name, [], [], []))
         continue
       diff.append(l - base)
 
@@ -178,7 +178,7 @@ class IADTool(ToolBase):
     self.iadY = y
     self.iadYUpdated.emit()
     x, y = Line.cleanUp(x, y)
-    IAD = Line(x, y, 'IAD')
+    IAD = Line('IAD', x, y, [0]*len(y))
 
 
     if mode == 'xoff':

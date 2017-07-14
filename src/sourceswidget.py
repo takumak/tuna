@@ -2,9 +2,11 @@ import os
 from PyQt5.QtCore import Qt, pyqtSignal
 from PyQt5.QtGui import QCursor
 from PyQt5.QtWidgets import \
-  QWidget, QSplitter, QTreeWidget, QTreeWidgetItem, QMenu
+  QWidget, QSplitter, QTreeWidget, QTreeWidgetItem, QMenu, \
+  QTableWidgetItem
 
 from sheetwidget import SheetWidget
+from commonwidgets import TableWidget
 
 
 
@@ -20,7 +22,7 @@ class SourcesWidget(QSplitter):
     self.addWidget(self.blank)
 
     self.tree.header().hide()
-    self.tree.itemSelectionChanged.connect(self.itemSelectionChanged)
+    self.tree.itemSelectionChanged.connect(self.treeItemSelectionChanged)
     self.tree.itemChanged.connect(lambda item, col: self.updateRequested.emit())
     self.tree.setContextMenuPolicy(Qt.CustomContextMenu)
     self.tree.customContextMenuRequested.connect(self.treeContextMenuRequested)
@@ -31,26 +33,46 @@ class SourcesWidget(QSplitter):
 
     self.errtbl = TableWidget()
     self.errtbl.setColumnCount(2)
-    self.errtbl.setRowCount(self.sheet.colCount())
     self.errtbl.setHorizontalHeaderLabels(['Column', 'Error'])
-    # for c in range(self.sheet.colCount()):
-    #   l = getTableColumnLabel(c)
-    #   self.errtbl.setItem(c, 0, QTableWidgetItem(l))
-    #   self.errtbl.setItem(c, 1, QTableWidgetItem('sqrt(%s)' % l))
+    self.errtbl.itemChanged.connect(self.errtblItemChanged)
     self.addWidget(self.errtbl)
 
     self.sheets = []
 
-  def itemSelectionChanged(self):
+  def treeItemSelectionChanged(self):
     items = self.tree.selectedItems()
     if len(items) == 0:
       self.replaceWidget(1, self.blank)
+      self.errtbl.setDisabled(True)
       return
 
     item = items[0]
-    data = item.data(0, Qt.UserRole)[0]
-    if isinstance(data, SheetWidget):
-      self.replaceWidget(1, data)
+    sw = item.data(0, Qt.UserRole)[0]
+    if not isinstance(sw, SheetWidget):
+      self.replaceWidget(1, self.blank)
+      self.errtbl.setDisabled(True)
+      return
+
+    from functions import getTableColumnLabel
+
+    self.replaceWidget(1, sw)
+    self.errtbl.clearContents()
+    self.errtbl.setRowCount(sw.sheet.colCount())
+    for c in range(sw.sheet.colCount()):
+      l = getTableColumnLabel(c)
+      litem = QTableWidgetItem(l)
+      litem.setFlags(litem.flags() & ~Qt.ItemIsEditable)
+      eitem = QTableWidgetItem(sw.sheet.errors[c])
+      eitem.setData(Qt.UserRole, (sw.sheet, c))
+      self.errtbl.setItem(c, 0, litem)
+      self.errtbl.setItem(c, 1, eitem)
+    self.errtbl.setDisabled(False)
+
+  def errtblItemChanged(self, item):
+    data = item.data(Qt.UserRole)
+    if data:
+      sw, c = data
+      sw.errors[c] = item.text()
 
   def topLevelItemForFilename(self, filename):
     for i in range(self.tree.topLevelItemCount()):

@@ -1,5 +1,4 @@
 import re
-import numpy as np
 from PyQt5.QtCore import Qt, QVariant, pyqtSignal
 from PyQt5.QtGui import QBrush
 from PyQt5.QtWidgets import \
@@ -19,7 +18,11 @@ class SheetWidget(QWidget):
     self.setLayout(vbox)
 
     self.xLineEdit = QLineEdit()
+    self.xLineEdit.setText(sheet.xformula)
+    self.xLineEdit.textChanged.connect(lambda t: self.sheet.setXformula(t))
     self.yLineEdit = QLineEdit()
+    self.yLineEdit.setText(sheet.yformula)
+    self.yLineEdit.textChanged.connect(lambda t: self.sheet.setYformula(t))
 
     grid = QGridLayout()
     grid.addWidget(QLabel('X'), 0, 0)
@@ -40,20 +43,8 @@ class SheetWidget(QWidget):
 
     self.errors = ['0']*sheet.colCount()
 
-  def x(self):
-    return self.xLineEdit.text()
-
   def setX(self, text):
     self.xLineEdit.setText(text)
 
-  def y(self):
-    return self.yLineEdit.text()
-
   def setY(self, text):
     self.yLineEdit.setText(text)
-
-  def xvalues(self):
-    return np.array(list(zip(*self.sheet.evalFormula(self.x()))))
-
-  def yvalues(self):
-    return np.array(list(zip(*self.sheet.evalFormula(self.y()))))

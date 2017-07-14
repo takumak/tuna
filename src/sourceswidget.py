@@ -60,27 +60,26 @@ class SourcesWidget(QSplitter):
     return None
 
   def addFile(self, filename, checked, sheets):
-    pitem = self.topLevelItemForFilename(filename)
-    if pitem is not None:
-      self.tree.takeTopLevelItem(pitem)
+    fitem = self.topLevelItemForFilename(filename)
+    if fitem is not None:
+      self.tree.takeTopLevelItem(fitem)
 
-    pitem = QTreeWidgetItem([os.path.basename(filename)])
-    pitem.setData(0, Qt.UserRole, (filename,))
-    pitem.setFlags((pitem.flags() | Qt.ItemIsUserCheckable) & ~Qt.ItemIsSelectable)
-    pitem.setCheckState(0, Qt.Checked if checked else Qt.Unchecked)
-    self.tree.addTopLevelItem(pitem)
-    pitem.setExpanded(True)
+    fitem = QTreeWidgetItem([os.path.basename(filename)])
+    fitem.setData(0, Qt.UserRole, (filename,))
+    fitem.setFlags((fitem.flags() | Qt.ItemIsUserCheckable) & ~Qt.ItemIsSelectable)
+    fitem.setCheckState(0, Qt.Checked if checked else Qt.Unchecked)
+    self.tree.addTopLevelItem(fitem)
+    fitem.setExpanded(True)
 
-    for sheet, checked, x, y in sheets:
-      sw = SheetWidget(sheet)
-      sw.setX(x)
-      sw.setY(y)
+    for sheet, checked in sheets:
+      self.addSheet(fitem, sheet, checked)
 
-      item = QTreeWidgetItem([sheet.name])
-      item.setFlags(item.flags() | Qt.ItemIsUserCheckable)
-      item.setData(0, Qt.UserRole, (sw,))
-      item.setCheckState(0, Qt.Checked if checked else Qt.Unchecked)
-      pitem.addChild(item)
+  def addSheet(self, fitem, sheet, checked):
+    item = QTreeWidgetItem([sheet.name])
+    item.setFlags(item.flags() | Qt.ItemIsUserCheckable)
+    item.setData(0, Qt.UserRole, (SheetWidget(sheet),))
+    item.setCheckState(0, Qt.Checked if checked else Qt.Unchecked)
+    fitem.addChild(item)
 
   def removeAllFiles(self):
     while self.tree.topLevelItemCount() > 0:

@@ -1,6 +1,7 @@
 import sys, os
 import re
 import logging
+import numpy as np
 
 import log
 
@@ -18,6 +19,11 @@ class SheetBase:
     self.filename = filename
     self.idx = idx
     self.name = name
+    self.xformula = 'A'
+    self.yformula = 'B'
+
+    from functions import getTableColumnLabel
+    self.errors = ['sqrt(%s)' % getTableColumnLabel(c) for c in range(self.colCount())]
 
   def getColumn(self, c):
     return [self.getValue(r, c) for r in range(self.rowCount())]
@@ -30,6 +36,18 @@ class SheetBase:
 
   def getValue(self, r, c):
     raise NotImplementedError()
+
+  def setXformula(self, f):
+    self.xformula = f
+
+  def setYformula(self, f):
+    self.yformula = f
+
+  def xValues(self):
+    return np.array(list(zip(*self.evalFormula(self.xformula))))
+
+  def yValues(self):
+    return np.array(list(zip(*self.evalFormula(self.yformula))))
 
   def freeFunctions(self, expr):
     from sympy.core.function import UndefinedFunction
@@ -134,7 +152,6 @@ class FileLoaderText(FileLoaderBase):
 
   class Sheet(SheetBase):
     def __init__(self, filename, delimiter):
-      super().__init__(filename, 0, os.path.basename(filename))
       text = open(filename).read()
 
       self.rows = []
@@ -145,6 +162,8 @@ class FileLoaderText(FileLoaderBase):
         self.rows.append(list(map(str.strip, re.split(delimiter, l))))
 
       self.ncols = max(map(len, self.rows))
+
+      super().__init__(filename, 0, os.path.basename(filename))
 
     def colCount(self):
       return self.ncols
@@ -179,8 +198,8 @@ class FileLoaderExcel(FileLoaderBase):
 
   class Sheet(SheetBase):
     def __init__(self, filename, idx, sheet):
-      super().__init__(filename, idx, sheet.name)
       self.sheet = sheet
+      super().__init__(filename, idx, sheet.name)
 
     def colCount(self):
       return self.sheet.number_of_columns()

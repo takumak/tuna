@@ -138,7 +138,7 @@ class MainWindow(QMainWindow):
       except fileloader.UnsupportedFileException as ex:
         logging.error('Unsupported file: %s %s' % (ex.mimetype, ex.filename))
         continue
-      self.addFile(filename, True, [(s, True, 'A', 'B') for s in f])
+      self.addFile(filename, True, [(s, True) for s in f])
     self.toolIAD.mode = 'orig'
     self.update()
     self.sourcesDockWidget.raise_()
@@ -153,8 +153,8 @@ class MainWindow(QMainWindow):
       t.clear()
 
     for sw in self.sourcesWidget.enabledSheetWidgets():
-      x_ = sw.xvalues()
-      y_ = sw.yvalues()
+      x_ = sw.sheet.xValues()
+      y_ = sw.sheet.yValues()
       if len(x_) == 0: x_ = list(x_) * len(y_)
       if len(x_) != len(y_): raise RuntimeError('X and Y formulae count mismatch')
 
@@ -244,9 +244,12 @@ class MainWindow(QMainWindow):
         for s in f['sheets']:
           c = s['enabled']
           i = s['index']
-          x = s['x']
-          y = s['y']
-          sheets.append((book.getSheet(i), c, x, y))
+
+          sheet = book.getSheet(i)
+          if 'xformula' in s: sheet.setXformula(s['xformula'])
+          if 'yformula' in s: sheet.setYformula(s['yformula'])
+          if 'errors' in s: sheet.errors = s['errors']
+          sheets.append((sheet, c))
 
         self.addFile(filename, checked, sheets)
 
@@ -273,8 +276,9 @@ class MainWindow(QMainWindow):
         sheets.append({
           'enabled': sc,
           'index': sw.sheet.idx,
-          'x': sw.x(),
-          'y': sw.y()
+          'xformula': sw.sheet.xformula,
+          'yformula': sw.sheet.yformula,
+          'errors': sw.sheet.errors
         })
       files.append({
         'enabled': fc,

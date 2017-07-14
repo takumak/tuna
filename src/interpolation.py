@@ -6,19 +6,6 @@ from line import Line
 
 
 class InterpBase(MethodBase):
-  # def do(self, line, dx, xrange = None):
-  #   if len(line.x) == 0:
-  #     return Line([], [], line.name)
-
-  #   if xrange is not None:
-  #     X1, X2 = xrange
-  #   else:
-  #     X1, X2 = min(line.x), max(line.x)
-
-  #   x = np.arange(X1, X2, dx)
-  #   y = self.func(line)(x)
-  #   return Line(x, y, line.name)
-
   def func(self, line):
     raise NotImplementedError()
 

@@ -19,7 +19,7 @@ class ParamBase:
     if value == self.value():
       return
     self.value_ = value
-    if self.widget and not self.widget.hasFocus():
+    if self.widget:
       self.updateWidgetValue(self.widget, value)
 
   def getWidget(self):
@@ -56,7 +56,7 @@ class ParamDouble(ParamBase):
     edit = QLineEdit()
     edit.setValidator(QDoubleValidator())
     edit.setText(str(self.value()))
-    edit.textChanged.connect(lambda t: self.setValue(float(t)))
+    edit.textEdited.connect(lambda t: self.setValue(float(t)))
     return edit
 
 

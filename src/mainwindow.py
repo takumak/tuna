@@ -101,7 +101,11 @@ class MainWindow(QMainWindow):
     self._prevXY = None
 
     self.sessionFilename = None
-    self.loadConfig()
+    try:
+      self.loadConfig()
+    except:
+      log.excepthook(*sys.exc_info())
+      return
 
     logging.info('Drag and drop here to open multiple files')
 

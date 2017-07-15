@@ -137,7 +137,7 @@ class IADTool(ToolBase):
       return self.updatePeaks([l.normalize() for l in self.lines])
 
 
-    linesF = [self.interp.func(l) for l in self.lines]
+    linesF = [self.interp.func(l.x, l.y) for l in self.lines]
     linesX = [self.interpX(l) for l in self.lines]
     if self.bgsub:
       logging.info('Subtract bg: %s' % self.bgsub.label)
@@ -158,8 +158,11 @@ class IADTool(ToolBase):
 
     self.xoff, X1, X2 = self.calcXoff(self.lines, linesF, baseF)
     x = np.arange(X1, X2, self.interpdx)
-    lines_off = [Line(l.name, x, f(x-xoff), [0]*x).normalize()
-                 for l, f, xoff in zip(self.lines, linesF, self.xoff)]
+    lines_off = []
+    for l, f, xoff in zip(self.lines, linesF, self.xoff):
+      y = f(x-xoff)
+      y_ = self.interp.func(l.x, l.y_)(x-xoff)
+      lines_off.append(Line(l.name, x, y, y_).normalize())
 
     self.wc = [l.weightCenter() for l in lines_off]
     self.xoffUpdated.emit()
@@ -174,11 +177,14 @@ class IADTool(ToolBase):
       diff.append(l - base)
 
     x = self.iadX
-    y = [sum(np.abs(d.y)) for d in diff]
+    y = [np.sum(np.abs(d.y)) for d in diff]
+    y_ = [np.sqrt(np.sum(d.y_**2)) for d in diff]
     self.iadY = y
+    self.iadY_ = y_
     self.iadYUpdated.emit()
-    x, y = Line.cleanUp(x, y)
-    IAD = Line('IAD', x, y, [0]*len(y))
+    x, y, y_ = Line.cleanUp(x, y, y_)
+    IAD = Line('IAD', x, y, y_)
+    IAD.plotErrors = True
 
 
     if mode == 'xoff':

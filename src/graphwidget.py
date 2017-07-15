@@ -25,7 +25,8 @@ class GraphWidget(pg.PlotWidget):
 
   def add(self, line):
     col = self.colors[(len(self.lines) - 1) % len(self.colors)]
-    item = pg.PlotCurveItem(x=line.x, y=line.y, pen=pg.mkPen(color=col, width=2), antialias=True)
-    self.addItem(item)
-    self.legend.addItem(item, name=line.name)
+    items = line.getGraphItems(col)
+    for item in items:
+      self.addItem(item)
+    self.legend.addItem(items[0], name=line.name)
     self.lines.append(line)

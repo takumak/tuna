@@ -1,12 +1,10 @@
 import numpy as np
 
 from methodbase import MethodBase
-from line import Line
-
 
 
 class InterpBase(MethodBase):
-  def func(self, line):
+  def func(self, x, y):
     raise NotImplementedError()
 
 
@@ -15,16 +13,16 @@ class InterpLinear(InterpBase):
   name    = 'linear'
   label   = 'Linear'
 
-  def func(self, line):
+  def func(self, x, y):
     from scipy.interpolate import interp1d
-    return interp1d(line.x, line.y, 'linear')
+    return interp1d(x, y, 'linear')
 
 
 
 class InterpScipy(InterpBase):
-  def func(self, line):
+  def func(self, x, y):
     import scipy.interpolate as interp
-    return getattr(interp, self.clsname)(line.x, line.y)
+    return getattr(interp, self.clsname)(x, y)
 
 class InterpCubicSpline(InterpScipy):
   name    = 'cubic_spline'

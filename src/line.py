@@ -1,4 +1,5 @@
 import numpy as np
+import pyqtgraph as pg
 
 
 
@@ -8,6 +9,7 @@ class Line:
     self.x = np.array(x)
     self.y = np.array(y)
     self.y_ = np.array(y_)
+    self.plotErrors = False
 
   @classmethod
   def cleanUp(cls, x, y, y_):
@@ -31,17 +33,33 @@ class Line:
 
   def normalize(self):
     if len(self.x) == 0: return self
-    return self.__class__(self.name, self.x, self.y/np.sum(self.y))
+    sumy = np.sum(self.y)
+    sumy_ = np.sqrt(np.sum(self.y_**2))
+    y = self.y/sumy
+    y_ = np.sqrt((1/sumy)**2*(self.y_**2) + (1/sumy**2)**2*(sumy_**2))
+    return self.__class__(self.name, self.x, y, y_)
 
   def xoff(self, off):
-    return self.__class__(self.name, self.x + off, self.y)
+    return self.__class__(self.name, self.x + off, self.y, self.y_)
 
   def __sub__(self, other):
     if list(self.x) != list(other.x):
       raise RuntimeError('x is not same')
-    return self.__class__(self.name, self.x, self.y - other.y)
+    y = self.y - other.y
+    y_ = np.sqrt(self.y_**2 + other.y_**2)
+    return self.__class__(self.name, self.x, y, y_)
 
   def peak(self):
     if len(self.x) == 0:
       return 0, 0
     return max(zip(self.x, self.y), key=lambda p: p[1])
+
+  def getGraphItems(self, color):
+    pen = pg.mkPen(color=color, width=2)
+    items = [pg.PlotCurveItem(x=self.x, y=self.y, pen=pen, antialias=True)]
+    if self.plotErrors:
+      items.append(pg.ErrorBarItem(
+        x=self.x, y=self.y, height=self.y_*2, beam=0.2, pen=pen, antialias=True))
+      items.append(pg.ScatterPlotItem(
+        x=self.x, y=self.y, brush=pg.mkBrush(color=color), antialias=True))
+    return items

@@ -15,11 +15,11 @@ class ParamBase:
       return self.value_
     return self.default
 
-  def setValue(self, value):
+  def setValue(self, value, updateWidget=True):
     if value == self.value():
       return
     self.value_ = value
-    if self.widget:
+    if self.widget and updateWidget:
       self.updateWidgetValue(self.widget, value)
 
   def getWidget(self):
@@ -43,7 +43,7 @@ class ParamInt(ParamBase):
     spin.setMinimum(self.min)
     spin.setMaximum(self.max)
     spin.setValue(self.value())
-    spin.valueChanged.connect(self.setValue)
+    spin.valueChanged.connect(lambda v: self.setValue(v, False))
     return spin
 
 
@@ -56,7 +56,7 @@ class ParamDouble(ParamBase):
     edit = QLineEdit()
     edit.setValidator(QDoubleValidator())
     edit.setText(str(self.value()))
-    edit.textEdited.connect(lambda t: self.setValue(float(t)))
+    edit.textEdited.connect(lambda t: self.setValue(float(t), False))
     return edit
 
 

@@ -154,13 +154,8 @@ class IADTool(ToolBase):
     self.xoffUpdated.emit()
 
 
-    diff = []
     base = lines_off[baseidx]
-    for l in lines_off:
-      if len(l.x) == 0 or len(base.x) == 0:
-        diff.append(Line(l.name, [], [], []))
-        continue
-      diff.append(l - base)
+    diff = [l - base for l in lines_off]
 
     x = self.iadX
     y = [np.sum(np.abs(d.y)) for d in diff]

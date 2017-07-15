@@ -102,6 +102,8 @@ class MainWindow(QMainWindow):
     self._prevXY = None
 
     self.sessionFilename = None
+
+
     try:
       self.loadConfig()
     except:
@@ -157,18 +159,30 @@ class MainWindow(QMainWindow):
     for t in self.tools:
       t.clear()
 
-    for sw in self.sourcesWidget.enabledSheetWidgets():
-      X = sw.sheet.xValues()
-      Y = sw.sheet.yValues(True)
-      if len(X) == 1: X = list(X) * len(Y)
-      if len(X) != len(Y): raise RuntimeError('X and Y formulae count mismatch')
+    import cProfile, pstats, io
+    pr = cProfile.Profile()
+    pr.enable()
 
-      for i, (x, y) in enumerate(zip(X, Y)):
-        name = sw.sheet.name
-        if len(Y) > 1: name += ':%s' % i
-        y, y_ = zip(*y)
-        for t in self.tools:
-          t.add(name, x, np.array(y), np.array(y_))
+    try:
+      for sw in self.sourcesWidget.enabledSheetWidgets():
+        X = sw.sheet.xValues()
+        Y = sw.sheet.yValues(True)
+        if len(X) == 1: X = list(X) * len(Y)
+        if len(X) != len(Y): raise RuntimeError('X and Y formulae count mismatch')
+
+        for i, (x, y) in enumerate(zip(X, Y)):
+          name = sw.sheet.name
+          if len(Y) > 1: name += ':%s' % i
+          y, y_ = zip(*y)
+          for t in self.tools:
+            t.add(name, x, np.array(y), np.array(y_))
+    finally:
+      pr.disable()
+      s = io.StringIO()
+      sortby = 'cumulative'
+      ps = pstats.Stats(pr, stream=s).sort_stats(sortby)
+      ps.print_stats()
+      logging.info('\n'+s.getvalue())
 
     self.updateGraph()
     if autoRange:

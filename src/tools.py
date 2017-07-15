@@ -60,52 +60,38 @@ class IADTool(ToolBase):
     if len(lines) == 1:
       return [0], min(lines[0].x), max(lines[0].x)
 
-    # import cProfile, pstats, io
-    # pr = cProfile.Profile()
-    # pr.enable()
-
     def weightCenter(x, y):
       return np.sum(x*y)/np.sum(y)
 
-    try:
-      xoff = [0] * len(lines)
+    xoff = [0] * len(lines)
 
-      for _p in range(len(lines)*10):
-        X1_, X2_ = self.linesInnerRange(lines, xoff)
-        if X1_ == X2_: break
+    for _p in range(len(lines)*10):
+      X1_, X2_ = self.linesInnerRange(lines, xoff)
+      if X1_ == X2_: break
 
-        for i, (line, lineF) in enumerate(zip(lines, linesF)):
-          if lineF == baseF:
-            continue
+      for i, (line, lineF) in enumerate(zip(lines, linesF)):
+        if lineF == baseF:
+          continue
 
-          cnt = 0
-          while True:
-            X1, X2 = self.linesInnerRange(lines, xoff)
-            x = np.arange(X1, X2, self.interpdx)
-            wc1 = weightCenter(x, baseF(x))
-            wc2 = weightCenter(x, lineF(x-xoff[i]))
+        cnt = 0
+        while True:
+          X1, X2 = self.linesInnerRange(lines, xoff)
+          x = np.arange(X1, X2, self.interpdx)
+          wc1 = weightCenter(x, baseF(x))
+          wc2 = weightCenter(x, lineF(x-xoff[i]))
 
-            dx = wc1 - wc2
-            cnt += 1
-            if abs(dx) < self.threshold or cnt > 10:
-              break
+          dx = wc1 - wc2
+          cnt += 1
+          if abs(dx) < self.threshold or cnt > 10:
+            break
 
-            xoff[i] += dx
+          xoff[i] += dx
 
-        if X1 == X1_ and X2 == X2_:
-          break
+      if X1 == X1_ and X2 == X2_:
+        break
 
-      else:
-        raise RuntimeError('Maximum loop count exceeded')
-
-    finally:
-      # pr.disable()
-      # s = io.StringIO()
-      # sortby = 'cumulative'
-      # ps = pstats.Stats(pr, stream=s).sort_stats(sortby)
-      # ps.print_stats()
-      # logging.info('\n'+s.getvalue())
-      pass
+    else:
+      raise RuntimeError('Maximum loop count exceeded')
 
     return xoff, X1, X2
 

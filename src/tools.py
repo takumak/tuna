@@ -162,13 +162,10 @@ class IADTool(ToolBase):
     # 誤差計算
     # スプライン補完で点を増やしてnormalizeしてから誤差を出すと
     # 二乗和なので誤差が小さくなってしまう(測定点の水増し)
-    errF = [self.interp.func(l.x, l.y_) for l in self.lines]
-    loff2 = []
-    for l, f, xoff in zip(self.lines, errF, self.xoff):
-      y_ = f(l.x-xoff)
-      loff2.append(Line(l.name, l.x, l.y, y_).normalize())
-    diff2 = [l - loff2[baseidx] for l in loff2]
-    y_ = [np.sqrt(np.sum(d.y_**2)) for d in diff2]
+    y_ = []
+    lnorm = [l.normalize() for l in self.lines]
+    for l in lnorm:
+      y_.append(np.sqrt(np.sum(l.y_**2 + lnorm[baseidx].y_**2)))
 
 
     self.iadY = y

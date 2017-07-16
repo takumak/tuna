@@ -8,7 +8,7 @@ class Line:
     self.name = name
     self.x = np.array(x)
     self.y = np.array(y)
-    self.y_ = np.array(y_)
+    self.y_ = None if y_ is None else np.array(y_)
     self.plotErrors = False
 
   @classmethod
@@ -34,8 +34,11 @@ class Line:
   def normalize(self):
     if len(self.x) == 0: return self
     sumy = np.sum(self.y)
-    sumy_ = np.sqrt(np.sum(self.y_**2))
     y = self.y/sumy
+    if self.y_ is None:
+      return self.__class__(self.name, self.x, y, None)
+
+    sumy_ = np.sqrt(np.sum(self.y_**2))
     y_ = np.sqrt((1/sumy)**2*(self.y_**2) + (1/sumy**2)**2*(sumy_**2))
     return self.__class__(self.name, self.x, y, y_)
 
@@ -44,8 +47,13 @@ class Line:
 
   def __sub__(self, other):
     if list(self.x) != list(other.x):
-      raise RuntimeError('x is not same')
+      raise RuntimeError('x is not same: %s vs %s' % (self.x, other.x))
     y = self.y - other.y
+    if self.y_ is None:
+      return self.__class__(self.name, self.x, y, other.y_)
+    if other.y_ is None:
+      return self.__class__(self.name, self.x, y, self.y_)
+
     y_ = np.sqrt(self.y_**2 + other.y_**2)
     return self.__class__(self.name, self.x, y, y_)
 

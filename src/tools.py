@@ -147,19 +147,30 @@ class IADTool(ToolBase):
     lines_off = []
     for l, f, xoff in zip(self.lines, linesF, self.xoff):
       y = f(x-xoff)
-      y_ = self.interp.func(l.x, l.y_)(x-xoff)
-      lines_off.append(Line(l.name, x, y, y_).normalize())
+      lines_off.append(Line(l.name, x, y, None).normalize())
 
     self.wc = [l.weightCenter() for l in lines_off]
     self.xoffUpdated.emit()
 
 
-    base = lines_off[baseidx]
-    diff = [l - base for l in lines_off]
+    diff = [l - lines_off[baseidx] for l in lines_off]
 
     x = self.iadX
     y = [np.sum(np.abs(d.y)) for d in diff]
-    y_ = [np.sqrt(np.sum(d.y_**2)) for d in diff]
+
+
+    # 誤差計算
+    # スプライン補完で点を増やしてnormalizeしてから誤差を出すと
+    # 二乗和なので誤差が小さくなってしまう(測定点の水増し)
+    errF = [self.interp.func(l.x, l.y_) for l in self.lines]
+    loff2 = []
+    for l, f, xoff in zip(self.lines, errF, self.xoff):
+      y_ = f(l.x-xoff)
+      loff2.append(Line(l.name, l.x, l.y, y_).normalize())
+    diff2 = [l - loff2[baseidx] for l in loff2]
+    y_ = [np.sqrt(np.sum(d.y_**2)) for d in diff2]
+
+
     self.iadY = y
     self.iadY_ = y_
     self.iadYUpdated.emit()

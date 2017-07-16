@@ -187,27 +187,23 @@ class IADToolWidget(ToolWidgetBase):
       wb.close()
 
   def writeXlsx(self, wb):
-    from functions import getTableColumnLabel
-    def cellName(r, c, absx='', absy=''):
-      return '%s%s%s%d' % (absx, getTableColumnLabel(c), absy, r+1)
+    ws_IAD = wb.add_worksheet('IAD')
+    ws_err = wb.add_worksheet('IAD err')
 
-    lines = self.tool.getLines('xoff')
-    base = lines.index(lines[self.tool.base])
+    errCells = self.writeXlsx_err(wb, ws_err, 0, 0)
+    errCells = ["='%s'!%s" % (ws_err.name, c) for c in errCells]
+    chart_spectra = self.writeXlsx_IAD(wb, ws_IAD, 0, 0, errCells)
+    wb.add_chartsheet('Spectra').set_chart(chart_spectra)
 
+  def writeXlsx_IAD(self, wb, ws, c0, r0, errCells):
     fmt_wc = wb.add_format()
     fmt_wc.set_num_format('0.000000000000')
     fmt_is = wb.add_format()
     fmt_is.set_num_format('0.00')
 
-    ws_IAD = wb.add_worksheet('IAD')
-    ws_err = wb.add_worksheet('IAD err')
-
-    errCells = self.writeXlsx_err(ws_IAD, 0, 0)
-    chart_spectra = self.writeXlsx_IAD(ws_IAD, 0, 0, errCells)
-    wb.add_chartsheet('Spectra').set_chart(chart_spectra)
-
-  def writeXlsx_IAD(self, ws, c0, r0):
+    from functions import getTableCellName as cellName
     lines = self.tool.getLines('xoff')
+    base = lines.index(lines[self.tool.base])
 
     c1, r1 = c0+1, r0+1
     c2 = c1 + len(lines) + 1
@@ -249,8 +245,8 @@ class IADToolWidget(ToolWidgetBase):
       f3 = '=sum(%s:%s)' % (cellName(r1, c1+i), cellName(r2, c1+i))
 
       ws.write(r1+i, c3, n)
-      ws.write(r1+i, c3+1, errCells[i])
-      ws.write(r1+i, c3+2, f1)
+      ws.write(r1+i, c3+1, f1)
+      ws.write(r1+i, c3+2, errCells[i])
       ws.write(r1+i, c3+3, f2, fmt_wc)
       ws.write(r1+i, c3+4, f3, fmt_is)
 
@@ -263,8 +259,10 @@ class IADToolWidget(ToolWidgetBase):
 
     return chart_spectra
 
-  def writeXlsx_err(self, ws, c0, r0):
+  def writeXlsx_err(self, wb, ws, c0, r0):
+    from functions import getTableCellName as cellName
     lines = self.tool.getLines('orig')
+    base = lines.index(lines[self.tool.base])
 
     c1, r1 = c0+1, r0+1
     c2 = c1 + (len(lines)*2) + 1

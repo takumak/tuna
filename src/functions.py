@@ -17,3 +17,6 @@ def parseTableColumnLabel(label):
     else:
       raise ValueError('Invalid label: %s' % label)
   return ret
+
+def getTableCellName(r, c, absx='', absy=''):
+  return '%s%s%s%d' % (absx, getTableColumnLabel(c), absy, r+1)

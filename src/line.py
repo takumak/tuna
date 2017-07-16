@@ -39,7 +39,7 @@ class Line:
       return self.__class__(self.name, self.x, y, None)
 
     sumy_ = np.sqrt(np.sum(self.y_**2))
-    y_ = np.sqrt((1/sumy)**2*(self.y_**2) + (1/sumy**2)**2*(sumy_**2))
+    y_ = np.sqrt((1/sumy)**2*(self.y_**2) + (y/sumy**2)**2*(sumy_**2))
     return self.__class__(self.name, self.x, y, y_)
 
   def xoff(self, off):

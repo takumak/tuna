@@ -174,25 +174,36 @@ class IADToolWidget(ToolWidgetBase):
     QApplication.clipboard().setText('\n'.join(['\t'.join(r) for r in rows]))
 
   def exportXlsx(self):
-    from functions import getTableColumnLabel
-    def cellName(r, c, absx='', absy=''):
-      return '%s%s%s%d' % (absx, getTableColumnLabel(c), absy, r+1)
-
     dlg = FileDialog('iad_export_xlsx')
     if dlg.exec_() != dlg.Accepted:
       return
     filename = dlg.selectedFiles()[0]
 
+    import xlsxwriter
+    wb = xlsxwriter.Workbook(filename)
+    try:
+      self.writeXlsx(wb)
+    finally:
+      wb.close()
+
+  def writeXlsx(self, wb):
+    from functions import getTableColumnLabel
+    def cellName(r, c, absx='', absy=''):
+      return '%s%s%s%d' % (absx, getTableColumnLabel(c), absy, r+1)
 
     lines = self.tool.getLines('xoff')
     base = lines.index(lines[self.tool.base])
 
-    import xlsxwriter
-    wb = xlsxwriter.Workbook(filename)
+    fmt_wc = wb.add_format()
+    fmt_wc.set_num_format('0.000000000000')
+    fmt_is = wb.add_format()
+    fmt_is.set_num_format('0.00')
+
     ws = wb.add_worksheet('IAD')
 
     c0, r0 = 0, 0
     c1, r1 = c0+1, r0+1
+    c2 = c1 + len(lines) + 1
     for c, l in enumerate(lines):
       if c == 0:
         ws.write(r0, c0, 'x')
@@ -200,25 +211,28 @@ class IADToolWidget(ToolWidgetBase):
           ws.write(r1+r, c0, x)
 
       ws.write(r0, c1+c, l.name)
-      for r, y in enumerate(l.y):
-        ws.write(r1+r, c1+c, y)
-
-    c2 = c1 + len(lines) + 1
-
-    for c, l in enumerate(lines):
       ws.write(r0, c2+c, l.name)
       for r, y in enumerate(l.y):
+        # spectrum
+        ws.write(r1+r, c1+c, y)
+        # diff
         f = '=abs(%s-%s)' % (cellName(r1+r, c1+c), cellName(r1+r, c1+base, '$'))
         ws.write(r1+r, c2+c, f)
+
+
+    chart_spectra = wb.add_chart({'type': 'scatter', 'subtype': 'straight'})
+    iad = self.tool.getLines('iad')[0]
+    iad_errors = dict(zip(iad.x, iad.y_))
 
     c3 = c2 + len(lines) + 1
     c4 = c3 + 1
     ws.write(r0, c4+0, 'IAD')
-    ws.write(r0, c4+1, 'Weight center')
-    ws.write(r0, c4+2, 'Intensity sum')
+    ws.write(r0, c4+1, 'IAD err')
+    ws.write(r0, c4+2, 'Weight center')
+    ws.write(r0, c4+3, 'Intensity sum')
     for i, l in enumerate(lines):
       n = l.name
-      m = re.search(r'^([\+\-]?\d*(?:\.\d+)?)', l.name)
+      m = re.search(r'^([\+\-]?\d+(?:\.\d+)?)', l.name)
       if m: n = float(m.group(1))
 
       r2 = r1+len(l.y)-1
@@ -229,11 +243,43 @@ class IADToolWidget(ToolWidgetBase):
       f3 = '=sum(%s:%s)' % (cellName(r1, c1+i), cellName(r2, c1+i))
 
       ws.write(r1+i, c3, n)
-      ws.write(r1+i, c3+1, f1)
-      ws.write(r1+i, c3+2, f2)
-      ws.write(r1+i, c3+3, f3)
+      ws.write(r1+i, c3+1, iad_errors.get(n, None))
+      ws.write(r1+i, c3+2, f1)
+      ws.write(r1+i, c3+3, f2, fmt_wc)
+      ws.write(r1+i, c3+4, f3, fmt_is)
 
-    wb.close()
+      chart_spectra.add_series({
+        'name':       [ws.name, r0, c1+i],
+        'categories': [ws.name, r1, c0, r2, c0],
+        'values':     [ws.name, r1, c1+i, r2, c1+i],
+        'line':       {'width': 1}
+      })
+
+
+
+    lines = self.tool.getLines('orig')
+    ws = wb.add_worksheet('IAD err')
+
+    c0, r0 = 0, 0
+    c1 = c0 + (len(lines)*2) + 1
+    r1 = r0+1
+    ws.write(r0, c1+1, 'sum(I)')
+    ws.write(r0, c1+2, 'sum(I) err')
+    for c, l in enumerate(lines):
+      C = c0+(c*2)
+      ws.write(r0, C, l.name)
+      ws.write(r0, C+1, '%s err' % l.name)
+      for r, (y, y_) in enumerate(zip(l.y, l.y_)):
+        ws.write(r1+r, C, y)
+        ws.write(r1+r, C+1, y_)
+
+      rng = '%s:%s' % (cellName(r1, C+1), cellName(r1+len(l.y)-1, C+1))
+      ws.write(r1+c, c1, l.name)
+      ws.write(r1+c, c1+1, '=sum(%s:%s)' % (cellName(r1, C), cellName(r1+len(l.y)-1, C)))
+      ws.write(r1+c, c1+2, '=sqrt(sumproduct(%s,%s))' % (rng, rng))
+
+
+    wb.add_chartsheet('Spectra').set_chart(chart_spectra)
 
   def linesTableCellChanged(self, r, c):
     if c == 1:

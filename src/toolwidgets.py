@@ -199,11 +199,19 @@ class IADToolWidget(ToolWidgetBase):
     fmt_is = wb.add_format()
     fmt_is.set_num_format('0.00')
 
-    ws = wb.add_worksheet('IAD')
+    ws_IAD = wb.add_worksheet('IAD')
+    ws_err = wb.add_worksheet('IAD err')
 
-    c0, r0 = 0, 0
+    errCells = self.writeXlsx_err(ws_IAD, 0, 0)
+    chart_spectra = self.writeXlsx_IAD(ws_IAD, 0, 0, errCells)
+    wb.add_chartsheet('Spectra').set_chart(chart_spectra)
+
+  def writeXlsx_IAD(self, ws, c0, r0):
+    lines = self.tool.getLines('xoff')
+
     c1, r1 = c0+1, r0+1
     c2 = c1 + len(lines) + 1
+
     for c, l in enumerate(lines):
       if c == 0:
         ws.write(r0, c0, 'x')
@@ -221,8 +229,6 @@ class IADToolWidget(ToolWidgetBase):
 
 
     chart_spectra = wb.add_chart({'type': 'scatter', 'subtype': 'straight'})
-    iad = self.tool.getLines('iad')[0]
-    iad_errors = dict(zip(iad.x, iad.y_))
 
     c3 = c2 + len(lines) + 1
     c4 = c3 + 1
@@ -243,7 +249,7 @@ class IADToolWidget(ToolWidgetBase):
       f3 = '=sum(%s:%s)' % (cellName(r1, c1+i), cellName(r2, c1+i))
 
       ws.write(r1+i, c3, n)
-      ws.write(r1+i, c3+1, iad_errors.get(n, None))
+      ws.write(r1+i, c3+1, errCells[i])
       ws.write(r1+i, c3+2, f1)
       ws.write(r1+i, c3+3, f2, fmt_wc)
       ws.write(r1+i, c3+4, f3, fmt_is)
@@ -255,31 +261,54 @@ class IADToolWidget(ToolWidgetBase):
         'line':       {'width': 1}
       })
 
+    return chart_spectra
 
-
+  def writeXlsx_err(self, ws, c0, r0):
     lines = self.tool.getLines('orig')
-    ws = wb.add_worksheet('IAD err')
 
-    c0, r0 = 0, 0
-    c1 = c0 + (len(lines)*2) + 1
-    r1 = r0+1
-    ws.write(r0, c1+1, 'sum(I)')
-    ws.write(r0, c1+2, 'sum(I) err')
+    c1, r1 = c0+1, r0+1
+    c2 = c1 + (len(lines)*2) + 1
+    c3 = c2 + 4
+    c4 = c3 + len(lines) + 1
+    c5 = c4 + len(lines) + 1
+    ws.write(r0, c2+1, 'sum(I)')
+    ws.write(r0, c2+2, 'sum(I) err')
+    ws.write(r0, c5+1, 'IAD err')
     for c, l in enumerate(lines):
-      C = c0+(c*2)
+      if c == 0:
+        ws.write(r0, c0, 'x')
+        for r, x in enumerate(l.x):
+          ws.write(r1+r, c0, x)
+
+      C = c1+(c*2)
       ws.write(r0, C, l.name)
       ws.write(r0, C+1, '%s err' % l.name)
+      ws.write(r0, c3+c, '%s norm err' % l.name)
+      ws.write(r0, c4+c, '%s diff err' % l.name)
       for r, (y, y_) in enumerate(zip(l.y, l.y_)):
         ws.write(r1+r, C, y)
         ws.write(r1+r, C+1, y_)
+        ws.write(r1+r, c3+c,
+                 '=(1/%(sumy)s)^2*(%(y_)s^2) + (%(y)s/%(sumy)s^2)^2*(%(sumy_)s^2)' % {
+                   'y':     cellName(r1+r, C),
+                   'y_':    cellName(r1+r, C+1),
+                   'sumy':  cellName(r1+c, c2+1),
+                   'sumy_': cellName(r1+c, c2+2)
+                 })
+        ws.write(r1+r, c4+c, '=sqrt(%s^2 + %s^2)' % (
+          cellName(r1+r, c3+c), cellName(r1+r, c3+base)))
+
 
       rng = '%s:%s' % (cellName(r1, C+1), cellName(r1+len(l.y)-1, C+1))
-      ws.write(r1+c, c1, l.name)
-      ws.write(r1+c, c1+1, '=sum(%s:%s)' % (cellName(r1, C), cellName(r1+len(l.y)-1, C)))
-      ws.write(r1+c, c1+2, '=sqrt(sumproduct(%s,%s))' % (rng, rng))
+      ws.write(r1+c, c2, l.name)
+      ws.write(r1+c, c2+1, '=sum(%s:%s)' % (cellName(r1, C), cellName(r1+len(l.y)-1, C)))
+      ws.write(r1+c, c2+2, '=sqrt(sumproduct(%s,%s))' % (rng, rng))
 
+      rng = '%s:%s' % (cellName(r1, c4+c), cellName(r1+len(l.y)-1, c4+c))
+      ws.write(r1+c, c5, l.name)
+      ws.write(r1+c, c5+1, '=sqrt(sumproduct(%s,%s))' % (rng, rng))
 
-    wb.add_chartsheet('Spectra').set_chart(chart_spectra)
+    return [cellName(r1+i, c5+1) for i, l in enumerate(lines)]
 
   def linesTableCellChanged(self, r, c):
     if c == 1:

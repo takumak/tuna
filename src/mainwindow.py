@@ -100,9 +100,8 @@ class MainWindow(QMainWindow):
     self.setAcceptDrops(True)
 
     self._prevXY = None
-
     self.sessionFilename = None
-
+    self.performanceReport = False
 
     try:
       self.loadConfig()
@@ -156,33 +155,40 @@ class MainWindow(QMainWindow):
     self.sourcesWidget.addFile(filename, checked, sheets)
 
   def update(self, autoRange=True):
+    if not self.performanceReport:
+      self.update_(autoRange)
+
+    else:
+      import cProfile, pstats, io
+      pr = cProfile.Profile()
+      pr.enable()
+      try:
+        self.update_(autoRange)
+      finally:
+        pr.disable()
+        s = io.StringIO()
+        sortby = 'cumulative'
+        ps = pstats.Stats(pr, stream=s).sort_stats(sortby)
+        ps.print_stats()
+        logging.info('\n'+s.getvalue())
+
+
+  def update_(self, autoRange=True):
     for t in self.tools:
       t.clear()
 
-    import cProfile, pstats, io
-    pr = cProfile.Profile()
-    pr.enable()
+    for sw in self.sourcesWidget.enabledSheetWidgets():
+      X = sw.sheet.xValues()
+      Y = sw.sheet.yValues(True)
+      if len(X) == 1: X = list(X) * len(Y)
+      if len(X) != len(Y): raise RuntimeError('X and Y formulae count mismatch')
 
-    try:
-      for sw in self.sourcesWidget.enabledSheetWidgets():
-        X = sw.sheet.xValues()
-        Y = sw.sheet.yValues(True)
-        if len(X) == 1: X = list(X) * len(Y)
-        if len(X) != len(Y): raise RuntimeError('X and Y formulae count mismatch')
-
-        for i, (x, y) in enumerate(zip(X, Y)):
-          name = sw.sheet.name
-          if len(Y) > 1: name += ':%s' % i
-          y, y_ = zip(*y)
-          for t in self.tools:
-            t.add(name, x, np.array(y), np.array(y_))
-    finally:
-      pr.disable()
-      s = io.StringIO()
-      sortby = 'cumulative'
-      ps = pstats.Stats(pr, stream=s).sort_stats(sortby)
-      ps.print_stats()
-      logging.info('\n'+s.getvalue())
+      for i, (x, y) in enumerate(zip(X, Y)):
+        name = sw.sheet.name
+        if len(Y) > 1: name += ':%s' % i
+        y, y_ = zip(*y)
+        for t in self.tools:
+          t.add(name, x, np.array(y), np.array(y_))
 
     self.updateGraph()
     if autoRange:

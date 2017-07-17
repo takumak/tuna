@@ -40,11 +40,3 @@ class SheetWidget(QWidget):
       self.table.setHorizontalHeaderItem(c, QTableWidgetItem(getTableColumnLabel(c)))
       for r in range(sheet.rowCount()):
         self.table.setItem(r, c, QTableWidgetItem(str(self.sheet.getValue(r, c))))
-
-    self.errors = ['0']*sheet.colCount()
-
-  def setX(self, text):
-    self.xLineEdit.setText(text)
-
-  def setY(self, text):
-    self.yLineEdit.setText(text)

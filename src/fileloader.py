@@ -71,9 +71,18 @@ class SheetBase:
       return self.formulacache[formula]
 
     from functions import parseTableColumnLabel
+    import sympy
     from sympy.parsing.sympy_parser import parse_expr
+    from sympy.core.function import FunctionClass
 
-    exprs = parse_expr(formula)
+    global_dict = {}
+    for n in dir(sympy):
+      if len(n) == 1 and n in 'ABCDEFGHIJKLMNOPQRSTUVWXYZ': continue
+      v = getattr(sympy, n)
+      if isinstance(v, FunctionClass) or callable(v):
+        global_dict[n] = v
+
+    exprs = parse_expr(formula, global_dict=global_dict)
     if not isinstance(exprs, tuple):
       exprs = exprs,
 
@@ -81,7 +90,7 @@ class SheetBase:
     for expr in exprs:
       freefunc = self.freeFunctions(expr)
       if freefunc:
-        raise InvalidFormulaError('Undefined functions: %s' % ','.join(freefunc))
+        raise InvalidFormulaError('Undefined functions: %s' % ','.join(map(str, freefunc)))
 
       variables = []
       for sym in expr.free_symbols:

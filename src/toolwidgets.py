@@ -236,10 +236,6 @@ class IADToolWidget(ToolWidgetBase):
     ws.write(r0, c4+3, 'Intensity sum')
     lines_iad = [(l, iadX) for l, iadX in zip(lines, self.tool.iadX) if iadX is not None]
     for i, (l, iadX) in enumerate(lines_iad):
-      n = l.name
-      m = re.search(r'^([\+\-]?\d+(?:\.\d+)?)', l.name)
-      if m: n = float(m.group(1))
-
       r2 = r1+len(l.y)-1
       f1 = '=sum(%s:%s)' % (cellName(r1, c2+i), cellName(r2, c2+i))
       ry = '%s:%s'      % (cellName(r1, c1+i), cellName(r2, c1+i))
@@ -247,14 +243,14 @@ class IADToolWidget(ToolWidgetBase):
         cellName(r1, c0), cellName(r2, c0), ry, ry)
       f3 = '=sum(%s:%s)' % (cellName(r1, c1+i), cellName(r2, c1+i))
 
-      ws.write(r1+i, c3, n)
+      ws.write(r1+i, c3, iadX)
       ws.write(r1+i, c3+1, f1)
       ws.write(r1+i, c3+2, errCells[i])
       ws.write(r1+i, c3+3, f2, fmt_wc)
       ws.write(r1+i, c3+4, f3, fmt_is)
 
       chart_spectra.add_series({
-        'IAD X':      iadX,
+        'name':       [ws.name, r1+i, c3],
         'categories': [ws.name, r1, c0, r2, c0],
         'values':     [ws.name, r1, c1+i, r2, c1+i],
         'line':       {'width': 1}

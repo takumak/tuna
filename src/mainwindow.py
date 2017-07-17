@@ -99,7 +99,7 @@ class MainWindow(QMainWindow):
     self.resize(1000, 800)
     self.setAcceptDrops(True)
 
-    self._prevXY = None
+    self._prevSheetSet = None
     self.sessionFilename = None
     self.performanceReport = False
 
@@ -197,9 +197,11 @@ class MainWindow(QMainWindow):
   def plotRequested(self, tool, autoRange):
     self.curTool = tool
 
-    XY = [(sw.x(), sw.y()) for sw in self.sourcesWidget.enabledSheetWidgets()]
-    if XY != self._prevXY:
-      self._prevXY = XY
+    sheetSet = [[sw.sheet.xformula, sw.sheet.yformula]+sw.sheet.errors
+                for sw in self.sourcesWidget.enabledSheetWidgets()]
+    if sheetSet != self._prevSheetSet:
+      logging.info('Force reload lines from sources')
+      self._prevSheetSet = sheetSet
       self.update()
       return
 

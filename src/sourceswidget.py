@@ -1,4 +1,5 @@
 import os
+import logging
 from PyQt5.QtCore import Qt, pyqtSignal
 from PyQt5.QtGui import QCursor
 from PyQt5.QtWidgets import \
@@ -71,8 +72,9 @@ class SourcesWidget(QSplitter):
   def errtblItemChanged(self, item):
     data = item.data(Qt.UserRole)
     if data:
-      sw, c = data
-      sw.errors[c] = item.text()
+      sheet, c = data
+      sheet.setError(c, item.text())
+      logging.info('Error table item changed: errors[%d]=%s' % (c, item.text()))
 
   def topLevelItemForFilename(self, filename):
     for i in range(self.tree.topLevelItemCount()):

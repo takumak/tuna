@@ -52,6 +52,11 @@ class SheetBase:
   def yValues(self, withError=False):
     return np.array(list(zip(*self.evalFormula(self.yformula, withError))))
 
+  def setError(self, col, formula):
+    self.errors[col] = formula
+    self.formulacache.clear()
+    self.evalcache.clear()
+
   def freeFunctions(self, expr):
     from sympy.core.function import UndefinedFunction
     ret = set()

@@ -25,6 +25,9 @@ class SheetBase:
     from functions import getTableColumnLabel
     self.errors = ['sqrt(%s)' % getTableColumnLabel(c) for c in range(self.colCount())]
 
+    self.formulacache = {}
+    self.evalcache = {}
+
   def getColumn(self, c):
     return [self.getValue(r, c) for r in range(self.rowCount())]
 
@@ -59,6 +62,9 @@ class SheetBase:
     return ret.union(*(self.freeFunctions(a) for a in expr.args))
 
   def parseFormula(self, formula):
+    if formula in self.formulacache:
+      return self.formulacache[formula]
+
     from functions import parseTableColumnLabel
     from sympy.parsing.sympy_parser import parse_expr
 
@@ -83,9 +89,14 @@ class SheetBase:
 
       ret.append((expr, variables))
 
+    self.formulacache[formula] = ret
     return ret
 
   def evalFormula(self, formula, withError=False):
+    cachekey = formula, withError
+    if cachekey in self.evalcache:
+      return self.evalcache[cachekey]
+
     exprs = self.parseFormula(formula)
     rows = []
     for r in range(self.rowCount()):
@@ -93,6 +104,8 @@ class SheetBase:
       for expr, variables in exprs:
         cols.append(self.evalRowExpr(r, expr, variables, withError))
       rows.append(cols)
+
+    self.evalcache[cachekey] = rows
     return rows
 
   def evalRowExpr(self, row, expr, variables, withError=False):

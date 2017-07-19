@@ -1,6 +1,6 @@
 import numpy as np
 
-from methodbase import MethodBase, ParamInt, ParamDouble
+from methodbase import MethodBase, ParamDouble
 
 
 

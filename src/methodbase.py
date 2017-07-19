@@ -187,4 +187,4 @@ class MethodBase:
     for p in state:
       n = p['name']
       if n in self.paramsMap:
-        self.paramsMap[n].setStrValue(p['value'])
+        self.paramsMap[n].setStrValue(str(p['value']))

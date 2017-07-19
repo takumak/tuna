@@ -80,29 +80,18 @@ class IADToolWidget(ToolWidgetBase):
 
 
     self.bgsubComboBox = QComboBox()
-    self.bgsubComboBox.currentIndexChanged.connect(self.bgsubSelected)
     hbox = HBoxLayout()
     hbox.addWidget(QLabel('BG subtraction'))
     hbox.addWidget(self.bgsubComboBox)
     vbox.addLayout(hbox)
-
-    bgsubOptionsLayout = VBoxLayout()
-    bgsubOptionsLayout.setContentsMargins(40, 0, 0, 0)
-    vbox.addLayout(bgsubOptionsLayout)
-
-    self.bgsubOptions = []
-    for bgsub in [BGSubNop(), BGSubMinimum(), BGSubLeftEdge(), BGSubRightEdge()]:
-      opt = bgsub.getOptionsWidget()
-      self.bgsubComboBox.addItem(bgsub.label, [bgsub, opt])
-      if opt:
-        bgsubOptionsLayout.addWidget(opt)
-        self.bgsubOptions.append(opt)
-    self.bgsubComboBox.setCurrentIndex(0)
-    self.bgsubSelected(self.bgsubComboBox.currentIndex())
+    optl = VBoxLayout()
+    optl.setContentsMargins(40, 0, 0, 0)
+    vbox.addLayout(optl)
+    self.setupOptionsComboBox(self.bgsubComboBox, optl, [
+      BGSubNop(), BGSubMinimum(), BGSubLeftEdge(), BGSubRightEdge()])
 
 
     self.interpComboBox = QComboBox()
-    self.interpComboBox.currentIndexChanged.connect(self.interpSelected)
     self.interpdxLineEdit = QLineEdit()
     self.interpdxLineEdit.setValidator(QDoubleValidator())
     self.interpdxLineEdit.setText('%g' % self.tool.interpdx)
@@ -113,21 +102,13 @@ class IADToolWidget(ToolWidgetBase):
     hbox.addWidget(QLabel('dx'))
     hbox.addWidget(self.interpdxLineEdit)
     vbox.addLayout(hbox)
+    optl = VBoxLayout()
+    optl.setContentsMargins(40, 0, 0, 0)
+    vbox.addLayout(optl)
+    self.setupOptionsComboBox(self.interpComboBox, optl, [
+      InterpCubicSpline(), InterpLinear(), InterpPchip(),
+      InterpAkima(), InterpKrogh(), InterpBarycentric()])
 
-    interpOptionsLayout = VBoxLayout()
-    interpOptionsLayout.setContentsMargins(40, 0, 0, 0)
-    vbox.addLayout(interpOptionsLayout)
-
-    self.interpOptions = []
-    for interp in [InterpCubicSpline(), InterpLinear(), InterpPchip(),
-                   InterpAkima(), InterpKrogh(), InterpBarycentric()]:
-      opt = interp.getOptionsWidget()
-      self.interpComboBox.addItem(interp.label, [interp, opt])
-      if opt:
-        interpOptionsLayout.addWidget(opt)
-        self.interpOptions.append(opt)
-    self.interpComboBox.setCurrentIndex(0)
-    self.interpSelected(self.interpComboBox.currentIndex())
 
     self.WCthreshold = QLineEdit()
     self.WCthreshold.setValidator(QDoubleValidator())
@@ -163,6 +144,28 @@ class IADToolWidget(ToolWidgetBase):
     self.tool.xoffUpdated.connect(self.updateXoff)
     self.tool.iadYUpdated.connect(self.updateIADy)
     self.tool.peaksUpdated.connect(self.updatePeaks)
+
+  def setupOptionsComboBox(self, combobox, optlayout, items):
+    def selected(idx):
+      for i in range(combobox.count()):
+        item, opt = combobox.itemData(i)
+        if opt is None: continue
+
+        if i == idx:
+          opt.show()
+        else:
+          opt.hide()
+      self.replot()
+
+    for item in items:
+      opt = item.getOptionsWidget()
+      combobox.addItem(item.label, [item, opt])
+      if opt:
+        optlayout.addWidget(opt)
+    combobox.setCurrentIndex(0)
+    selected(combobox.currentIndex())
+    combobox.currentIndexChanged.connect(selected)
+
 
   def copyResult(self):
     rows = [self.columnLabels]
@@ -339,24 +342,6 @@ class IADToolWidget(ToolWidgetBase):
 
   def baseRadioClicked(self, b):
     self.tool.base = self.selectBaseGroup.checkedId()
-    self.replot()
-
-  def bgsubSelected(self, idx):
-    bgsub, opt_ = self.bgsubComboBox.currentData()
-    for opt in self.bgsubOptions:
-      if opt == opt_:
-        opt.show()
-      else:
-        opt.hide()
-    self.replot()
-
-  def interpSelected(self, idx):
-    interp, opt_ = self.interpComboBox.currentData()
-    for opt in self.interpOptions:
-      if opt == opt_:
-        opt.show()
-      else:
-        opt.hide()
     self.replot()
 
   def clear(self):

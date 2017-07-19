@@ -29,32 +29,6 @@ class MainWindow(QMainWindow):
     self.configFilename = configFilename
 
 
-    actions = [
-      ('act_file_import',     '&Import file',    QKeySequence(Qt.CTRL | Qt.Key_I), self.showImportFileDialog),
-      ('act_session_open',    '&Open session',   QKeySequence.Open, self.showOpenSessionDialog),
-      ('act_session_save',    '&Save session',   QKeySequence.Save, self.saveSession),
-      ('act_session_save_as', 'Save session as', QKeySequence.SaveAs, lambda: self.saveSession(True)),
-    ]
-
-    for name, label, key, func in actions:
-      act = QAction(label)
-      act.setShortcut(key)
-      act.triggered.connect(func)
-      setattr(self, name, act)
-
-    menubar = self.menuBar()
-    filemenu = menubar.addMenu('&File')
-    filemenu.addAction(self.act_file_import)
-
-    sessionmenu = menubar.addMenu('&Session')
-    sessionmenu.addAction(self.act_session_open)
-    sessionmenu.addAction(self.act_session_save)
-    sessionmenu.addAction(self.act_session_save_as)
-
-    self.act_session_relative = sessionmenu.addAction('Save with relative path')
-    self.act_session_relative.setCheckable(True)
-
-
     self.graphWidget = GraphWidget()
     self.setCentralWidget(self.graphWidget)
 
@@ -97,6 +71,37 @@ class MainWindow(QMainWindow):
     self.tabifyDockWidget(self.logDockWidget, self.sourcesDockWidget)
     self.resizeDocks([self.sourcesDockWidget, self.logDockWidget], [200, 200], Qt.Vertical)
     self.logDockWidget.raise_()
+
+
+    actions = [
+      ('act_file_import',     '&Import file',    QKeySequence(Qt.CTRL | Qt.Key_I), self.showImportFileDialog),
+      ('act_session_open',    '&Open session',   QKeySequence.Open, self.showOpenSessionDialog),
+      ('act_session_save',    '&Save session',   QKeySequence.Save, self.saveSession),
+      ('act_session_save_as', 'Save session as', QKeySequence.SaveAs, lambda: self.saveSession(True)),
+    ]
+
+    for name, label, key, func in actions:
+      act = QAction(label)
+      act.setShortcut(key)
+      act.triggered.connect(func)
+      setattr(self, name, act)
+
+    menubar = self.menuBar()
+    filemenu = menubar.addMenu('&File')
+    filemenu.addAction(self.act_file_import)
+
+    sessionmenu = menubar.addMenu('&Session')
+    sessionmenu.addAction(self.act_session_open)
+    sessionmenu.addAction(self.act_session_save)
+    sessionmenu.addAction(self.act_session_save_as)
+
+    self.act_session_relative = sessionmenu.addAction('Save with relative path')
+    self.act_session_relative.setCheckable(True)
+
+    viewmenu = menubar.addMenu('&View')
+    for dockw in toolDockWidgets + [self.sourcesDockWidget, self.logDockWidget]:
+      viewmenu.addAction(dockw.toggleViewAction())
+
 
     self.resize(1000, 800)
     self.setAcceptDrops(True)

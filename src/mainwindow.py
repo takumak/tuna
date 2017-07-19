@@ -51,6 +51,9 @@ class MainWindow(QMainWindow):
     sessionmenu.addAction(self.act_session_save)
     sessionmenu.addAction(self.act_session_save_as)
 
+    self.act_session_relative = sessionmenu.addAction('Save with relative path')
+    self.act_session_relative.setCheckable(True)
+
 
     self.graphWidget = GraphWidget()
     self.setCentralWidget(self.graphWidget)
@@ -143,15 +146,13 @@ class MainWindow(QMainWindow):
       except fileloader.UnsupportedFileException as ex:
         logging.error('Unsupported file: %s %s' % (ex.mimetype, ex.filename))
         continue
-      self.addFile(filename, True, [(s, True) for s in f])
+      self.addFile(filename, True, True, [(s, True) for s in f])
     self.toolIAD.mode = 'orig'
     self.update()
     self.sourcesDockWidget.raise_()
 
-  def addFile(self, filename, checked, sheets):
-    logging.debug('Add file: %s' % filename)
-    self.sourcesWidget.show()
-    self.sourcesWidget.addFile(filename, checked, sheets)
+  def addFile(self, filename, checked, expanded, sheets):
+    self.sourcesWidget.addFile(filename, checked, expanded, sheets)
 
   def update(self, autoRange=True):
     if not self.performanceReport:
@@ -232,7 +233,7 @@ class MainWindow(QMainWindow):
 
     filename = os.path.realpath(dlg.selectedFiles()[0])
     try:
-      self.loadSession(json.load(open(filename)))
+      self.loadSession(json.load(open(filename)), filename)
     except:
       log.log_exc()
       return
@@ -250,15 +251,19 @@ class MainWindow(QMainWindow):
     obj = self.createSessionData()
     json.dump(obj, open(self.sessionFilename, 'w'))
 
-  def loadSession(self, sess):
+  def loadSession(self, sess, filename):
     logging.debug('Loading session')
 
     self.sourcesWidget.removeAllFiles()
 
+    if 'relative' in sess:
+      self.act_session_relative.setChecked(sess['relative'])
+
     if 'files' in sess:
+      from os.path import normpath, join, dirname
+
       for f in sess['files']:
-        checked = f['enabled']
-        filename = f['filename']
+        filename = normpath(join(dirname(filename), f['filename']))
         sheets = []
 
         try:
@@ -278,7 +283,14 @@ class MainWindow(QMainWindow):
           if 'errors' in s: sheet.errors = s['errors']
           sheets.append((sheet, c))
 
-        self.addFile(filename, checked, sheets)
+        logging.debug('Add file: %s' % filename)
+        self.sourcesWidget.show()
+        self.sourcesWidget.addFile(
+          filename,
+          f.get('enabled', True),
+          f.get('expanded', True),
+          sheets
+        )
 
     if 'graph' in sess:
       graph = sess['graph']
@@ -294,26 +306,27 @@ class MainWindow(QMainWindow):
           except:
             log.log_exc()
 
-  def createSessionData(self):
+  def createSessionData(self, forceAbsPath=False):
     files = []
-    for fn, fc, sw_ in self.sourcesWidget.files():
-      sheets = []
-      for sw, sc in sw_:
-        sheets.append({
-          'enabled': sc,
-          'index': sw.sheet.idx,
-          'xformula': sw.sheet.xformula,
-          'yformula': sw.sheet.yformula,
-          'errors': sw.sheet.errors
-        })
-      files.append({
-        'enabled': fc,
-        'filename': fn,
-        'sheets': sheets
-      })
+    relative = self.act_session_relative.isChecked()
+    for f in self.sourcesWidget.files():
+      if not forceAbsPath and relative:
+        f['filename'] = os.path.relpath(
+          f['filename'], os.path.dirname(self.sessionFilename))
+
+      f['sheets'] = [{
+        'enabled': sc,
+        'index': sw.sheet.idx,
+        'xformula': sw.sheet.xformula,
+        'yformula': sw.sheet.yformula,
+        'errors': sw.sheet.errors
+      } for sw, sc in f['sheets']]
+
+      files.append(f)
 
     r = self.graphWidget.viewRect()
     obj = {
+      'relative': relative,
       'files': files,
       'graph': {
         'range': [r.x(), r.y(), r.width(), r.height()]
@@ -346,7 +359,7 @@ class MainWindow(QMainWindow):
       if 'states' in fd: FileDialog.states.update(fd['states'])
 
     if 'session' in obj:
-      self.loadSession(obj['session'])
+      self.loadSession(obj['session'], self.configFilename)
 
     self.update()
     self.sourcesDockWidget.raise_()
@@ -355,7 +368,7 @@ class MainWindow(QMainWindow):
     fdstate = None
     if FileDialog.state is not None: fdstate = str(b64encode(FileDialog.state), 'ascii')
     obj = {
-      'session': self.createSessionData(),
+      'session': self.createSessionData(True),
       'mainwindow': {
         'state': str(b64encode(self.saveState(self.saveStateVersion)), 'ascii')
       },

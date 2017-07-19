@@ -83,7 +83,7 @@ class SourcesWidget(QSplitter):
         return item
     return None
 
-  def addFile(self, filename, checked, sheets):
+  def addFile(self, filename, checked, expanded, sheets):
     fitem = self.topLevelItemForFilename(filename)
     if fitem is not None:
       self.tree.takeTopLevelItem(fitem)
@@ -93,7 +93,7 @@ class SourcesWidget(QSplitter):
     fitem.setFlags((fitem.flags() | Qt.ItemIsUserCheckable) & ~Qt.ItemIsSelectable)
     fitem.setCheckState(0, Qt.Checked if checked else Qt.Unchecked)
     self.tree.addTopLevelItem(fitem)
-    fitem.setExpanded(True)
+    fitem.setExpanded(expanded)
 
     for sheet, checked in sheets:
       self.addSheet(fitem, sheet, checked)
@@ -123,12 +123,17 @@ class SourcesWidget(QSplitter):
         sheets.append((sw, sitem.checkState(0) == Qt.Checked))
 
       if len(sheets) > 0:
-        files.append((filename, fitem.checkState(0) == Qt.Checked, sheets))
+        files.append({
+          'filename': filename,
+          'enabled': fitem.checkState(0) == Qt.Checked,
+          'expanded': fitem.isExpanded(),
+          'sheets': sheets
+        })
 
     return files
 
   def enabledSheetWidgets(self):
-    return sum([[sw for sw, c in sheets if c] for fn, c, sheets in self.files() if c], [])
+    return sum([[sw for sw, c in f['sheets'] if c] for f in self.files() if f['enabled']], [])
 
   def siblingSheetWidgets(self, sheetwidget):
     for i in range(self.tree.topLevelItemCount()):

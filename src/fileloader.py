@@ -2,8 +2,10 @@ import sys, os
 import re
 import logging
 import numpy as np
+from PyQt5.QtGui import QValidator
 
 import log
+from methodbase import ParamStr
 
 
 class UnsupportedFileException(Exception):
@@ -19,14 +21,18 @@ class SheetBase:
     self.filename = filename
     self.idx = idx
     self.name = name
-    self.xformula = 'A'
-    self.yformula = 'B'
+    self.xFormula = ParamStr('xformula', 'X', 'A', self.validate)
+    self.yFormula = ParamStr('yformula', 'Y', 'B', self.validate)
 
     from functions import getTableColumnLabel
     self.errors = ['sqrt(%s)' % getTableColumnLabel(c) for c in range(self.colCount())]
 
     self.formulacache = {}
     self.evalcache = {}
+
+  def validate(self, formula):
+    self.parseFormula(formula)
+    return QValidator.Acceptable, 'OK'
 
   def getColumn(self, c):
     return [self.getValue(r, c) for r in range(self.rowCount())]
@@ -40,17 +46,11 @@ class SheetBase:
   def getValue(self, r, c):
     raise NotImplementedError()
 
-  def setXformula(self, f):
-    self.xformula = f
-
-  def setYformula(self, f):
-    self.yformula = f
-
   def xValues(self):
-    return np.array(list(zip(*self.evalFormula(self.xformula))))
+    return np.array(list(zip(*self.evalFormula(self.xFormula.strValue()))))
 
   def yValues(self, withError=False):
-    return np.array(list(zip(*self.evalFormula(self.yformula, withError))))
+    return np.array(list(zip(*self.evalFormula(self.yFormula.strValue(), withError))))
 
   def setError(self, col, formula):
     self.errors[col] = formula

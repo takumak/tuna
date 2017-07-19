@@ -202,7 +202,7 @@ class MainWindow(QMainWindow):
   def plotRequested(self, tool, autoRange):
     self.curTool = tool
 
-    sheetSet = [[sw.sheet.xformula, sw.sheet.yformula]+sw.sheet.errors
+    sheetSet = [[sw.sheet.xFormula.strValue(), sw.sheet.yFormula.strValue()]+sw.sheet.errors
                 for sw in self.sourcesWidget.enabledSheetWidgets()]
     if sheetSet != self._prevSheetSet:
       logging.info('Force reload lines from sources')
@@ -283,8 +283,8 @@ class MainWindow(QMainWindow):
           i = s['index']
 
           sheet = book.getSheet(i)
-          if 'xformula' in s: sheet.setXformula(s['xformula'])
-          if 'yformula' in s: sheet.setYformula(s['yformula'])
+          if 'xformula' in s: sheet.xFormula.setStrValue(s['xformula'])
+          if 'yformula' in s: sheet.yFormula.setStrValue(s['yformula'])
           if 'errors' in s: sheet.errors = s['errors']
           sheets.append((sheet, c))
 
@@ -322,8 +322,8 @@ class MainWindow(QMainWindow):
       f['sheets'] = [{
         'enabled': sc,
         'index': sw.sheet.idx,
-        'xformula': sw.sheet.xformula,
-        'yformula': sw.sheet.yformula,
+        'xformula': sw.sheet.xFormula.strValue(),
+        'yformula': sw.sheet.yFormula.strValue(),
         'errors': sw.sheet.errors
       } for sw, sc in f['sheets']]
 

@@ -40,14 +40,15 @@ class LogHandler(logging.Handler):
       self.app.window.log_(msg)
       self.log = None
 
-def excepthook(exc_type, exc_value, exc_traceback):
+def logException(exc_type, exc_value, exc_traceback, level=logging.ERROR):
   tb = ''.join(traceback.format_tb(exc_traceback))
-  logging.error('%s %s\n%s' % (exc_type, exc_value, tb))
+  logging.log(level, '%s %s\n%s' % (exc_type, exc_value, tb))
 
-def log_exc():
-  excepthook(*sys.exc_info())
+def warnException():
+  exc_type, exc_value, exc_traceback = sys.exc_info()
+  logException(*sys.exc_info(), level=logging.WARNING)
 
-def set_app(app):
+def setApp(app):
   global __handler
   __handler.setApp(app)
 
@@ -55,4 +56,4 @@ def setup():
   global __handler
   __handler = LogHandler()
   logging.getLogger().addHandler(__handler)
-  sys.excepthook = excepthook
+  sys.excepthook = logException

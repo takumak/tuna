@@ -1,15 +1,14 @@
-import re
-from PyQt5.QtCore import Qt, QVariant, pyqtSignal
-from PyQt5.QtGui import QBrush
+import logging
+from PyQt5.QtGui import QValidator
 from PyQt5.QtWidgets import \
-  QWidget, QTableWidgetItem, QGridLayout, QLabel, QLineEdit
+  QWidget, QTableWidgetItem, QGridLayout, QLabel
 
-from commonwidgets import TableWidget, VBoxLayout
+import log
+from commonwidgets import TableWidget, VBoxLayout, ErrorCheckEdit
 from functions import getTableColumnLabel
 
 
 class SheetWidget(QWidget):
-
   def __init__(self, sheet):
     super().__init__()
     self.sheet = sheet
@@ -17,10 +16,10 @@ class SheetWidget(QWidget):
     vbox = VBoxLayout()
     self.setLayout(vbox)
 
-    self.xLineEdit = QLineEdit()
+    self.xLineEdit = ErrorCheckEdit(self.validate)
     self.xLineEdit.setText(sheet.xformula)
     self.xLineEdit.textChanged.connect(lambda t: self.sheet.setXformula(t))
-    self.yLineEdit = QLineEdit()
+    self.yLineEdit = ErrorCheckEdit(self.validate)
     self.yLineEdit.setText(sheet.yformula)
     self.yLineEdit.textChanged.connect(lambda t: self.sheet.setYformula(t))
 
@@ -40,3 +39,7 @@ class SheetWidget(QWidget):
       self.table.setHorizontalHeaderItem(c, QTableWidgetItem(getTableColumnLabel(c)))
       for r in range(sheet.rowCount()):
         self.table.setItem(r, c, QTableWidgetItem(str(self.sheet.getValue(r, c))))
+
+  def validate(self, formula):
+    self.sheet.parseFormula(formula)
+    return QValidator.Acceptable, 'OK'

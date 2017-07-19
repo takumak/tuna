@@ -21,5 +21,5 @@ if __name__ == '__main__':
   log.setup()
 
   app = Tsuna(exedir)
-  log.set_app(app)
+  log.setApp(app)
   sys.exit(app.exec_())

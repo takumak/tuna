@@ -1,9 +1,13 @@
+import sys
 import logging
 import html
 from PyQt5.QtCore import QPoint, QRect
 from PyQt5.QtGui import QKeySequence, QValidator, QPainter, QPen, QBrush, QColor
 from PyQt5.QtWidgets import QApplication, QTableWidget, QMenu, \
   QFrame, QVBoxLayout, QHBoxLayout, QWidget, QLabel, QLineEdit
+
+import log
+
 
 
 class TableWidget(QTableWidget):
@@ -99,23 +103,27 @@ class ErrorBaloon(QWidget):
 
 
 
-class LineEditWithBaloon(QLineEdit):
-  def __init__(self, *args, **kwargs):
+class ErrorCheckEdit(QLineEdit):
+  def __init__(self, validator, *args, **kwargs):
     super().__init__(*args, **kwargs)
+    self.validator = validator
     self.baloon = ErrorBaloon()
-    self.baloonEnabled = False
+    self.state = QValidator.Acceptable
+    self.textChanged.connect(lambda t: self.checkValue())
 
-  def setBaloonMessage(self, message):
-    if message is None:
-      self.baloonEnabled = False
-      self.hideBaloon()
+  def checkValue(self):
+    try:
+      self.state, message = self.validator(self.text())
+    except:
+      log.warnException()
+      self.state = QValidator.Invalid
+      message = '%s %s' % sys.exc_info()[:2]
+
+    self.baloon.setMessage(message)
+    if self.state != QValidator.Acceptable and self.hasFocus():
+      self.showBaloon()
     else:
-      self.baloonEnabled = True
-      self.baloon.setMessage(message)
-      if self.hasFocus():
-        self.showBaloon()
-      else:
-        self.hideBaloon()
+      self.hideBaloon()
 
   def showBaloon(self):
     self.baloon.updatePosition(self)
@@ -125,17 +133,17 @@ class LineEditWithBaloon(QLineEdit):
 
   def hideBaloon(self):
     self.baloon.hide()
-    if self.baloonEnabled:
-      self.setStyleSheet('QLineEdit{background-color:red}');
-    else:
+    if self.state == QValidator.Acceptable:
       self.setStyleSheet('');
+    else:
+      self.setStyleSheet('QLineEdit{background-color:red}');
 
   def focusInEvent(self, ev):
     super().focusInEvent(ev)
-    if self.baloonEnabled:
-      self.showBaloon()
-    else:
+    if self.state == QValidator.Acceptable:
       self.hideBaloon()
+    else:
+      self.showBaloon()
 
   def focusOutEvent(self, ev):
     super().focusOutEvent(ev)

@@ -11,6 +11,7 @@ from PyQt5.QtWidgets import \
 from tools import ToolBase, FitTool, IADTool
 from interpolation import InterpLinear, InterpCubicSpline, \
   InterpBarycentric, InterpKrogh, InterpPchip, InterpAkima
+from smoothing import SmoothNop, SmoothSavGol
 from bgsubtraction import BGSubNop, BGSubMinimum, BGSubLeftEdge, BGSubRightEdge
 from commonwidgets import TableWidget, HSeparator, VBoxLayout, HBoxLayout
 from dialogs import FileDialog
@@ -77,6 +78,17 @@ class IADToolWidget(ToolWidgetBase):
 
     vbox.addStretch(1)
     vbox.addWidget(HSeparator())
+
+
+    self.smoothComboBox = QComboBox()
+    hbox = HBoxLayout()
+    hbox.addWidget(QLabel('Smoothing'))
+    hbox.addWidget(self.smoothComboBox)
+    vbox.addLayout(hbox)
+    optl = VBoxLayout()
+    optl.setContentsMargins(40, 0, 0, 0)
+    vbox.addLayout(optl)
+    self.setupOptionsComboBox(self.smoothComboBox, optl, [SmoothNop(), SmoothSavGol()])
 
 
     self.bgsubComboBox = QComboBox()
@@ -328,6 +340,7 @@ class IADToolWidget(ToolWidgetBase):
   def updateToolProps(self):
     self.tool.bgsub = self.bgsubComboBox.currentData()[0]
 
+    self.tool.smooth = self.smoothComboBox.currentData()[0]
     self.tool.interp = self.interpComboBox.currentData()[0]
     self.tool.interpdx = float(self.interpdxLineEdit.text())
     self.tool.threshold = float(self.WCthreshold.text())
@@ -430,44 +443,40 @@ class IADToolWidget(ToolWidgetBase):
     self.updateToolProps()
     self.plotRequested.emit(self.tool, autoRange)
 
-  def getBGSubList(self):
-    return [self.bgsubComboBox.itemData(i)[0] for i in range(self.bgsubComboBox.count())]
-
-  def getInterpList(self):
-    return [self.interpComboBox.itemData(i)[0] for i in range(self.interpComboBox.count())]
-
   def saveState(self):
-    curr_bgsub, opt_ = self.bgsubComboBox.currentData()
-    curr_interp, opt_ = self.interpComboBox.currentData()
-    return {
-      'curr_bgsub': curr_bgsub.name,
-      'bgsub': dict([(item.name, item.saveState()) for item in self.getBGSubList()]),
-      'curr_interp': curr_interp.name,
-      'interp': dict([(item.name, item.saveState()) for item in self.getInterpList()]),
+    state = {
       'interpdx': self.interpdxLineEdit.text(),
       'wc_threshold': self.WCthreshold.text(),
       'plot_mode': self.tool.mode,
       'base': self.tool.base
     }
 
+    for cat in 'smooth', 'bgsub', 'interp':
+      combo = getattr(self, '%sComboBox' % cat)
+      curr, opt = combo.currentData()
+      items = [combo.itemData(i)[0] for i in range(combo.count())]
+
+      state['curr_%s' % cat] = curr.name
+      state[cat] = dict([(item.name, item.saveState()) for item in items])
+
+    return state
+
   def restoreState(self, state):
-    bgsub = dict([(item.name, (i, item)) for i, item in enumerate(self.getBGSubList())])
-    if 'curr_bgsub' in state:
-      self.bgsubComboBox.setCurrentIndex(bgsub[state['curr_bgsub']][0])
-    if 'bgsub' in state:
-      for name, s in state['bgsub'].items():
-        if name in bgsub:
-          bgsub[name][1].restoreState(s)
+    for cat in 'smooth', 'bgsub', 'interp':
+      combo = getattr(self, '%sComboBox' % cat)
+      items = [combo.itemData(i)[0] for i in range(combo.count())]
+      items = dict([(item.name, (i, item)) for i, item in enumerate(items)])
 
-    interp = dict([(item.name, (i, item)) for i, item in enumerate(self.getInterpList())])
-    if 'curr_interp' in state:
-      self.interpComboBox.setCurrentIndex(interp[state['curr_interp']][0])
-    if 'interp' in state:
-      for name, istate in state['interp'].items():
-        if name in interp:
-          interp[name][1].restoreState(istate)
+      key = 'curr_%s' % cat
+      if key in state:
+        combo.setCurrentIndex(items[state[key]][0])
+
+      if cat in state:
+        for itemname, st in state[cat].items():
+          if itemname in items:
+            items[itemname][1].restoreState(st)
+
     if 'interpdx' in state: self.interpdxLineEdit.setText(state['interpdx'])
-
     if 'wc_threshold' in state: self.WCthreshold.setText(state['wc_threshold'])
     if 'plot_mode' in state: self.tool.mode = state['plot_mode']
     if 'base' in state: self.tool.base = state['base']

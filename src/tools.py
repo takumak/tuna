@@ -51,6 +51,7 @@ class IADTool(ToolBase):
     self.mode = 'orig'
     self.base = -1
     self.bgsub = None
+    self.smooth = None
     self.interp = None
     self.interpdx = 0.1
     self.threshold = 1e-10
@@ -123,12 +124,13 @@ class IADTool(ToolBase):
       return self.updatePeaks([l.normalize() for l in self.lines])
 
 
-    linesF = [self.interp.func(l.x, l.y) for l in self.lines]
-    linesX = [self.interpX(l) for l in self.lines]
+    lines = [Line(l.name, l.x, self.smooth.smooth(l.x, l.y), None) for l in self.lines]
+    linesF = [self.interp.func(l.x, l.y) for l in lines]
+    linesX = [self.interpX(l) for l in lines]
     if self.bgsub:
       logging.info('Subtract bg: %s' % self.bgsub.label)
       linesF_ = []
-      for l, f, x in zip(self.lines, linesF, linesX):
+      for l, f, x in zip(lines, linesF, linesX):
         fsub = self.bgsub.func(l, f, x)
         linesF_.append((lambda f, fsub: (lambda x: f(x)-fsub(x)))(f, fsub))
       linesF = linesF_
@@ -142,10 +144,10 @@ class IADTool(ToolBase):
       baseidx = -1
 
 
-    self.xoff, X1, X2 = self.calcXoff(self.lines, linesF, baseF)
+    self.xoff, X1, X2 = self.calcXoff(lines, linesF, baseF)
     x = np.arange(X1, X2, self.interpdx)
     lines_off = []
-    for l, f, xoff in zip(self.lines, linesF, self.xoff):
+    for l, f, xoff in zip(lines, linesF, self.xoff):
       y = f(x-xoff)
       lines_off.append(Line(l.name, x, y, None).normalize())
 

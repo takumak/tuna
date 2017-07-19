@@ -209,6 +209,7 @@ class IADToolWidget(ToolWidgetBase):
     errCells = self.writeXlsx_err(wb, ws_err, 0, 0)
     errCells = ["='%s'!%s" % (ws_err.name, c) for c in errCells]
     chart_spectra, chart_iad = self.writeXlsx_IAD(wb, ws_IAD, 0, 0, errCells)
+
     wb.add_chartsheet('Spectra').set_chart(chart_spectra)
     wb.add_chartsheet('IAD graph').set_chart(chart_iad)
 
@@ -242,7 +243,32 @@ class IADToolWidget(ToolWidgetBase):
 
 
     chart_spectra = wb.add_chart({'type': 'scatter', 'subtype': 'straight'})
+    chart_spectra.set_title({'none': True})
+    chart_spectra.set_x_axis({
+      'name': 'Energy (eV)',
+      'major_gridlines': {'visible': False},
+      'major_tick_mark': 'inside'
+    })
+    chart_spectra.set_y_axis({
+      'name': 'Intensity (a.u.)',
+      'major_gridlines': {'visible': False},
+      'major_tick_mark': 'inside'
+    })
+
     chart_iad = wb.add_chart({'type': 'scatter', 'subtype': 'straight_with_markers'})
+    chart_iad.set_title({'none': True})
+    chart_iad.set_legend({'none': True})
+    chart_iad.set_x_axis({
+      'name': 'Pressure (GPa)',
+      'major_gridlines': {'visible': False},
+      'major_tick_mark': 'inside'
+    })
+    chart_iad.set_y_axis({
+      'name': 'IAD (a.u.)',
+      'major_gridlines': {'visible': False},
+      'major_tick_mark': 'inside',
+      'min': 0
+    })
 
     c3 = c2 + len(lines) + 1
     c4 = c3 + 1

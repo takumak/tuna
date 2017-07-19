@@ -148,7 +148,7 @@ class SheetBase:
       return val, np.sum(err)**.5
 
     except:
-      log.excepthook(*sys.exc_info())
+      log.log_exc()
       return (None, None) if withError else None
 
 class FileLoaderBase:

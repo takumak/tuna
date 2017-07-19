@@ -105,7 +105,7 @@ class MainWindow(QMainWindow):
     try:
       self.loadConfig()
     except:
-      log.excepthook(*sys.exc_info())
+      log.log_exc()
       return
 
     logging.info('Drag and drop here to open multiple files')
@@ -234,7 +234,7 @@ class MainWindow(QMainWindow):
     try:
       self.loadSession(json.load(open(filename)))
     except:
-      log.excepthook(*sys.exc_info())
+      log.log_exc()
       return
 
     self.sessionFilename = filename
@@ -264,7 +264,7 @@ class MainWindow(QMainWindow):
         try:
           book = fileloader.load(filename)
         except:
-          log.excepthook(*sys.exc_info())
+          log.log_exc()
           continue
 
 
@@ -292,8 +292,7 @@ class MainWindow(QMainWindow):
           try:
             t.restoreState(tools[t.name()])
           except:
-            log.excepthook(*sys.exc_info())
-            pass
+            log.log_exc()
 
   def createSessionData(self):
     files = []
@@ -338,7 +337,7 @@ class MainWindow(QMainWindow):
         try:
           self.restoreState(state, self.saveStateVersion)
         except:
-          log.excepthook(*sys.exc_info())
+          log.log_exc()
 
     if 'filedialogs' in obj:
       fd = obj['filedialogs']

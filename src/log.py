@@ -44,6 +44,9 @@ def excepthook(exc_type, exc_value, exc_traceback):
   tb = ''.join(traceback.format_tb(exc_traceback))
   logging.error('%s %s\n%s' % (exc_type, exc_value, tb))
 
+def log_exc():
+  excepthook(*sys.exc_info())
+
 def set_app(app):
   global __handler
   __handler.setApp(app)

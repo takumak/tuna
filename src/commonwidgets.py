@@ -1,7 +1,9 @@
 import logging
-from PyQt5.QtGui import QKeySequence, QValidator
+import html
+from PyQt5.QtCore import QPoint, QRect
+from PyQt5.QtGui import QKeySequence, QValidator, QPainter, QPen, QBrush, QColor
 from PyQt5.QtWidgets import QApplication, QTableWidget, QMenu, \
-  QFrame, QVBoxLayout, QHBoxLayout, QSpinBox
+  QFrame, QVBoxLayout, QHBoxLayout, QWidget, QLabel, QLineEdit
 
 
 class TableWidget(QTableWidget):
@@ -58,26 +60,83 @@ class VBoxLayout(QVBoxLayout):
 
 
 
-class SpinBox(QSpinBox):
-  def __init__(self, min_, max_, func):
+class ErrorBaloon(QWidget):
+  def __init__(self):
     super().__init__()
-    self.min_ = min_
-    self.max_ = max_
-    self.func = func
 
-    if min_ is not None:
-      self.setMinimum(min_)
-    if max_ is not None:
-      self.setMaximum(max_)
+    self.label = QLabel()
 
-  def validate(self, text, pos):
-    state = super().validate(text, pos)
-    if state[0] == QValidator.Acceptable:
-      val = int(text)
-      if self.min_ is not None and val < self.min_:
-        return (QValidator.Invalid, text, pos)
-      if self.max_ is not None and val > self.max_:
-        return (QValidator.Invalid, text, pos)
-      if self.func and not self.func(val):
-        return (QValidator.Invalid, text, pos)
-    return state
+    vbox = VBoxLayout()
+    vbox.setContentsMargins(4, 4, 4, 4)
+    vbox.addWidget(self.label)
+    self.setLayout(vbox)
+
+  def paintEvent(self, ev):
+    rect = self.rect()
+    rect = QRect(rect.x(), rect.y(), rect.width()-1, rect.height()-1)
+
+    painter = QPainter(self)
+    painter.setRenderHint(painter.Antialiasing)
+    painter.setBrush(QBrush(QColor(0xf8, 0xf8, 0xf8)))
+    painter.setPen  (  QPen(QColor(0x80, 0x80, 0x80)))
+    painter.drawRoundedRect(rect, 3, 3)
+    painter.end()
+
+  def setMessage(self, text):
+    self.label.setText('<span style="font-weight:bold; color:#800">%s</span>' % html.escape(text))
+
+  def updatePosition(self, widget):
+    self.setParent(widget.window())
+    self.adjustSize()
+
+    parent = widget.parentWidget()
+    pt = widget.mapTo(parent, QPoint(0, 0))
+    while(parent != self.parentWidget()):
+      pt = parent.mapTo(parent.parentWidget(), pt)
+      parent = parent.parentWidget()
+
+    self.move(pt.x(), pt.y() - self.rect().height())
+
+
+
+class LineEditWithBaloon(QLineEdit):
+  def __init__(self, *args, **kwargs):
+    super().__init__(*args, **kwargs)
+    self.baloon = ErrorBaloon()
+    self.baloonEnabled = False
+
+  def setBaloonMessage(self, message):
+    if message is None:
+      self.baloonEnabled = False
+      self.hideBaloon()
+    else:
+      self.baloonEnabled = True
+      self.baloon.setMessage(message)
+      if self.hasFocus():
+        self.showBaloon()
+      else:
+        self.hideBaloon()
+
+  def showBaloon(self):
+    self.baloon.updatePosition(self)
+    self.baloon.update()
+    self.baloon.show()
+    self.setStyleSheet('');
+
+  def hideBaloon(self):
+    self.baloon.hide()
+    if self.baloonEnabled:
+      self.setStyleSheet('QLineEdit{background-color:red}');
+    else:
+      self.setStyleSheet('');
+
+  def focusInEvent(self, ev):
+    super().focusInEvent(ev)
+    if self.baloonEnabled:
+      self.showBaloon()
+    else:
+      self.hideBaloon()
+
+  def focusOutEvent(self, ev):
+    super().focusOutEvent(ev)
+    self.hideBaloon()

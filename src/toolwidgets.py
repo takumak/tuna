@@ -11,7 +11,7 @@ from PyQt5.QtWidgets import \
 from tools import ToolBase, FitTool, IADTool
 from interpolation import InterpLinear, InterpCubicSpline, \
   InterpBarycentric, InterpKrogh, InterpPchip, InterpAkima
-from smoothing import SmoothNop, SmoothSavGol
+from smoothing import SmoothNop, SmoothSavGol, SmoothConvolution
 from bgsubtraction import BGSubNop, BGSubMinimum, BGSubLeftEdge, BGSubRightEdge
 from commonwidgets import TableWidget, HSeparator, VBoxLayout, HBoxLayout
 from dialogs import FileDialog
@@ -88,7 +88,8 @@ class IADToolWidget(ToolWidgetBase):
     optl = VBoxLayout()
     optl.setContentsMargins(40, 0, 0, 0)
     vbox.addLayout(optl)
-    self.setupOptionsComboBox(self.smoothComboBox, optl, [SmoothNop(), SmoothSavGol()])
+    self.setupOptionsComboBox(self.smoothComboBox, optl, [
+      SmoothNop(), SmoothSavGol()])
 
 
     self.bgsubComboBox = QComboBox()
@@ -468,7 +469,7 @@ class IADToolWidget(ToolWidgetBase):
       items = dict([(item.name, (i, item)) for i, item in enumerate(items)])
 
       key = 'curr_%s' % cat
-      if key in state:
+      if key in state and state[key] in items:
         combo.setCurrentIndex(items[state[key]][0])
 
       if cat in state:

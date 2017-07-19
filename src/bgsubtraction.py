@@ -1,6 +1,6 @@
 import numpy as np
 
-from methodbase import MethodBase, ParamDouble
+from methodbase import MethodBase, ParamFloat
 
 
 
@@ -32,7 +32,7 @@ class BGSubMinimum(BGSubBase):
 class BGSubEdgeBase(BGSubBase):
   def __init__(self):
     super().__init__()
-    self.addParam(ParamDouble('deltaX', '\u0394x', 1))
+    self.addParam(ParamFloat('deltaX', '\u0394x', 1))
 
   def func(self, line, lineF, x):
     x1, x2 = self.range(x)
@@ -48,7 +48,7 @@ class BGSubLeftEdge(BGSubEdgeBase):
 
   def range(self, x):
     x1 = min(x)
-    return x1, x1 + self.deltaX.value()
+    return x1, x1 + self.deltaX.floatValue()
 
 
 
@@ -58,4 +58,4 @@ class BGSubRightEdge(BGSubEdgeBase):
 
   def range(self, x):
     x2 = max(x)
-    return x2 - self.deltaX.value(), x2
+    return x2 - self.deltaX.floatValue(), x2

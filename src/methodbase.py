@@ -1,66 +1,128 @@
-from PyQt5.QtGui import QDoubleValidator
+import logging
+from PyQt5.QtCore import QObject, pyqtSignal
+from PyQt5.QtGui import QValidator
 from PyQt5.QtWidgets import QGridLayout, QWidget, \
-  QLabel, QSpinBox, QLineEdit
+  QLabel, QSpinBox, QPushButton
 
-from commonwidgets import SpinBox
+from commonwidgets import LineEditWithBaloon
 
 
 
-class ParamBase:
+class ValidateError(Exception):
+  def __init__(self, message):
+    super().__init__()
+    self.message = message
+
+
+
+class ParamBase(QObject):
+  valueChanged = pyqtSignal()
+  dirtyStateChanged = pyqtSignal(bool)
+
   def __init__(self, name, label, default, validator=None):
+    super().__init__()
+
     self.name = name
     self.label = label
-    self.default = default
-    self.widget = None
+    self.default = str(default)
+    self.validator = validator
+    self.edit = None
+    self.baloon = None
+    self.dirty = False
 
-  def value(self):
+  def strValue(self):
     if hasattr(self, 'value_'):
       return self.value_
     return self.default
 
-  def setValue(self, value, updateWidget=True):
-    if value == self.value():
+  def setStrValue(self, value, updateWidget=True):
+    if hasattr(self, 'value_') and value == self.value_:
       return
     self.value_ = value
-    if self.widget and updateWidget:
-      self.updateWidgetValue(self.widget, value)
+    self.valueChanged.emit()
+    if self.edit and updateWidget:
+      self.edit.setText(value)
+      self.checkInputValue()
+
+  def saveValue(self):
+    self.setStrValue(self.edit.text(), False)
+    self.dirty = False
+    self.dirtyStateChanged.emit(self.dirty)
+
+  def checkInputValue(self):
+    state, message = self.validate(self.edit.text())
+    if state == QValidator.Acceptable:
+      self.edit.setBaloonMessage(None)
+    else:
+      logging.warning(message)
+      self.edit.setBaloonMessage(message)
+    self.dirty = True
+    self.dirtyStateChanged.emit(self.dirty)
+
+  def validate(self, value):
+    if self.validator:
+      return self.validator(value)
+    return QValidator.Acceptable, 'OK'
+
+  def isValid(self):
+    return self.validate(self.strValue())[0] == QValidator.Acceptable
+
+  def textEdited(self, text):
+    self.setStrValue(text)
+    self.checkInputValue()
+
+  def createWidget(self):
+    self.edit = LineEditWithBaloon()
+    self.edit.setText(self.strValue())
+    self.edit.textEdited.connect(self.textEdited)
+    self.edit.editingFinished.connect(self.saveValue)
 
   def getWidget(self):
-    if self.widget is None:
-      self.widget = self.createWidget()
-    return self.widget
+    if self.edit is None:
+      self.createWidget()
+    return self.edit
+
+
+
+class ParamStr(ParamBase): pass
 
 
 
 class ParamInt(ParamBase):
   def __init__(self, name, label, default,
                min_=None, max_=None, validator=None):
-    super().__init__(name, label, default)
+    super().__init__(name, label, default, validator)
     self.min_ = min_
     self.max_ = max_
-    self.validator = validator
 
-  def updateWidgetValue(self, widget, value):
-    self.widget.setValue(value)
+  def intValue(self):
+    return int(self.strValue())
 
-  def createWidget(self):
-    spin = SpinBox(self.min_, self.max_, self.validator)
-    spin.setValue(self.value())
-    spin.valueChanged.connect(lambda v: self.setValue(v, False))
-    return spin
+  def validate(self, text):
+    try:
+      val = int(text)
+    except:
+      return QValidator.Invalid, 'Must be integer'
+    if self.min_ is not None and val < self.min_:
+      return QValidator.Invalid, 'Value must be larger than or equal to %d' % self.min_
+    if self.max_ is not None and val > self.max_:
+      return QValidator.Invalid, 'Value must be less than or equal to %d' % self.max_
+
+    return super().validate(val)
 
 
 
-class ParamDouble(ParamBase):
-  def updateWidgetValue(self, widget, value):
-    self.widget.setText(str(value))
+class ParamFloat(ParamStr):
+  def floatValue(self):
+    return float(self.strValue())
 
-  def createWidget(self):
-    edit = QLineEdit()
-    edit.setValidator(QDoubleValidator())
-    edit.setText(str(self.value()))
-    edit.textEdited.connect(lambda t: self.setValue(float(t), False))
-    return edit
+  def validate(self, text):
+    try:
+      val = float(text)
+    except:
+      return QValidator.Invalid, 'Must be float number'
+
+    return super().validate(val)
 
 
 
@@ -98,10 +160,10 @@ class MethodBase:
     return widget
 
   def saveState(self):
-    return [{'name': p.name, 'value': p.value()} for p in self.params]
+    return [{'name': p.name, 'value': p.strValue()} for p in self.params]
 
   def restoreState(self, state):
     for p in state:
       n = p['name']
       if n in self.paramsMap:
-        self.paramsMap[n].setValue(p['value'])
+        self.paramsMap[n].setStrValue(p['value'])

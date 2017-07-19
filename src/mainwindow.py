@@ -16,7 +16,6 @@ import fileloader
 from graphwidget import GraphWidget
 from tools import NopTool
 from toolwidgets import FitToolWidget, IADToolWidget
-from commonwidgets import TabWidgetWithCheckBox
 from sourceswidget import SourcesWidget
 from dialogs import FileDialog
 

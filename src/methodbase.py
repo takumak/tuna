@@ -2,9 +2,12 @@ from PyQt5.QtGui import QDoubleValidator
 from PyQt5.QtWidgets import QGridLayout, QWidget, \
   QLabel, QSpinBox, QLineEdit
 
+from commonwidgets import SpinBox
+
+
 
 class ParamBase:
-  def __init__(self, name, label, default):
+  def __init__(self, name, label, default, validator=None):
     self.name = name
     self.label = label
     self.default = default
@@ -30,18 +33,18 @@ class ParamBase:
 
 
 class ParamInt(ParamBase):
-  def __init__(self, name, label, min_, max_, default):
+  def __init__(self, name, label, default,
+               min_=None, max_=None, validator=None):
     super().__init__(name, label, default)
-    self.min = min_
-    self.max = max_
+    self.min_ = min_
+    self.max_ = max_
+    self.validator = validator
 
   def updateWidgetValue(self, widget, value):
     self.widget.setValue(value)
 
   def createWidget(self):
-    spin = QSpinBox()
-    spin.setMinimum(self.min)
-    spin.setMaximum(self.max)
+    spin = SpinBox(self.min_, self.max_, self.validator)
     spin.setValue(self.value())
     spin.valueChanged.connect(lambda v: self.setValue(v, False))
     return spin

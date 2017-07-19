@@ -1,8 +1,7 @@
 import logging
-from PyQt5.QtCore import Qt, pyqtSignal
-from PyQt5.QtGui import QKeySequence, QCursor
+from PyQt5.QtGui import QKeySequence, QValidator
 from PyQt5.QtWidgets import QApplication, QTableWidget, QMenu, \
-  QTabWidget, QTabBar, QCheckBox, QFrame, QVBoxLayout, QHBoxLayout
+  QFrame, QVBoxLayout, QHBoxLayout, QSpinBox
 
 
 class TableWidget(QTableWidget):
@@ -56,3 +55,29 @@ class VBoxLayout(QVBoxLayout):
     super().__init__()
     self.setContentsMargins(0, 0, 0, 0)
     self.setSpacing(4)
+
+
+
+class SpinBox(QSpinBox):
+  def __init__(self, min_, max_, func):
+    super().__init__()
+    self.min_ = min_
+    self.max_ = max_
+    self.func = func
+
+    if min_ is not None:
+      self.setMinimum(min_)
+    if max_ is not None:
+      self.setMaximum(max_)
+
+  def validate(self, text, pos):
+    state = super().validate(text, pos)
+    if state[0] == QValidator.Acceptable:
+      val = int(text)
+      if self.min_ is not None and val < self.min_:
+        return (QValidator.Invalid, text, pos)
+      if self.max_ is not None and val > self.max_:
+        return (QValidator.Invalid, text, pos)
+      if self.func and not self.func(val):
+        return (QValidator.Invalid, text, pos)
+    return state

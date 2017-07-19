@@ -136,7 +136,7 @@ class ErrorCheckEdit(QLineEdit):
     if self.state == QValidator.Acceptable:
       self.setStyleSheet('');
     else:
-      self.setStyleSheet('QLineEdit{background-color:red}');
+      self.setStyleSheet('background-color:red');
 
   def focusInEvent(self, ev):
     super().focusInEvent(ev)

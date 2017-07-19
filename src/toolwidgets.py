@@ -9,9 +9,9 @@ from PyQt5.QtWidgets import \
   QAbstractScrollArea, QHeaderView, QApplication
 
 from tools import ToolBase, FitTool, IADTool
-from interpolation import InterpLinear, InterpCubicSpline, \
+from interpolation import InterpCubicSpline, InterpUnivariateSpline, InterpLinear, \
   InterpBarycentric, InterpKrogh, InterpPchip, InterpAkima
-from smoothing import SmoothNop, SmoothSavGol, SmoothConvolution
+from smoothing import SmoothNop, SmoothSavGol
 from bgsubtraction import BGSubNop, BGSubMinimum, BGSubLeftEdge, BGSubRightEdge
 from commonwidgets import TableWidget, HSeparator, VBoxLayout, HBoxLayout
 from dialogs import FileDialog
@@ -119,8 +119,8 @@ class IADToolWidget(ToolWidgetBase):
     optl.setContentsMargins(40, 0, 0, 0)
     vbox.addLayout(optl)
     self.setupOptionsComboBox(self.interpComboBox, optl, [
-      InterpCubicSpline(), InterpLinear(), InterpPchip(),
-      InterpAkima(), InterpKrogh(), InterpBarycentric()])
+      InterpCubicSpline(), InterpUnivariateSpline(), InterpLinear(),
+      InterpPchip(), InterpAkima(), InterpKrogh(), InterpBarycentric()])
 
 
     self.WCthreshold = QLineEdit()

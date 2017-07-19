@@ -24,7 +24,7 @@ class ParamBase(QObject):
 
     self.name = name
     self.label = label
-    self.default = str(default)
+    self.default = default
     self.validator = validator
     self.edit = None
     self.baloon = None
@@ -68,7 +68,7 @@ class ParamBase(QObject):
     return self.validate(self.strValue())[0] == QValidator.Acceptable
 
   def textEdited(self, text):
-    self.setStrValue(text)
+    self.setStrValue(text, False)
     self.checkInputValue()
 
   def createWidget(self):
@@ -88,21 +88,30 @@ class ParamStr(ParamBase): pass
 
 
 
-class ParamInt(ParamBase):
-  def __init__(self, name, label, default,
-               min_=None, max_=None, validator=None):
-    super().__init__(name, label, default, validator)
+class ParamNumber(ParamBase):
+  def __init__(self, name, label, default, type_,
+               min_=None, max_=None, validator=None,
+               emptyIsNone=False):
+    super().__init__(name, label, '%g' % default, validator)
+    self.type_ = type_
     self.min_ = min_
     self.max_ = max_
+    self.emptyIsNone = emptyIsNone
 
-  def intValue(self):
-    return int(self.strValue())
+  def numValue(self):
+    v = self.strValue()
+    if v == '' and self.emptyIsNone:
+      return None
+    return self.type_(v)
 
   def validate(self, text):
+    if text == '' and self.emptyIsNone:
+      QValidator.Acceptable, 'OK'
+
     try:
-      val = int(text)
+      val = self.type_(text)
     except:
-      return QValidator.Invalid, 'Must be integer'
+      return QValidator.Invalid, 'Must be %s' % self.type_.__name__
     if self.min_ is not None and val < self.min_:
       return QValidator.Invalid, 'Value must be larger than or equal to %d' % self.min_
     if self.max_ is not None and val > self.max_:
@@ -112,17 +121,29 @@ class ParamInt(ParamBase):
 
 
 
-class ParamFloat(ParamStr):
+class ParamInt(ParamNumber):
+  def __init__(self, name, label, default,
+               min_=None, max_=None, validator=None,
+               emptyIsNone=False):
+    super().__init__(name, label, default, int,
+                     min_=min_, max_=max_, validator=validator,
+                     emptyIsNone=emptyIsNone)
+
+  def intValue(self):
+    return self.numValue()
+
+
+
+class ParamFloat(ParamNumber):
+  def __init__(self, name, label, default,
+               min_=None, max_=None, validator=None,
+               emptyIsNone=False):
+    super().__init__(name, label, default, float,
+                     min_=min_, max_=max_, validator=validator,
+                     emptyIsNone=emptyIsNone)
+
   def floatValue(self):
-    return float(self.strValue())
-
-  def validate(self, text):
-    try:
-      val = float(text)
-    except:
-      return QValidator.Invalid, 'Must be float number'
-
-    return super().validate(val)
+    return self.numValue()
 
 
 

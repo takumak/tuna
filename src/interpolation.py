@@ -1,6 +1,6 @@
 import numpy as np
 
-from methodbase import MethodBase
+from methodbase import MethodBase, ParamInt, ParamFloat
 
 
 class InterpBase(MethodBase):
@@ -10,12 +10,27 @@ class InterpBase(MethodBase):
 
 
 class InterpLinear(InterpBase):
-  name    = 'linear'
-  label   = 'Linear'
+  name  = 'linear'
+  label = 'Linear'
 
   def func(self, x, y):
     from scipy.interpolate import interp1d
     return interp1d(x, y, 'linear')
+
+
+
+class InterpUnivariateSpline(InterpBase):
+  name  = 'univariate_spline'
+  label = 'Univariate spline'
+
+  def __init__(self):
+    super().__init__()
+    self.addParam(ParamInt('k', 'Spline degree', 3,min_=3, max_=5))
+    self.addParam(ParamFloat('s', 'Smoothing factor', 10, min_=0, emptyIsNone=True))
+
+  def func(self, x, y):
+    from scipy.interpolate import UnivariateSpline
+    return UnivariateSpline(x, y, k=self.k.intValue(), s=self.s.floatValue())
 
 
 

@@ -120,10 +120,6 @@ class IADTool(ToolBase):
     if mode == 'orig':
       return self.updatePeaks(self.lines)
 
-    if mode == 'norm':
-      return self.updatePeaks([l.normalize() for l in self.lines])
-
-
     lines = [Line(l.name, l.x, self.smooth.smooth(l.x, l.y), None) for l in self.lines]
     linesF = [self.interp.func(l.x, l.y) for l in lines]
     linesX = [self.interpX(l) for l in lines]
@@ -134,6 +130,11 @@ class IADTool(ToolBase):
         fsub = self.bgsub.func(l, f, x)
         linesF_.append((lambda f, fsub: (lambda x: f(x)-fsub(x)))(f, fsub))
       linesF = linesF_
+
+
+    if mode == 'norm':
+      return self.updatePeaks([Line(l.name, x, f(x), None).normalize()
+                               for l, f, x in zip(lines, linesF, linesX)])
 
 
     baseidx = self.base

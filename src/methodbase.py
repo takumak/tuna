@@ -74,7 +74,7 @@ class ParamNumber(ParamBase):
   def __init__(self, name, label, default, type_,
                min_=None, max_=None, validator=None,
                emptyIsNone=False):
-    super().__init__(name, label, '%g' % default, validator)
+    super().__init__(name, label, str(default), validator)
     self.type_ = type_
     self.min_ = min_
     self.max_ = max_

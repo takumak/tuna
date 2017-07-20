@@ -2,8 +2,9 @@ import logging
 import numpy as np
 from PyQt5.QtCore import QObject, pyqtSignal
 
-
 from line import Line
+from methodbase import ParamFloat
+
 
 
 class ToolBase(QObject):
@@ -53,8 +54,8 @@ class IADTool(ToolBase):
     self.bgsub = None
     self.smooth = None
     self.interp = None
-    self.interpdx = 0.1
-    self.threshold = 1e-10
+    self.interpdx = ParamFloat('interpdx', 'dx', '0.01', min_=0)
+    self.threshold = ParamFloat('threshold', 'Threshold', '1e-10', min_=0)
     self.lines = None
 
   def calcXoff(self, lines, linesF, baseF):
@@ -77,13 +78,13 @@ class IADTool(ToolBase):
         cnt = 0
         while True:
           X1, X2 = self.linesInnerRange(lines, xoff)
-          x = np.arange(X1, X2, self.interpdx)
+          x = np.arange(X1, X2, self.interpdx.floatValue())
           wc1 = weightCenter(x, baseF(x))
           wc2 = weightCenter(x, lineF(x-xoff[i]))
 
           dx = wc1 - wc2
           cnt += 1
-          if abs(dx) < self.threshold or cnt > 10:
+          if abs(dx) < self.threshold.floatValue() or cnt > 10:
             break
 
           xoff[i] += dx
@@ -108,7 +109,7 @@ class IADTool(ToolBase):
 
   def interpX(self, line):
     X1, X2 = min(line.x), max(line.x)
-    return np.arange(X1, X2, self.interpdx)
+    return np.arange(X1, X2, self.interpdx.floatValue())
 
   def getLines(self, mode=None):
     if not self.lines:
@@ -137,16 +138,15 @@ class IADTool(ToolBase):
                                for l, f, x in zip(lines, linesF, linesX)])
 
 
-    baseidx = self.base
     try:
-      baseF = linesF[baseidx]
+      baseF = linesF[self.base]
     except IndexError:
       baseF = linesF[-1]
-      baseidx = -1
+      self.base = -1
 
 
     self.xoff, X1, X2 = self.calcXoff(lines, linesF, baseF)
-    x = np.arange(X1, X2, self.interpdx)
+    x = np.arange(X1, X2, self.interpdx.floatValue())
     lines_off = []
     for l, f, xoff in zip(lines, linesF, self.xoff):
       y = f(x-xoff)
@@ -156,7 +156,7 @@ class IADTool(ToolBase):
     self.xoffUpdated.emit()
 
 
-    diff = [l - lines_off[baseidx] for l in lines_off]
+    diff = [l - lines_off[self.base] for l in lines_off]
 
     x = self.iadX
     y = [np.sum(np.abs(d.y)) for d in diff]
@@ -168,7 +168,7 @@ class IADTool(ToolBase):
     y_ = []
     lnorm = [l.normalize() for l in self.lines]
     for l in lnorm:
-      y_.append(np.sqrt(np.sum(l.y_**2 + lnorm[baseidx].y_**2)))
+      y_.append(np.sqrt(np.sum(l.y_**2 + lnorm[self.base].y_**2)))
 
 
     self.iadY = y

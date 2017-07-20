@@ -105,15 +105,11 @@ class IADToolWidget(ToolWidgetBase):
 
 
     self.interpComboBox = QComboBox()
-    self.interpdxLineEdit = QLineEdit()
-    self.interpdxLineEdit.setValidator(QDoubleValidator())
-    self.interpdxLineEdit.setText('%g' % self.tool.interpdx)
-    self.interpdxLineEdit.textChanged.connect(lambda t: self.updateToolProps())
     hbox = HBoxLayout()
     hbox.addWidget(QLabel('Interpolation'))
     hbox.addWidget(self.interpComboBox)
     hbox.addWidget(QLabel('dx'))
-    hbox.addWidget(self.interpdxLineEdit)
+    hbox.addWidget(self.tool.interpdx.getWidget())
     vbox.addLayout(hbox)
     optl = VBoxLayout()
     optl.setContentsMargins(40, 0, 0, 0)
@@ -123,13 +119,9 @@ class IADToolWidget(ToolWidgetBase):
       InterpPchip(), InterpAkima(), InterpKrogh(), InterpBarycentric()])
 
 
-    self.WCthreshold = QLineEdit()
-    self.WCthreshold.setValidator(QDoubleValidator())
-    self.WCthreshold.setText('%g' % self.tool.threshold)
-    self.WCthreshold.textChanged.connect(lambda t: self.updateToolProps())
     hbox = HBoxLayout()
     hbox.addWidget(QLabel('Weight center threshold'))
-    hbox.addWidget(self.WCthreshold)
+    hbox.addWidget(self.tool.threshold.getWidget())
     vbox.addLayout(hbox)
 
 
@@ -366,11 +358,8 @@ class IADToolWidget(ToolWidgetBase):
 
   def updateToolProps(self):
     self.tool.bgsub = self.bgsubComboBox.currentData()[0]
-
     self.tool.smooth = self.smoothComboBox.currentData()[0]
     self.tool.interp = self.interpComboBox.currentData()[0]
-    self.tool.interpdx = float(self.interpdxLineEdit.text())
-    self.tool.threshold = float(self.WCthreshold.text())
 
     self.tool.iadX = []
     for x in self.getIADx():
@@ -472,8 +461,8 @@ class IADToolWidget(ToolWidgetBase):
 
   def saveState(self):
     state = {
-      'interpdx': self.interpdxLineEdit.text(),
-      'wc_threshold': self.WCthreshold.text(),
+      'interpdx': self.tool.interpdx.strValue(),
+      'wc_threshold': self.tool.threshold.strValue(),
       'plot_mode': self.tool.mode,
       'base': self.tool.base
     }
@@ -503,8 +492,8 @@ class IADToolWidget(ToolWidgetBase):
           if itemname in items:
             items[itemname][1].restoreState(st)
 
-    if 'interpdx' in state: self.interpdxLineEdit.setText(state['interpdx'])
-    if 'wc_threshold' in state: self.WCthreshold.setText(state['wc_threshold'])
+    if 'interpdx' in state: self.tool.interpdx.setStrValue(state['interpdx'])
+    if 'wc_threshold' in state: self.tool.threshold.setStrValue(state['wc_threshold'])
     if 'plot_mode' in state: self.tool.mode = state['plot_mode']
     if 'base' in state: self.tool.base = state['base']
 

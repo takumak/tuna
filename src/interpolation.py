@@ -25,7 +25,7 @@ class InterpUnivariateSpline(InterpBase):
 
   def __init__(self):
     super().__init__()
-    self.addParam(ParamInt('k', 'Spline degree', 3,min_=3, max_=5))
+    self.addParam(ParamInt('k', 'Spline degree', 3, min_=3, max_=5))
     self.addParam(ParamFloat('s', 'Smoothing factor', 10, min_=0, emptyIsNone=True))
 
   def func(self, x, y):

@@ -351,11 +351,13 @@ class MainWindow(QMainWindow):
     if 'mainwindow' in obj:
       mw = obj['mainwindow']
       if 'state' in mw:
-        state = b64decode(mw['state'])
         try:
-          self.restoreState(state, self.saveStateVersion)
+          self.restoreState(b64decode(mw['state']), self.saveStateVersion)
         except:
           log.warnException()
+
+      if 'geometry' in mw:
+        self.restoreGeometry(b64decode(mw['geometry']))
 
     if 'filedialogs' in obj:
       fd = obj['filedialogs']
@@ -375,7 +377,8 @@ class MainWindow(QMainWindow):
     obj = {
       'session': self.createSessionData(True),
       'mainwindow': {
-        'state': str(b64encode(self.saveState(self.saveStateVersion)), 'ascii')
+        'state': str(b64encode(self.saveState(self.saveStateVersion)), 'ascii'),
+        'geometry': str(b64encode(self.saveGeometry()), 'ascii'),
       },
       'filedialogs': {
         'state': fdstate,

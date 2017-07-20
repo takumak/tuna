@@ -198,11 +198,15 @@ class IADToolWidget(ToolWidgetBase):
     ws_IAD = wb.add_worksheet('IAD')
     ws_err = wb.add_worksheet('IAD err')
 
+    ws_IAD.write(0, 0, 'Press F9 (for Excel) or Ctrl+Shift+F9 (for LibreOffice) to re-calculate cell formulae')
+
     errCells = self.writeXlsx_err(wb, ws_err, 0, 0)
     errCells = ["='%s'!%s" % (ws_err.name, c) for c in errCells]
-    chart_spectra, chart_iad = self.writeXlsx_IAD(wb, ws_IAD, 0, 0, errCells)
+    chart_spectra, chart_diff, chart_iad \
+      = self.writeXlsx_IAD(wb, ws_IAD, 0, 1, errCells)
 
     wb.add_chartsheet('Spectra').set_chart(chart_spectra)
+    wb.add_chartsheet('Diff').set_chart(chart_diff)
     wb.add_chartsheet('IAD graph').set_chart(chart_iad)
 
   def writeXlsx_IAD(self, wb, ws, c0, r0, errCells):
@@ -230,7 +234,7 @@ class IADToolWidget(ToolWidgetBase):
         # spectrum
         ws.write(r1+r, c1+c, y)
         # diff
-        f = '=abs(%s-%s)' % (cellName(r1+r, c1+c), cellName(r1+r, c1+base, '$'))
+        f = '=%s-%s' % (cellName(r1+r, c1+c), cellName(r1+r, c1+base, '$'))
         ws.write(r1+r, c2+c, f)
 
 
@@ -243,6 +247,19 @@ class IADToolWidget(ToolWidgetBase):
     })
     chart_spectra.set_y_axis({
       'name': 'Intensity (a.u.)',
+      'major_gridlines': {'visible': False},
+      'major_tick_mark': 'inside'
+    })
+
+    chart_diff = wb.add_chart({'type': 'scatter', 'subtype': 'straight'})
+    chart_diff.set_title({'none': True})
+    chart_diff.set_x_axis({
+      'name': 'Energy (eV)',
+      'major_gridlines': {'visible': False},
+      'major_tick_mark': 'inside'
+    })
+    chart_diff.set_y_axis({
+      'name': 'Intensity difference (a.u.)',
       'major_gridlines': {'visible': False},
       'major_tick_mark': 'inside'
     })
@@ -271,7 +288,7 @@ class IADToolWidget(ToolWidgetBase):
     lines_iad = [(l, iadX) for l, iadX in zip(lines, self.tool.iadX) if iadX is not None]
     for i, (l, iadX) in enumerate(lines_iad):
       r2 = r1+len(l.y)-1
-      f1 = '=sum(%s:%s)' % (cellName(r1, c2+i), cellName(r2, c2+i))
+      f1 = '=sumproduct(abs(%s:%s))' % (cellName(r1, c2+i), cellName(r2, c2+i))
       ry = '%s:%s'      % (cellName(r1, c1+i), cellName(r2, c1+i))
       f2 = '=sumproduct(%s:%s,%s)/sum(%s)' % (
         cellName(r1, c0), cellName(r2, c0), ry, ry)
@@ -284,9 +301,16 @@ class IADToolWidget(ToolWidgetBase):
       ws.write(r1+i, c3+4, f3, fmt_is)
 
       chart_spectra.add_series({
-        'name':       [ws.name, r1+i, c3],
+        'name':       [ws.name, r0, c1+i],
         'categories': [ws.name, r1, c0, r2, c0],
         'values':     [ws.name, r1, c1+i, r2, c1+i],
+        'line':       {'width': 1}
+      })
+
+      chart_diff.add_series({
+        'name':       [ws.name, r0, c2+i],
+        'categories': [ws.name, r1, c0, r2, c0],
+        'values':     [ws.name, r1, c2+i, r2, c2+i],
         'line':       {'width': 1}
       })
 
@@ -302,7 +326,7 @@ class IADToolWidget(ToolWidgetBase):
       },
     })
 
-    return chart_spectra, chart_iad
+    return chart_spectra, chart_diff, chart_iad
 
   def writeXlsx_err(self, wb, ws, c0, r0):
     from functions import getTableCellName as cellName

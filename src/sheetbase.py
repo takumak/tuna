@@ -26,15 +26,28 @@ class SheetBase:
     from functions import getTableColumnLabel
     self.errors = ['sqrt(%s)' % getTableColumnLabel(c) for c in range(self.colCount())]
 
+    self.columncache = {}
     self.formulacache = {}
+    self.formulaerrcache = {}
     self.evalcache = {}
+    self.evalerrcache = {}
 
   def validate(self, formula):
     self.parseFormula(formula)
     return QValidator.Acceptable, 'OK'
 
-  def getColumn(self, c):
-    return [self.getValue(r, c) for r in range(self.rowCount())]
+  def getColumnValuesF(self, c):
+    if c not in self.columncache:
+      values = []
+      for r in range(self.rowCount()):
+        v = self.getValue(r, c)
+        try:
+          v = float(v)
+        except:
+          v = np.nan
+        values.append(v)
+      self.columncache[c] = np.array(values)
+    return self.columncache[c]
 
   def colCount(self):
     raise NotImplementedError()
@@ -46,10 +59,13 @@ class SheetBase:
     raise NotImplementedError()
 
   def xValues(self):
-    return np.array(list(zip(*self.evalFormula(self.xFormula.strValue()))))
+    return self.evalFormula(self.xFormula.strValue())
 
-  def yValues(self, withError=False):
-    return np.array(list(zip(*self.evalFormula(self.yFormula.strValue(), withError))))
+  def yValues(self):
+    return self.evalFormula(self.yFormula.strValue())
+
+  def yErrors(self):
+    return self.evalFormulaError(self.yFormula.strValue())
 
   def setError(self, col, formula):
     self.errors[col] = formula
@@ -71,6 +87,7 @@ class SheetBase:
 
     from functions import parseTableColumnLabel
     import sympy
+    from sympy import lambdify
     from sympy.parsing.sympy_parser import parse_expr
     from sympy.core.function import FunctionClass
 
@@ -91,61 +108,73 @@ class SheetBase:
       if freefunc:
         raise InvalidFormulaError('Undefined functions: %s' % ','.join(map(str, freefunc)))
 
-      variables = []
+      args = []
+      args_c = []
       for sym in expr.free_symbols:
         if not re.match(r'\A[A-Z]+\Z', sym.name):
           raise InvalidFormulaError('Invalid variable: %s' % sym.name)
         c = parseTableColumnLabel(sym.name)
         if c >= self.colCount():
           raise InvalidFormulaError('The sheet does not have such a column: %s' % sym.name)
-        variables.append((sym, c))
+        args.append(sym)
+        args_c.append(c)
 
-      ret.append((expr, variables))
+      f = lambdify(args, expr, 'numpy')
+      ret.append((f, expr, args, args_c))
 
     self.formulacache[formula] = ret
     return ret
 
-  def evalFormula(self, formula, withError=False):
-    cachekey = formula, withError
-    if cachekey in self.evalcache:
-      return self.evalcache[cachekey]
+  def getErrorFunc(self, formula):
+    if formula in self.formulaerrcache:
+      return self.formulaerrcache[formula]
+
+    import sympy
 
     exprs = self.parseFormula(formula)
-    rows = []
-    for r in range(self.rowCount()):
-      cols = []
-      for expr, variables in exprs:
-        cols.append(self.evalRowExpr(r, expr, variables, withError))
-      rows.append(cols)
+    ret = []
 
-    self.evalcache[cachekey] = rows
-    return rows
+    for f, expr, args, args_c in exprs:
+      errs = [self.parseFormula(self.errors[c])[0] for c in args_c]
+      errexprs = [e for f, e, a, c in errs]
 
-  def evalRowExpr(self, row, expr, variables, withError=False):
-    try:
-      vals = {}
-      errs = {}
-      for sym, c in variables:
-        v = self.getValue(row, c)
-        try:
-          v = float(v)
-        except ValueError:
-          return (None, None) if withError else None
-        vals[sym] = v
-        if withError:
-          errexpr, errvars = self.parseFormula(self.errors[c])[0]
-          errs[sym] = self.evalRowExpr(row, errexpr, errvars, False) or 0
+      expr_ = sympy.sqrt(sum([expr.diff(a)**2*(e**2) for a, e in zip(args, errexprs)]))
+      errargs = sum([a for f, e, a, c in errs], [])
+      errargs_c = sum([c for f, e, a, c in errs], [])
+      args_ = set([(a, c) for a, c in zip(args+errargs, args_c+errargs_c)])
+      args = [a for a, c in args_]
+      args_c = [c for a, c in args_]
 
-      val = expr.evalf(subs=vals)
-      if not withError: return val
+      f_ = sympy.lambdify(args, expr_, 'numpy')
+      ret.append((f_, expr_, args, args_c))
 
-      err = []
-      for sym, v in vals.items():
-        grad = expr.diff(sym).evalf(subs=vals)
-        sigma = errs[sym]
-        err.append((grad*sigma)**2)
-      return val, np.sum(err)**.5
+    self.formulaerrcache[formula] = ret
+    return ret
 
-    except:
-      log.warnException()
-      return (None, None) if withError else None
+  def evalFormula(self, formula):
+    if formula in self.evalcache:
+      return self.evalcache[formula]
+
+    from sympy import lambdify
+
+    exprs = self.parseFormula(formula)
+    cols = []
+    for f, expr, args, args_c in exprs:
+      cols.append(f(*[self.getColumnValuesF(c) for c in args_c]))
+
+    self.evalcache[formula] = cols
+    return cols
+
+  def evalFormulaError(self, formula):
+    if formula in self.evalerrcache:
+      return self.evalerrcache[formula]
+
+    from sympy import lambdify
+
+    exprs = self.getErrorFunc(formula)
+    cols = []
+    for f, expr, args, args_c in exprs:
+      cols.append(f(*[self.getColumnValuesF(c) for c in args_c]))
+
+    self.evalerrcache[formula] = cols
+    return cols

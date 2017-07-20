@@ -19,11 +19,15 @@ class Line:
         xi = float(xi)
         yi = float(yi)
         yi_ = float(yi_)
-        X.append(xi)
-        Y.append(yi)
-        Y_.append(yi_)
       except (ValueError, TypeError):
-        pass
+        continue
+
+      if True in np.isnan([xi, yi, yi_]):
+        continue
+
+      X.append(xi)
+      Y.append(yi)
+      Y_.append(yi_)
 
     return np.array(X), np.array(Y), np.array(Y_)
 

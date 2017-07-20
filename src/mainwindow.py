@@ -184,16 +184,16 @@ class MainWindow(QMainWindow):
 
     for sw in self.sourcesWidget.enabledSheetWidgets():
       X = sw.sheet.xValues()
-      Y = sw.sheet.yValues(True)
+      Y = sw.sheet.yValues()
+      Y_ = sw.sheet.yErrors()
       if len(X) == 1: X = list(X) * len(Y)
       if len(X) != len(Y): raise RuntimeError('X and Y formulae count mismatch')
 
-      for i, (x, y) in enumerate(zip(X, Y)):
+      for i, (x, y, y_) in enumerate(zip(X, Y, Y_)):
         name = sw.sheet.name
         if len(Y) > 1: name += ':%s' % i
-        y, y_ = zip(*y)
         for t in self.tools:
-          t.add(name, x, np.array(y), np.array(y_))
+          t.add(name, x, y, y_)
 
     self.updateGraph()
     if autoRange:

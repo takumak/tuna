@@ -151,6 +151,17 @@ class SheetBase:
     self.formulaerrcache[formula] = ret
     return ret
 
+  def valuesOfRowCount(self, vals):
+    try:
+      i = iter(vals)
+    except TypeError:
+      return np.array([vals]*self.rowCount())
+
+    if len(vals) != self.rowCount():
+      raise RuntimeError('Invalid value count')
+
+    return vals
+
   def evalFormula(self, formula):
     if formula in self.evalcache:
       return self.evalcache[formula]
@@ -160,7 +171,8 @@ class SheetBase:
     exprs = self.parseFormula(formula)
     cols = []
     for f, expr, args, args_c in exprs:
-      cols.append(f(*[self.getColumnValuesF(c) for c in args_c]))
+      cols.append(self.valuesOfRowCount(
+        f(*[self.getColumnValuesF(c) for c in args_c])))
 
     self.evalcache[formula] = cols
     return cols
@@ -174,7 +186,8 @@ class SheetBase:
     exprs = self.getErrorFunc(formula)
     cols = []
     for f, expr, args, args_c in exprs:
-      cols.append(f(*[self.getColumnValuesF(c) for c in args_c]))
+      cols.append(self.valuesOfRowCount(
+        f(*[self.getColumnValuesF(c) for c in args_c])))
 
     self.evalerrcache[formula] = cols
     return cols

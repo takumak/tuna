@@ -2,42 +2,10 @@ import logging
 import numpy as np
 from PyQt5.QtCore import QObject, pyqtSignal
 
+from toolbase import ToolBase
+from settingitems import SettingItemFloat
 from line import Line
-from methodbase import ParamFloat
 
-
-
-class ToolBase(QObject):
-  cleared = pyqtSignal()
-  added = pyqtSignal(Line)
-
-  def __init__(self):
-    super().__init__()
-    self.lines = []
-
-  def clear(self):
-    self.lines = []
-    self.cleared.emit()
-
-  def add(self, name, x, y, y_):
-    x, y, y_ = Line.cleanUp(x, y, y_)
-    l = Line(name, x, y, y_)
-    self.lines.append(l)
-    self.added.emit(l)
-
-  def getLines(self):
-    raise NotImplementedError()
-
-
-class NopTool(ToolBase):
-  name = 'Nop'
-
-  def getLines(self):
-    return self.lines
-
-
-class FitTool(NopTool):
-  name = 'Fit'
 
 
 class IADTool(ToolBase):
@@ -49,14 +17,18 @@ class IADTool(ToolBase):
 
   def __init__(self):
     super().__init__()
+
     self.mode = 'orig'
     self.base = -1
     self.bgsub = None
     self.smooth = None
     self.interp = None
-    self.interpdx = ParamFloat('interpdx', 'dx', '0.01', min_=0)
-    self.threshold = ParamFloat('threshold', 'Threshold', '1e-10', min_=0)
     self.lines = None
+
+    self.addSettingItem(SettingItemFloat(
+      'interpdx', 'dx', '0.01', min_=0))
+    self.addSettingItem(SettingItemFloat(
+      'threshold', 'Threshold', '1e-10', min_=0))
 
   def calcXoff(self, lines, linesF, baseF):
     if len(lines) == 1:
@@ -78,13 +50,13 @@ class IADTool(ToolBase):
         cnt = 0
         while True:
           X1, X2 = self.linesInnerRange(lines, xoff)
-          x = np.arange(X1, X2, self.interpdx.floatValue())
+          x = np.arange(X1, X2, self.interpdx.value())
           wc1 = weightCenter(x, baseF(x))
           wc2 = weightCenter(x, lineF(x-xoff[i]))
 
           dx = wc1 - wc2
           cnt += 1
-          if abs(dx) < self.threshold.floatValue() or cnt > 10:
+          if abs(dx) < self.threshold.value() or cnt > 10:
             break
 
           xoff[i] += dx
@@ -109,7 +81,7 @@ class IADTool(ToolBase):
 
   def interpX(self, line):
     X1, X2 = min(line.x), max(line.x)
-    return np.arange(X1, X2, self.interpdx.floatValue())
+    return np.arange(X1, X2, self.interpdx.value())
 
   def getLines(self, mode=None):
     if not self.lines:
@@ -146,7 +118,7 @@ class IADTool(ToolBase):
 
 
     self.xoff, X1, X2 = self.calcXoff(lines, linesF, baseF)
-    x = np.arange(X1, X2, self.interpdx.floatValue())
+    x = np.arange(X1, X2, self.interpdx.value())
     lines_off = []
     for l, f, xoff in zip(lines, linesF, self.xoff):
       y = f(x-xoff)
@@ -189,3 +161,16 @@ class IADTool(ToolBase):
       return [IAD]
 
     raise RuntimeError()
+
+  def saveState(self):
+    state = super().saveState()
+    state.update({
+      'plot_mode': self.mode,
+      'base': self.base
+    })
+    return state
+
+  def restoreState(self, state):
+    super().restoreState(state)
+    if 'plot_mode' in state: self.mode = state['plot_mode']
+    if 'base' in state: self.base = state['base']

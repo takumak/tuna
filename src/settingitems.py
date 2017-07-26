@@ -1,8 +1,6 @@
 import logging
 from PyQt5.QtCore import QObject, pyqtSignal
 from PyQt5.QtGui import QValidator
-from PyQt5.QtWidgets import QGridLayout, QWidget, \
-  QLabel, QSpinBox, QPushButton
 
 from commonwidgets import ErrorCheckEdit
 
@@ -15,7 +13,7 @@ class ValidateError(Exception):
 
 
 
-class ParamBase(QObject):
+class SettingItemBase(QObject):
   valueChanged = pyqtSignal()
 
   def __init__(self, name, label, default, validator=None):
@@ -26,6 +24,9 @@ class ParamBase(QObject):
     self.default = default
     self.validator = validator
     self.edit = None
+
+  def isSet(self):
+    return hasattr(self, 'value_')
 
   def strValue(self):
     if hasattr(self, 'value_'):
@@ -66,11 +67,13 @@ class ParamBase(QObject):
 
 
 
-class ParamStr(ParamBase): pass
+class SettingItemStr(SettingItemBase):
+  def value(self):
+    return self.strValue()
 
 
 
-class ParamNumber(ParamBase):
+class SettingItemNumber(SettingItemBase):
   def __init__(self, name, label, default, type_,
                min_=None, max_=None, validator=None,
                emptyIsNone=False):
@@ -80,7 +83,7 @@ class ParamNumber(ParamBase):
     self.max_ = max_
     self.emptyIsNone = emptyIsNone
 
-  def numValue(self):
+  def value(self):
     v = self.strValue()
     if v == '' and self.emptyIsNone:
       return None
@@ -103,7 +106,7 @@ class ParamNumber(ParamBase):
 
 
 
-class ParamInt(ParamNumber):
+class SettingItemInt(SettingItemNumber):
   def __init__(self, name, label, default,
                min_=None, max_=None, validator=None,
                emptyIsNone=False):
@@ -111,62 +114,12 @@ class ParamInt(ParamNumber):
                      min_=min_, max_=max_, validator=validator,
                      emptyIsNone=emptyIsNone)
 
-  def intValue(self):
-    return self.numValue()
 
 
-
-class ParamFloat(ParamNumber):
+class SettingItemFloat(SettingItemNumber):
   def __init__(self, name, label, default,
                min_=None, max_=None, validator=None,
                emptyIsNone=False):
     super().__init__(name, label, default, float,
                      min_=min_, max_=max_, validator=validator,
                      emptyIsNone=emptyIsNone)
-
-  def floatValue(self):
-    return self.numValue()
-
-
-
-class MethodBase:
-  def __init__(self):
-    self.params = []
-    self.paramsMap = {}
-    self.optionsWidget = None
-
-  def addParam(self, param):
-    self.params.append(param)
-    self.paramsMap[param.name] = param
-
-  def __getattr__(self, name):
-    if name in self.paramsMap:
-      return self.paramsMap[name]
-    raise AttributeError()
-
-  def getOptionsWidget(self):
-    if self.optionsWidget is None:
-      self.optionsWidget = self.createOptionsWidget()
-    return self.optionsWidget
-
-  def createOptionsWidget(self):
-    if not self.params:
-      return None
-    grid = QGridLayout()
-    grid.setContentsMargins(0, 0, 0, 0)
-    for r, p in enumerate(self.params):
-      grid.addWidget(QLabel(p.name), r, 0)
-      grid.addWidget(p.getWidget(), r, 1)
-
-    widget = QWidget()
-    widget.setLayout(grid)
-    return widget
-
-  def saveState(self):
-    return [{'name': p.name, 'value': p.strValue()} for p in self.params]
-
-  def restoreState(self, state):
-    for p in state:
-      n = p['name']
-      if n in self.paramsMap:
-        self.paramsMap[n].setStrValue(str(p['value']))

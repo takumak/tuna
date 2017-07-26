@@ -1,55 +1,17 @@
-import logging
 import re
-import numpy as np
-from PyQt5.QtCore import Qt, pyqtSignal
-from PyQt5.QtGui import QDoubleValidator
-from PyQt5.QtWidgets import \
-  QWidget, QLabel, QGridLayout, QLineEdit, QPushButton, \
-  QButtonGroup, QRadioButton, QComboBox, QTableWidgetItem, \
-  QAbstractScrollArea, QHeaderView, QApplication
+import logging
+from PyQt5.QtWidgets import QPushButton, QComboBox, QLabel, \
+  QGridLayout, QHeaderView, QButtonGroup, QRadioButton, \
+  QTableWidgetItem
 
-from tools import ToolBase, FitTool, IADTool
-from interpolation import InterpCubicSpline, InterpUnivariateSpline, InterpLinear, \
-  InterpBarycentric, InterpKrogh, InterpPchip, InterpAkima
+from iadtool import IADTool
+from toolwidgetbase import ToolWidgetBase
+from commonwidgets import TableWidget, HSeparator, VBoxLayout, HBoxLayout
 from smoothing import SmoothNop, SmoothSavGol
 from bgsubtraction import BGSubNop, BGSubMinimum, BGSubLeftEdge, BGSubRightEdge
-from commonwidgets import TableWidget, HSeparator, VBoxLayout, HBoxLayout
-from dialogs import FileDialog
+from interpolation import InterpCubicSpline, InterpUnivariateSpline, InterpLinear, \
+  InterpPchip, InterpAkima, InterpKrogh, InterpBarycentric
 
-
-class ToolWidgetBase(QWidget):
-  plotRequested = pyqtSignal(ToolBase, bool, name='plotRequested')
-
-  def __init__(self):
-    super().__init__()
-    self.tool = self.toolClass()
-    self.tool.cleared.connect(self.clear)
-    self.tool.added.connect(self.add)
-
-  def name(self):
-    return self.toolClass.name
-
-  def label(self):
-    return self.toolClass.label
-
-  def clear(self):
-    raise NotImplementedError()
-
-  def add(self, data):
-    raise NotImplementedError()
-
-
-class FitToolWidget(ToolWidgetBase):
-  toolClass = FitTool
-
-  def __init__(self):
-    super().__init__()
-
-  def clear(self):
-    pass
-
-  def add(self, data):
-    pass
 
 
 class IADToolWidget(ToolWidgetBase):
@@ -163,7 +125,8 @@ class IADToolWidget(ToolWidgetBase):
       self.replot()
 
     for item in items:
-      opt = item.getOptionsWidget()
+      self.addSettingObj(item)
+      opt = item.getSettingWidget()
       combobox.addItem(item.label, [item, opt])
       if opt:
         optlayout.addWidget(opt)
@@ -403,7 +366,7 @@ class IADToolWidget(ToolWidgetBase):
     self.linesTable.horizontalHeader().setResizeMode(QHeaderView.ResizeToContents)
     self.linesTable.setColumnCount(len(self.columnLabels))
     self.linesTable.setHorizontalHeaderLabels(self.columnLabels)
-    self.linesTable.setSizeAdjustPolicy(QAbstractScrollArea.AdjustToContents)
+    self.linesTable.setSizeAdjustPolicy(self.linesTable.AdjustToContents)
 
     self.selectBaseGroup = QButtonGroup()
     self.selectBaseGroup.buttonClicked.connect(self.baseRadioClicked)
@@ -484,41 +447,24 @@ class IADToolWidget(ToolWidgetBase):
     self.plotRequested.emit(self.tool, autoRange)
 
   def saveState(self):
-    state = {
-      'interpdx': self.tool.interpdx.strValue(),
-      'wc_threshold': self.tool.threshold.strValue(),
-      'plot_mode': self.tool.mode,
-      'base': self.tool.base
-    }
-
+    state = super().saveState()
+    state['tool'] = self.tool.saveState()
     for cat in 'smooth', 'bgsub', 'interp':
       combo = getattr(self, '%sComboBox' % cat)
       curr, opt = combo.currentData()
-      items = [combo.itemData(i)[0] for i in range(combo.count())]
-
       state['curr_%s' % cat] = curr.name
-      state[cat] = dict([(item.name, item.saveState()) for item in items])
-
     return state
 
   def restoreState(self, state):
+    super().restoreState(state)
+    if 'tool' in state: self.tool.restoreState(state['tool'])
+
     for cat in 'smooth', 'bgsub', 'interp':
       combo = getattr(self, '%sComboBox' % cat)
-      items = [combo.itemData(i)[0] for i in range(combo.count())]
-      items = dict([(item.name, (i, item)) for i, item in enumerate(items)])
+      items = dict([(combo.itemData(i)[0].name, i) for i in range(combo.count())])
 
       key = 'curr_%s' % cat
       if key in state and state[key] in items:
-        combo.setCurrentIndex(items[state[key]][0])
-
-      if cat in state:
-        for itemname, st in state[cat].items():
-          if itemname in items:
-            items[itemname][1].restoreState(st)
-
-    if 'interpdx' in state: self.tool.interpdx.setStrValue(state['interpdx'])
-    if 'wc_threshold' in state: self.tool.threshold.setStrValue(state['wc_threshold'])
-    if 'plot_mode' in state: self.tool.mode = state['plot_mode']
-    if 'base' in state: self.tool.base = state['base']
+        combo.setCurrentIndex(items[state[key]])
 
     self.updateToolProps()

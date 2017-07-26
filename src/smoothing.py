@@ -1,10 +1,11 @@
 import numpy as np
 from PyQt5.QtGui import QValidator
 
-from methodbase import MethodBase, ParamStr, ParamInt
+from settingobj import SettingObj
+from settingitems import SettingItemStr, SettingItemInt
 
 
-class SmoothBase(MethodBase):
+class SmoothBase(SettingObj):
   def smooth(self, x, y):
     raise NotImplementedError()
 
@@ -25,10 +26,10 @@ class SmoothSavGol(SmoothBase):
 
   def __init__(self):
     super().__init__()
-    self.addParam(ParamInt(
+    self.addSettingItem(SettingItemInt(
       'windowLength', 'Window length', 3,
       validator=self.validateWindowLength))
-    self.addParam(ParamInt(
+    self.addSettingItem(SettingItemInt(
       'polyorder', 'Poly order', 2,
       validator=self.validatePolyorder))
 
@@ -43,10 +44,10 @@ class SmoothSavGol(SmoothBase):
   def validatePolyorder(self, val):
     if val < 1:
       return QValidator.Invalid, 'Must be positive integer'
-    if self.windowLength.isValid() and val >= self.windowLength.intValue():
+    if self.windowLength.isValid() and val >= self.windowLength.value():
       return QValidator.Invalid, 'Must be less than Window length'
     return QValidator.Acceptable, 'OK'
 
   def smooth(self, x, y):
     from scipy.signal import savgol_filter
-    return savgol_filter(y, self.windowLength.intValue(), self.polyorder.intValue())
+    return savgol_filter(y, self.windowLength.value(), self.polyorder.value())

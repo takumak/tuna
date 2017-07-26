@@ -1,16 +1,18 @@
 import numpy as np
 
-from methodbase import MethodBase, ParamInt, ParamFloat
+from settingobj import SettingObj
+from settingitems import SettingItemInt, SettingItemFloat
 
 
-class InterpBase(MethodBase):
+
+class InterpBase(SettingObj):
   def func(self, x, y):
     raise NotImplementedError()
 
 
 
 class InterpLinear(InterpBase):
-  name  = 'linear'
+  name = 'linear'
   label = 'Linear'
 
   def func(self, x, y):
@@ -20,17 +22,17 @@ class InterpLinear(InterpBase):
 
 
 class InterpUnivariateSpline(InterpBase):
-  name  = 'univariate_spline'
+  name = 'univariate_spline'
   label = 'Univariate spline'
 
   def __init__(self):
     super().__init__()
-    self.addParam(ParamInt('k', 'Spline degree', 3, min_=3, max_=5))
-    self.addParam(ParamFloat('s', 'Smoothing factor', 10, min_=0, emptyIsNone=True))
+    self.addSettingItem(SettingItemInt('k', 'Spline degree', 3, min_=3, max_=5))
+    self.addSettingItem(SettingItemFloat('s', 'Smoothing factor', 10, min_=0, emptyIsNone=True))
 
   def func(self, x, y):
     from scipy.interpolate import UnivariateSpline
-    return UnivariateSpline(x, y, k=self.k.intValue(), s=self.s.floatValue())
+    return UnivariateSpline(x, y, k=self.k.value(), s=self.s.value())
 
 
 

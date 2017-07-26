@@ -3,7 +3,7 @@ import numpy as np
 from PyQt5.QtGui import QValidator
 
 import log
-from methodbase import ParamStr
+from settingitems import SettingItemStr
 
 
 
@@ -20,8 +20,8 @@ class SheetBase:
     self.filename = filename
     self.idx = idx
     self.name = name
-    self.xFormula = ParamStr('xformula', 'X', 'A', self.validate)
-    self.yFormula = ParamStr('yformula', 'Y', 'B', self.validate)
+    self.xFormula = SettingItemStr('xformula', 'X', 'A', self.validate)
+    self.yFormula = SettingItemStr('yformula', 'Y', 'B', self.validate)
 
     from functions import getTableColumnLabel
     self.errors = ['sqrt(%s)' % getTableColumnLabel(c) for c in range(self.colCount())]
@@ -59,13 +59,13 @@ class SheetBase:
     raise NotImplementedError()
 
   def xValues(self):
-    return self.evalFormula(self.xFormula.strValue())
+    return self.evalFormula(self.xFormula.value())
 
   def yValues(self):
-    return self.evalFormula(self.yFormula.strValue())
+    return self.evalFormula(self.yFormula.value())
 
   def yErrors(self):
-    return self.evalFormulaError(self.yFormula.strValue())
+    return self.evalFormulaError(self.yFormula.value())
 
   def setError(self, col, formula):
     self.errors[col] = formula

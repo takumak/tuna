@@ -14,10 +14,9 @@ from PyQt5.QtWidgets import \
 import log
 import fileloader
 from graphwidget import GraphWidget
-from tools import NopTool
-from toolwidgets import FitToolWidget, IADToolWidget
 from sourceswidget import SourcesWidget
 from dialogs import FileDialog
+from iadtoolwidget import IADToolWidget
 
 
 
@@ -26,6 +25,7 @@ class MainWindow(QMainWindow):
 
   def __init__(self, configFilename):
     super().__init__()
+
     self.configFilename = configFilename
 
 
@@ -48,13 +48,13 @@ class MainWindow(QMainWindow):
     dock_p = None
     toolDockWidgets = []
     self.toolIAD = IADToolWidget()
-    self.toolWidgets = [self.toolIAD]
     self.tools = []
-    self.curTool = self.toolWidgets[0].tool
+    self.toolWidgets = [self.toolIAD]
+    self.curTool = self.toolIAD.tool
     for t in self.toolWidgets:
       t.plotRequested.connect(self.plotRequested)
-      dock = QDockWidget(t.label())
-      dock.setObjectName('dock_%s' % t.name())
+      dock = QDockWidget(t.tool.label)
+      dock.setObjectName('dock_%s' % t.tool.name)
       dock.setWidget(t)
       toolDockWidgets.append(dock)
       self.tools.append(t.tool)
@@ -65,7 +65,7 @@ class MainWindow(QMainWindow):
 
     self.addDockWidget(Qt.BottomDockWidgetArea, self.sourcesDockWidget)
     self.resizeDocks(toolDockWidgets, [400] * len(toolDockWidgets), Qt.Horizontal)
-    self.toolWidgets[0].raise_()
+    self.toolIAD.raise_()
 
     self.addDockWidget(Qt.BottomDockWidgetArea, self.logDockWidget)
     self.tabifyDockWidget(self.logDockWidget, self.sourcesDockWidget)
@@ -202,7 +202,7 @@ class MainWindow(QMainWindow):
   def plotRequested(self, tool, autoRange):
     self.curTool = tool
 
-    sheetSet = [[sw.sheet.xFormula.strValue(), sw.sheet.yFormula.strValue()]+sw.sheet.errors
+    sheetSet = [[sw.sheet.xFormula.value(), sw.sheet.yFormula.value()]+sw.sheet.errors
                 for sw in self.sourcesWidget.enabledSheetWidgets()]
     if sheetSet != self._prevSheetSet:
       logging.info('Force reload lines from sources')
@@ -304,10 +304,10 @@ class MainWindow(QMainWindow):
 
     if 'tools' in sess:
       tools = sess['tools']
-      for t in self.toolWidgets:
-        if t.name() in tools:
+      for tw in self.toolWidgets:
+        if tw.tool.name in tools:
           try:
-            t.restoreState(tools[t.name()])
+            tw.restoreState(tools[tw.tool.name])
           except:
             log.warnException()
 
@@ -336,7 +336,7 @@ class MainWindow(QMainWindow):
       'graph': {
         'range': [r.x(), r.y(), r.width(), r.height()]
       },
-      'tools': dict([(t.name(), t.saveState()) for t in self.toolWidgets]),
+      'tools': dict([(tw.tool.name, tw.saveState()) for tw in self.toolWidgets]),
     }
 
     return obj

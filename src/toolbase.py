@@ -24,4 +24,17 @@ class ToolBase(QObject, SettingObj):
     self.added.emit(l)
 
   def getLines(self):
-    raise NotImplementedError()
+    return self.lines
+
+  def getGraphItems(self):
+    return []
+
+  def getXrange(self):
+    if len(self.lines) == 0: return 0, 1
+    l1, l2 = zip(*[l.getXrange() for l in self.lines])
+    return min(l1), max(l2)
+
+  def getYrange(self):
+    if len(self.lines) == 0: return 0, 1
+    l1, l2 = zip(*[l.getYrange() for l in self.lines])
+    return min(l1), max(l2)

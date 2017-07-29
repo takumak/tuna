@@ -23,10 +23,17 @@ class GraphWidget(pg.PlotWidget):
     self.legend = self.addLegend(offset=(10, 10))
     self.lines.clear()
 
-  def add(self, line):
+  def addLine(self, line):
     col = self.colors[(len(self.lines) - 1) % len(self.colors)]
-    items = line.getGraphItems(col)
-    for item in items:
-      self.addItem(item)
-    self.legend.addItem(items[0], name=line.name)
+
+    pen = pg.mkPen(color=col, width=2)
+    curve = pg.PlotCurveItem(x=line.x, y=line.y, pen=pen, antialias=True)
+    self.addItem(curve)
+    if line.plotErrors:
+      line.addItem(pg.ErrorBarItem(
+        x=line.x, y=line.y, height=line.y_*2, beam=0.2, pen=pen, antialias=True))
+      self.addItem(pg.ScatterPlotItem(
+        x=line.x, y=line.y, brush=pg.mkBrush(color=col), antialias=True))
+
+    self.legend.addItem(curve, name=line.name)
     self.lines.append(line)

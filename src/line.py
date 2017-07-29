@@ -66,12 +66,8 @@ class Line:
       return 0, 0
     return max(zip(self.x, self.y), key=lambda p: p[1])
 
-  def getGraphItems(self, color):
-    pen = pg.mkPen(color=color, width=2)
-    items = [pg.PlotCurveItem(x=self.x, y=self.y, pen=pen, antialias=True)]
-    if self.plotErrors:
-      items.append(pg.ErrorBarItem(
-        x=self.x, y=self.y, height=self.y_*2, beam=0.2, pen=pen, antialias=True))
-      items.append(pg.ScatterPlotItem(
-        x=self.x, y=self.y, brush=pg.mkBrush(color=color), antialias=True))
-    return items
+  def getXrange(self):
+    return min(self.x), max(self.x)
+
+  def getYrange(self):
+    return min(self.y), max(self.y)

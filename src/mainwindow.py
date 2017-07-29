@@ -17,6 +17,7 @@ from graphwidget import GraphWidget
 from sourceswidget import SourcesWidget
 from dialogs import FileDialog
 from iadtoolwidget import IADToolWidget
+from fittoolwidget import FitToolWidget
 
 
 
@@ -49,7 +50,7 @@ class MainWindow(QMainWindow):
     toolDockWidgets = []
     self.toolIAD = IADToolWidget()
     self.tools = []
-    self.toolWidgets = [self.toolIAD]
+    self.toolWidgets = [self.toolIAD, FitToolWidget(self.graphWidget)]
     self.curTool = self.toolIAD.tool
     for t in self.toolWidgets:
       t.plotRequested.connect(self.plotRequested)
@@ -152,7 +153,10 @@ class MainWindow(QMainWindow):
         logging.error('Unsupported file: %s %s' % (ex.mimetype, ex.filename))
         continue
       self.addFile(filename, True, True, [(s, True) for s in f])
-    self.toolIAD.mode = 'orig'
+
+    if self.curTool == self.toolIAD:
+      self.toolIAD.mode = 'orig'
+
     self.update()
     self.sourcesDockWidget.raise_()
 
@@ -216,8 +220,10 @@ class MainWindow(QMainWindow):
 
   def updateGraph(self):
     self.graphWidget.clearItems()
-    for l in self.curTool.getLines():
-      self.graphWidget.add(l)
+    for line in self.curTool.getLines():
+      self.graphWidget.addLine(line)
+    for item in self.curTool.getGraphItems():
+      self.graphWidget.addItem(item)
 
   def log_(self, html, activate=False):
     self.logTextEdit.moveCursor(QTextCursor.End)

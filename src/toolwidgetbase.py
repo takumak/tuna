@@ -18,5 +18,5 @@ class ToolWidgetBase(QWidget, SettingObj):
   def clear(self):
     raise NotImplementedError()
 
-  def add(self, data):
+  def add(self, line):
     raise NotImplementedError()

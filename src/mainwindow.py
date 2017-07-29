@@ -324,6 +324,12 @@ class MainWindow(QMainWindow):
           except:
             log.warnException()
 
+    if 'cur_tool' in sess:
+      for tw in self.toolWidgets:
+        if tw.tool.name == sess['cur_tool']:
+          tw.raise_()
+          self.curTool = tw.tool
+
   def createSessionData(self, forceAbsPath=False):
     files = []
     relative = self.act_session_relative.isChecked()
@@ -350,6 +356,7 @@ class MainWindow(QMainWindow):
         'range': [r.x(), r.y(), r.width(), r.height()]
       },
       'tools': dict([(tw.tool.name, tw.saveState()) for tw in self.toolWidgets]),
+      'cur_tool': self.curTool.name
     }
 
     return obj

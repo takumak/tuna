@@ -39,11 +39,13 @@ class FitTool(ToolBase):
     for i, f in enumerate(self.functions):
       items += f.getGraphItems(x, colorpicker.next())
 
-    if self.fitCurveItem is None:
+    if self.fitCurveItem is None and len(self.functions) > 0:
       self.fitCurveItem = pg.PlotCurveItem(
         x=x, y=np.zeros(len(x)), name='Fit', antialias=True)
-    self.updateFitCurve()
-    self.fitCurveItem.setPen(color=colorpicker.next(), width=2)
-    items.append(self.fitCurveItem)
+
+    if self.fitCurveItem:
+      self.updateFitCurve()
+      self.fitCurveItem.setPen(color=colorpicker.next(), width=2)
+      items.append(self.fitCurveItem)
 
     return items

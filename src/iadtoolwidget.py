@@ -371,13 +371,13 @@ class IADToolWidget(ToolWidgetBase):
     self.selectBaseGroup.buttonClicked.connect(self.baseRadioClicked)
     self.lines = []
 
-  def add(self, data):
+  def add(self, line):
     r = len(self.lines)
-    radio = QRadioButton(data.name)
+    radio = QRadioButton(line.name)
     self.linesTable.setRowCount(r + 1)
     self.linesTable.setCellWidget(r, 0, radio)
 
-    m = re.search(r'^([\+\-]?\d*(?:\.\d+)?)', data.name)
+    m = re.search(r'^([\+\-]?\d*(?:\.\d+)?)', line.name)
     if m: self.setIADx(r, m.group(1))
 
     idx = len(self.selectBaseGroup.buttons())
@@ -385,7 +385,7 @@ class IADToolWidget(ToolWidgetBase):
       radio.setChecked(True)
     self.selectBaseGroup.addButton(radio, idx)
 
-    self.lines.append(data)
+    self.lines.append(line)
 
   def setLinesTableCell(self, r, c, v):
     self.linesTable.setItem(r, c, QTableWidgetItem(str(v)))

@@ -3,7 +3,7 @@ import numpy as np
 from PyQt5.QtGui import QValidator
 
 import log
-from settingitems import SettingItemStr
+from settingitems import *
 
 
 

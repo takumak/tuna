@@ -2,7 +2,11 @@ import logging
 from PyQt5.QtCore import QObject, pyqtSignal
 from PyQt5.QtGui import QValidator
 
-from commonwidgets import ErrorCheckEdit
+from commonwidgets import *
+
+
+
+__all__ = ['SettingItemStr', 'SettingItemInt', 'SettingItemFloat']
 
 
 

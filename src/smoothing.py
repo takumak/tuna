@@ -2,7 +2,12 @@ import numpy as np
 from PyQt5.QtGui import QValidator
 
 from settingobj import SettingObj
-from settingitems import SettingItemStr, SettingItemInt
+from settingitems import *
+
+
+
+__all__ = ['SmoothNop', 'SmoothSavGol']
+
 
 
 class SmoothBase(SettingObj):

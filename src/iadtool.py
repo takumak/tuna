@@ -3,7 +3,7 @@ import numpy as np
 from PyQt5.QtCore import QObject, pyqtSignal
 
 from toolbase import ToolBase
-from settingitems import SettingItemFloat
+from settingitems import *
 from line import Line
 
 

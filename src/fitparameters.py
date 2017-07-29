@@ -1,6 +1,6 @@
 import operator
 
-from settingitems import SettingItemFloat
+from settingitems import *
 
 
 

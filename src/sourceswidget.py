@@ -7,7 +7,7 @@ from PyQt5.QtWidgets import \
   QTableWidgetItem
 
 from sheetwidget import SheetWidget
-from commonwidgets import TableWidget
+from commonwidgets import *
 
 
 

@@ -6,11 +6,10 @@ from PyQt5.QtWidgets import QPushButton, QComboBox, QLabel, \
 
 from iadtool import IADTool
 from toolwidgetbase import ToolWidgetBase
-from commonwidgets import TableWidget, HSeparator, VBoxLayout, HBoxLayout
-from smoothing import SmoothNop, SmoothSavGol
-from bgsubtraction import BGSubNop, BGSubMinimum, BGSubLeftEdge, BGSubRightEdge
-from interpolation import InterpCubicSpline, InterpUnivariateSpline, InterpLinear, \
-  InterpPchip, InterpAkima, InterpKrogh, InterpBarycentric
+from commonwidgets import *
+from smoothing import *
+from bgsubtraction import *
+from interpolation import *
 
 
 

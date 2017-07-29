@@ -15,7 +15,7 @@ import log
 import fileloader
 from graphwidget import GraphWidget
 from sourceswidget import SourcesWidget
-from dialogs import FileDialog
+from dialogs import *
 from iadtoolwidget import IADToolWidget
 from fittoolwidget import FitToolWidget
 

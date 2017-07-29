@@ -6,7 +6,7 @@ from PyQt5.QtWidgets import \
   QPushButton, QMenu
 
 import log
-from commonwidgets import TableWidget, VBoxLayout, ErrorCheckEdit
+from commonwidgets import *
 from functions import getTableColumnLabel
 
 

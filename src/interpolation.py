@@ -1,7 +1,13 @@
 import numpy as np
 
 from settingobj import SettingObj
-from settingitems import SettingItemInt, SettingItemFloat
+from settingitems import *
+
+
+
+__all__ = ['InterpLinear', 'InterpUnivariateSpline',
+           'InterpCubicSpline', 'InterpBarycentric',
+           'InterpKrogh', 'InterpPchip', 'InterpAkima']
 
 
 

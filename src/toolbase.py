@@ -26,7 +26,7 @@ class ToolBase(QObject, SettingObj):
   def getLines(self):
     return self.lines
 
-  def getGraphItems(self):
+  def getGraphItems(self, colorpicker):
     return []
 
   def getXrange(self):

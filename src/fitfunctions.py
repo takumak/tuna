@@ -64,27 +64,29 @@ class FitFunctionBase(QObject):
     y1, y2 = self.getYrange(lines)
     return y2 - y1
 
-  def getGraphItems(self, x, **opts):
+  def getGraphItems(self, x, color, **opts):
     self.plotCurveItem = pg.PlotCurveItem(
       x=x, y=self.y(x),
       antialias=True,
       name=self.name,
+      pen=pg.mkPen(color=color, width=2),
       **opts
     )
     return [self.plotCurveItem] + sum([h.getGraphItems() for h in self.handles], [])
 
-  def eval(self, name, formula, setArgName, **params):
+  def eval(self, name, formula, setArg, **params):
     from sympy.parsing.sympy_parser import parse_expr
     from sympy.solvers import solve
     from sympy import Symbol, Eq, lambdify
+
     expr = parse_expr(formula)
     args = list(expr.free_symbols)
     func = lambdify(args, expr, 'numpy')
 
     params.update(self.paramsNameMap)
 
-    if setArgName:
-      expr_i = solve(Eq(expr, Symbol('__')), Symbol(setArgName))
+    if setArg:
+      expr_i = solve(Eq(expr, Symbol('__')), Symbol(setArg.name))
       if len(expr_i) != 1:
         raise RuntimeError('Could not determine the inverse function of "y=%s"' % formula)
       expr_i = expr_i[0]
@@ -93,14 +95,15 @@ class FitFunctionBase(QObject):
     else:
       func_i = None
 
-    def wrap(func):
-      return lambda: func(*[params[a.name].value() for a in args])
+    get_ = lambda: func(*[params[a.name].value() for a in args])
 
-    anames = [a.name for a in args if a.name != setArgName]
-    if setArgName:
-      anames.insert(0, setArgName)
+    if setArg:
+      set_ = lambda v: setArg.setValue(func_i(*[
+        (v if a.name == '__' else params[a.name].value()) for a in args_i]))
+    else:
+      set_ = None
 
-    return FitParameterFunc(name, func, func_i, *[params[a] for a in anames])
+    return FitParameterFunc(name, get_, set_, [params[a.name] for a in args])
 
 
 
@@ -117,10 +120,10 @@ class FitFuncGaussian(FitFunctionBase):
     self.addParam(FitParameter('b', (x1 + x2)/2))
     self.addParam(FitParameter('c', (x2 - x1)*0.1))
 
-    HWHM = self.c*np.sqrt(2*np.log(2))
+    half = self.eval('half', 'a/2', None)
+    HWHM = self.eval('HWHM', 'b+c*sqrt(2*log(2))', self.c)
     self.addHandle(FitHandlePosition(view, self.b, self.a))
-    # self.addHandle(FitHandleThetaLength(self.b, self.a/2, FitParameterConst('theta', 0), HWHM))
-    # self.addHandle(FitHandleThetaLength(self.b, self.a/2, FitParameterConst('theta', np.pi), HWHM))
+    self.addHandle(FitHandleLine(view, self.b, half, HWHM, half))
 
   def y(self, x):
     return self.a.value()*np.exp(-(x-self.b.value())**2/(2*self.c.value()**2))
@@ -143,9 +146,10 @@ class FitFuncTwoLines(FitFunctionBase):
     self.addParam(FitParameter('x0', (x1+x2)/2))
     self.addParam(FitParameter('dx', 1))
 
+
     y0 = '(a1*x0+b1)/2 + (a2*x0+b2)/2'
     y0 = self.eval('y0', y0, None)
-    x1 = self.eval('x1', 'x0+dx', 'dx')
+    x1 = self.eval('x1', 'x0+2*dx', self.dx)
     self.addHandle(FitHandleLine(view, self.x0, y0, x1, y0))
     self.addHandle(FitHandlePosition(view, self.x0, y0))
 
@@ -154,7 +158,7 @@ class FitFuncTwoLines(FitFunctionBase):
     handlelen = FitParameterConst('len', 10)
 
 
-    theta1 = self.eval('theta1', 'atan(a1)+pi', 'a1')
+    theta1 = self.eval('theta1', 'atan(a1)+pi', self.a1)
     theta1.setValue(-np.pi)
     theta1.min_ = np.pi/2
     theta1.max_ = np.pi*3/2
@@ -170,7 +174,7 @@ class FitFuncTwoLines(FitFunctionBase):
     self.addHandle(FitHandlePosition(view, cx1, cy1))
 
 
-    theta2 = self.eval('theta2', 'atan(a2)', 'a2')
+    theta2 = self.eval('theta2', 'atan(a2)', self.a2)
     theta2.setValue(0)
     theta2.min_ = -np.pi/2
     theta2.max_ = np.pi/2

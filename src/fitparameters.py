@@ -4,7 +4,7 @@ from settingitems import *
 
 
 
-__all__ = ['FitParameter', 'FitParameterConst', 'FitParameterFunc', 'FitParameterOp']
+__all__ = ['FitParameter', 'FitParameterConst', 'FitParameterFunc']
 
 
 
@@ -35,34 +35,13 @@ class FitParameter(SettingItemFloat):
     if self.parent:
       self.parent.setValue(value)
       return
+
+    from numbers import Number
+    if not isinstance(value, Number):
+      raise TypeError('Fit parameter value must be a number, but got %s' % value)
+
     super().setStrValue(str(value))
 
-  def __add__(self, b):
-    return FitParameterOp(operator.add, operator.sub, '+', self, b)
-
-  def __radd__(self, b):
-    return FitParameterOp(operator.add, operator.sub, '+', self, b)
-
-  def __sub__(self, b):
-    return FitParameterOp(operator.sub, lambda v,b: b-v, '-', self, b)
-
-  def __rsub__(self, b):
-    return FitParameterOp(lambda s,b: b-s, operator.add, '-', self, b)
-
-  def __mul__(self, b):
-    return FitParameterOp(operator.mul, operator.truediv, '*', self, b)
-
-  def __rmul__(self, b):
-    return FitParameterOp(operator.mul, operator.truediv, '*', self, b)
-
-  def __truediv__(self, b):
-    return FitParameterOp(operator.truediv, operator.mul, '/', self, b)
-
-  def __neg__(self):
-    return self*(-1)
-
-  def __pow__(self, b):
-    return FitParameterOp(operator.pow, lambda v,b: v**(1/b), '/', self, b)
 
 
 class FitParameterConst(FitParameter):
@@ -70,42 +49,18 @@ class FitParameterConst(FitParameter):
     pass
 
 
+
 class FitParameterFunc(FitParameter):
-  def __init__(self, name, f, fi, *args):
-    self.f = f
-    self.fi = fi
-    self.args = args
+  def __init__(self, name, get_, set_, refargs):
+    self.get_ = get_
+    self.set_ = set_
     super().__init__(name, self.value())
-    for a in self.args:
+    for a in refargs:
       a.valueChanged.connect(lambda: self.valueChanged.emit())
 
   def value(self):
-    return self.f(*[a.value() for a in self.args])
+    return self.get_()
 
   def setValue(self, value):
-    if self.fi:
-      self.args[0].setValue(self.fi(value, *[a.value() for a in self.args[1:]]))
-
-
-class FitParameterOp(FitParameter):
-  def __init__(self, op, opi, opname, a, b):
-    if not isinstance(a, FitParameter):
-      a = FitParameterConst(repr(a), a)
-    if not isinstance(b, FitParameter):
-      b = FitParameterConst(repr(b), b)
-
-    super().__init__('(%s%s%s)' % (a.name, opname, b.name), 0)
-
-    self.op  = op
-    self.opi = opi
-    self.a   = a
-    self.b   = b
-
-    a.valueChanged.connect(lambda: self.valueChanged.emit())
-    b.valueChanged.connect(lambda: self.valueChanged.emit())
-
-  def value(self):
-    return self.op(self.a.value(), self.b.value())
-
-  def setValue(self, value):
-    self.a.setValue(self.opi(value, self.b.value()))
+    if self.set_:
+      self.set_(value)

@@ -224,7 +224,8 @@ class MainWindow(QMainWindow):
     self.graphWidget.clearItems()
     for line in self.curTool.getLines():
       self.graphWidget.addLine(line)
-    for item in self.curTool.getGraphItems():
+    colorpicker = self.graphWidget.getColorPicker()
+    for item in self.curTool.getGraphItems(colorpicker):
       self.graphWidget.addItem(item)
 
   def log_(self, html, activate=False):

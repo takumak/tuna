@@ -37,14 +37,22 @@ class FitToolWidget(ToolWidgetBase):
   def paramsTableCellChanged(self, r, c):
     if c < 2 or c % 2 != 0:
       return
-    value = float(self.paramsTable.item(r, c).text())
+
     func = self.paramsTable.cellWidget(r, 0).currentData()
-    func.params[c//2-1].setValue(value)
+    if not func:
+      return
+
+    i = c//2-1
+    if i >= len(func.params):
+      return
+
+    value = float(self.paramsTable.item(r, c).text())
+    func.params[i].setValue(value)
 
   def functionSelected(self, row, combo, idx):
     func = combo.itemData(idx)
     if inspect.isclass(func):
-      func = func(self.tool.lines, self.view)
+      func = func(self.tool.getLines(), self.view)
       func.parameterChanged.connect(lambda: self.parameterChanged(row, func))
       combo.setItemData(idx, func)
     self.parameterChanged(row, func)
@@ -64,7 +72,7 @@ class FitToolWidget(ToolWidgetBase):
 
       for i, param in enumerate(func.params):
         c = 1 + i*2
-        self.paramsTable.setItem(row, c, QTableWidgetItem(param.name))
+        self.paramsTable.setItem(row, c, QTableWidgetItem(param.label))
         self.paramsTable.setItem(row, c+1, QTableWidgetItem('%g' % param.value()))
       c += 2
 
@@ -91,14 +99,15 @@ class FitToolWidget(ToolWidgetBase):
     combo.currentIndexChanged.connect(
       lambda idx: self.functionSelected(n, combo, idx))
     for func in self.functions:
-      combo.addItem(func.name, func)
+      combo.addItem(func.label, func)
     self.paramsTable.setCellWidget(n, 0, combo)
 
   def toolSetFunctions(self):
-    self.tool.functions = []
+    functions = []
     for r in range(self.paramsTable.rowCount()):
       combo = self.paramsTable.cellWidget(r, 0)
       func = combo.currentData()
       if func:
-        self.tool.functions.append(func)
+        functions.append(func)
+    self.tool.setFunctions(functions)
     self.plotRequested.emit(self.tool, False)

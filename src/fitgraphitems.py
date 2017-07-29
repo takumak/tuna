@@ -1,4 +1,5 @@
 from PyQt5.QtCore import Qt
+from PyQt5.QtGui import QPainter
 from PyQt5.QtWidgets import QGraphicsLineItem
 import pyqtgraph as pg
 
@@ -71,6 +72,7 @@ class PointItem(pg.GraphItem):
     ev.accept()
 
 
+
 class LineItem(QGraphicsLineItem):
   def __init__(self, x1, y1, x2, y2):
     super().__init__()
@@ -86,5 +88,16 @@ class LineItem(QGraphicsLineItem):
     x2.valueChanged.connect(self.applyParams)
     y2.valueChanged.connect(self.applyParams)
 
+  def paint(self, p, *args):
+    p.setRenderHint(QPainter.Antialiasing)
+    super().paint(p, *args)
+
   def applyParams(self):
     self.setLine(*[v.value() for v in (self.x1, self.y1, self.x2, self.y2)])
+
+  def dataBounds(self, ax, frac, orthoRange=None):
+    if ax == 0:
+      v = self.x1.value(), self.x2.value()
+    else:
+      v = self.y1.value(), self.y2.value()
+    return [min(v), max(v)]

@@ -76,6 +76,7 @@ class MainWindow(QMainWindow):
 
     actions = [
       ('act_file_import',     '&Import file',    QKeySequence(Qt.CTRL | Qt.Key_I), self.showImportFileDialog),
+      ('act_session_new',     '&New session',    QKeySequence.New, self.newSession),
       ('act_session_open',    '&Open session',   QKeySequence.Open, self.showOpenSessionDialog),
       ('act_session_save',    '&Save session',   QKeySequence.Save, self.saveSession),
       ('act_session_save_as', 'Save session as', QKeySequence.SaveAs, lambda: self.saveSession(True)),
@@ -92,6 +93,7 @@ class MainWindow(QMainWindow):
     filemenu.addAction(self.act_file_import)
 
     sessionmenu = menubar.addMenu('&Session')
+    sessionmenu.addAction(self.act_session_new)
     sessionmenu.addAction(self.act_session_open)
     sessionmenu.addAction(self.act_session_save)
     sessionmenu.addAction(self.act_session_save_as)
@@ -236,6 +238,10 @@ class MainWindow(QMainWindow):
   def closeEvent(self, ev):
     self.saveConfig()
     ev.accept()
+
+  def newSession(self):
+    self.sourcesWidget.removeAllFiles()
+    self.sessionFilename = None
 
   def showOpenSessionDialog(self):
     dlg = FileDialog('session_open')

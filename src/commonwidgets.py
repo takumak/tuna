@@ -1,17 +1,17 @@
 import sys
 import logging
 import html
-from PyQt5.QtCore import QPoint, QRect
+from PyQt5.QtCore import QPoint, QRect, QSize
 from PyQt5.QtGui import QKeySequence, QValidator, QPainter, QPen, QBrush, QColor
 from PyQt5.QtWidgets import QApplication, QTableWidget, QMenu, \
-  QFrame, QVBoxLayout, QHBoxLayout, QWidget, QLabel, QLineEdit
+  QFrame, QVBoxLayout, QHBoxLayout, QWidget, QLabel, QLineEdit, QLayout
 
 import log
 
 
 
 __all__ = ['TableWidget', 'HSeparator', 'HBoxLayout', 'VBoxLayout',
-           'ErrorBaloon', 'ErrorCheckEdit']
+           'ErrorBaloon', 'ErrorCheckEdit', 'FlowLayout']
 
 
 
@@ -153,3 +153,59 @@ class ErrorCheckEdit(QLineEdit):
   def focusOutEvent(self, ev):
     super().focusOutEvent(ev)
     self.hideBaloon()
+
+
+
+class FlowLayout(QLayout):
+  def __init__(self):
+    super().__init__()
+    self.items = []
+
+  def count(self):
+    return len(self.items)
+
+  def addItem(self, item):
+    self.items.append(item)
+
+  def setGeometry(self, rect):
+    l, t = rect.x()+4, rect.y()+4
+    r, b = l+rect.width()-8, t+rect.height()-8
+
+    col, rh = 0, 0
+    x, y = l, t
+    for item in self.items:
+      s = item.minimumSize()
+
+      if col > 0 and x+s.width() >= r:
+        x = l
+        y += rh + 4
+        col, rh = 0, 0
+
+      item.setGeometry(QRect(x, y, s.width(), s.height()))
+      col += 1
+      rh = max([rh, s.height()])
+      x += s.width()+4
+
+  def sizeHint(self):
+    if len(self.items) == 0:
+      return QSize(0, 0)
+
+    s = [item.minimumSize() for item in self.items]
+    w = sum([i.width() for i in s])
+    h = max([i.height() for i in s])
+    return QSize(w, h)
+
+  def itemAt(self, idx):
+    try:
+      return self.items[idx]
+    except IndexError:
+      return None
+
+  def takeAt(self, idx):
+    try:
+      item = self.items[idx]
+      item.widget().close()
+      del self.items[idx]
+      return item
+    except IndexError:
+      return None

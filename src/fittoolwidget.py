@@ -1,7 +1,8 @@
+import logging
 import inspect
 from PyQt5.QtCore import pyqtSignal
 from PyQt5.QtWidgets import QVBoxLayout, QHeaderView, QComboBox, \
-  QTableWidgetItem, QLabel
+  QTableWidgetItem, QLabel, QPushButton, QButtonGroup
 
 from toolwidgetbase import ToolWidgetBase
 from fittool import FitTool
@@ -118,10 +119,8 @@ class FitToolWidget(ToolWidgetBase):
     vbox = VBoxLayout()
     self.setLayout(vbox)
 
-    self.backgroundList = FunctionList(self.functions, self.tool, view)
-    self.backgroundList.setSizeAdjustPolicy(self.backgroundList.AdjustToContents)
-    vbox.addWidget(QLabel('Background:'))
-    vbox.addWidget(self.backgroundList)
+    self.lineButtonsLayout = FlowLayout()
+    vbox.addLayout(self.lineButtonsLayout)
 
     self.functionList = FunctionList(self.functions, self.tool, view)
     self.functionList.functionChanged.connect(self.toolSetFunctions)
@@ -129,10 +128,16 @@ class FitToolWidget(ToolWidgetBase):
     vbox.addWidget(self.functionList)
 
   def clear(self):
-    pass
+    while self.lineButtonsLayout.count() > 0:
+      self.lineButtonsLayout.takeAt(0)
+    self.lineButtonGroup = QButtonGroup()
+    self.lineButtonGroup.setExclusive(True)
 
   def add(self, line):
-    pass
+    btn = QPushButton(line.name)
+    btn.setCheckable(True)
+    # self.lineButtonGroup.addButton(btn)
+    self.lineButtonsLayout.addWidget(btn)
 
   def toolSetFunctions(self):
     self.tool.setFunctions(self.functionList.getFunctions())

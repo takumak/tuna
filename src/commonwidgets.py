@@ -19,11 +19,16 @@ class TableWidget(QTableWidget):
   def __init__(self):
     super().__init__()
     self.menu = QMenu()
-    self.menu.addAction('&Copy selected', self.copySelected, QKeySequence('Ctrl+C'))
+    self.menu.addAction('&Copy selected', self.copySelected, QKeySequence.Copy)
+    self.menu.addAction('&Paste',         self.paste,        QKeySequence.Paste)
 
   def keyPressEvent(self, ev):
     if ev.matches(QKeySequence.Copy):
       self.copySelected()
+      return
+
+    if ev.matches(QKeySequence.Paste):
+      self.paste()
       return
 
     super().keyPressEvent(ev)
@@ -42,6 +47,17 @@ class TableWidget(QTableWidget):
         curRow = cell.row()
       row.append(str(cell.data()).strip())
     QApplication.clipboard().setText('\n'.join(['\t'.join(r) for r in rows]))
+
+  def paste(self):
+    text = QApplication.clipboard().text()
+    rows = [[c.strip() for c in l.split('\t')] for l in re.split(r'\r?\n', text)]
+
+    r0, c0 = self.currentRow(), self.currentColumn()
+    for r, row in enumerate(rows):
+      for c, text in enumerate(row):
+        item = self.item(r0+r, c0+c)
+        if item.flags() & Qt.ItemIsEditable:
+          item.setText(text)
 
 
 

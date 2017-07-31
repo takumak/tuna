@@ -1,6 +1,7 @@
 from PyQt5.QtCore import QObject, pyqtSignal
 import numpy as np
 import pyqtgraph as pg
+import uuid
 
 from fitparameters import *
 from fithandles import *
@@ -16,6 +17,7 @@ class FitFunctionBase(QObject):
 
   def __init__(self):
     super().__init__()
+    self.id = str(uuid.uuid4())
     self.params = []
     self.paramsNameMap = {}
     self.handles = []
@@ -29,6 +31,16 @@ class FitFunctionBase(QObject):
 
   def y(self, x):
     raise NotImplementedError()
+
+  def getParams(self):
+    return dict([(p.name, p.value()) for p in self.params])
+
+  def setParams(self, params):
+    self.blockSignals(True)
+    for p in self.params:
+      p.setValue(params[p.name])
+    self.blockSignals(False)
+    self.paramChanged()
 
   def addParam(self, param):
     self.params.append(param)

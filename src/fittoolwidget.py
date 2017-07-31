@@ -1,12 +1,11 @@
 import logging
 import inspect
-from PyQt5.QtCore import pyqtSignal
+from PyQt5.QtCore import pyqtSignal, Qt
 from PyQt5.QtWidgets import QVBoxLayout, QHeaderView, QComboBox, \
-  QTableWidgetItem, QLabel, QPushButton, QButtonGroup
+  QTableWidgetItem, QLabel, QPushButton, QButtonGroup, QWidget
 
 from toolwidgetbase import ToolWidgetBase
 from fittool import FitTool
-from fitfunctions import *
 from commonwidgets import *
 
 
@@ -14,10 +13,10 @@ from commonwidgets import *
 class FunctionList(TableWidget):
   functionChanged = pyqtSignal()
 
-  def __init__(self, functions, tool, view):
+  def __init__(self, funcClasses, tool, view):
     super().__init__()
 
-    self.functions = functions
+    self.funcClasses = funcClasses
     self.tool = tool
     self.view = view
 
@@ -45,9 +44,11 @@ class FunctionList(TableWidget):
     value = float(self.item(r, c).text())
     func.params[i].setValue(value)
 
-  def parameterChanged(self, row, func_):
+  def funcParameterChanged(self, row, func_):
     func = self.cellWidget(row, 0).currentData()
     if func_ != func: return
+
+    self.blockSignals(True)
 
     c = 0
 
@@ -65,13 +66,15 @@ class FunctionList(TableWidget):
     for i in range(c, self.columnCount()):
       self.setItem(row, i, QTableWidgetItem(''))
 
+    self.blockSignals(False)
+
   def functionSelected(self, row, combo, idx):
     func = combo.itemData(idx)
     if inspect.isclass(func):
       func = func(self.tool.getLines(), self.view)
-      func.parameterChanged.connect(lambda: self.parameterChanged(row, func))
+      func.parameterChanged.connect(lambda: self.funcParameterChanged(row, func))
       combo.setItemData(idx, func)
-    self.parameterChanged(row, func)
+    self.funcParameterChanged(row, func)
     self.setLastRow()
     self.functionChanged.emit()
 
@@ -94,8 +97,8 @@ class FunctionList(TableWidget):
     combo.addItem('Select', None)
     combo.currentIndexChanged.connect(
       lambda idx: self.functionSelected(n, combo, idx))
-    for func in self.functions:
-      combo.addItem(func.label, func)
+    for funcC in self.funcClasses:
+      combo.addItem(funcC.label, funcC)
     self.setCellWidget(n, 0, combo)
 
   def getFunctions(self):
@@ -109,36 +112,74 @@ class FunctionList(TableWidget):
 
 
 
+class LineSelector(QWidget):
+  selectionChanged = pyqtSignal()
+
+  def __init__(self):
+    super().__init__()
+    self.layout = FlowLayout()
+    self.setLayout(self.layout)
+    self.buttons = []
+
+  def clear(self):
+    while self.layout.count() > 0:
+      self.layout.takeAt(0)
+    self.buttons = []
+
+  def add(self, line, active):
+    btn = QPushButton(line.name)
+    btn.setCheckable(True)
+    btn.setChecked(active)
+    btn.pressed.connect(lambda: self.unselectAll(btn))
+    btn.toggled.connect(lambda: self.selectionChanged.emit())
+    self.layout.addWidget(btn)
+    self.buttons.append((btn, line))
+
+  def unselectAll(self, exclude):
+    self.blockSignals(True)
+    for btn, line in self.buttons:
+      if btn != exclude:
+        btn.setChecked(False)
+    self.blockSignals(False)
+
+  def selectedLine(self):
+    for btn, line in self.buttons:
+      if btn.isChecked():
+        return line
+    return None
+
+
+
 class FitToolWidget(ToolWidgetBase):
   toolClass = FitTool
-  functions = [FitFuncGaussian, FitFuncTwoLines]
 
   def __init__(self, view):
     super().__init__()
 
     vbox = VBoxLayout()
+    vbox.setContentsMargins(4, 4, 4, 4)
     self.setLayout(vbox)
 
-    self.lineButtonsLayout = FlowLayout()
-    vbox.addLayout(self.lineButtonsLayout)
+    self.lineSelector = LineSelector()
+    self.lineSelector.selectionChanged.connect(self.lineSelectionChanged)
+    vbox.addWidget(self.lineSelector)
 
-    self.functionList = FunctionList(self.functions, self.tool, view)
+    self.functionList = FunctionList(self.tool.funcClasses, self.tool, view)
     self.functionList.functionChanged.connect(self.toolSetFunctions)
-    vbox.addWidget(QLabel('Peaks:'))
     vbox.addWidget(self.functionList)
 
   def clear(self):
-    while self.lineButtonsLayout.count() > 0:
-      self.lineButtonsLayout.takeAt(0)
-    self.lineButtonGroup = QButtonGroup()
-    self.lineButtonGroup.setExclusive(True)
+    self.lineSelector.clear()
 
   def add(self, line):
-    btn = QPushButton(line.name)
-    btn.setCheckable(True)
-    # self.lineButtonGroup.addButton(btn)
-    self.lineButtonsLayout.addWidget(btn)
+    self.lineSelector.add(line, line.name == self.tool.activeLineName)
 
   def toolSetFunctions(self):
     self.tool.setFunctions(self.functionList.getFunctions())
+    self.plotRequested.emit(self.tool, False)
+
+  def lineSelectionChanged(self):
+    line = self.lineSelector.selectedLine()
+    self.functionList.setEnabled(bool(line))
+    self.tool.setActiveLineName(line.name)
     self.plotRequested.emit(self.tool, False)

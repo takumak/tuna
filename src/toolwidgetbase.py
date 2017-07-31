@@ -20,3 +20,12 @@ class ToolWidgetBase(QWidget, SettingObj):
 
   def add(self, line):
     raise NotImplementedError()
+
+  def saveState(self):
+    state = super().saveState()
+    state['tool'] = self.tool.saveState()
+    return state
+
+  def restoreState(self, state):
+    super().restoreState(state)
+    if 'tool' in state: self.tool.restoreState(state['tool'])

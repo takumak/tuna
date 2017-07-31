@@ -12,15 +12,27 @@ class ToolBase(QObject, SettingObj):
   def __init__(self):
     super().__init__()
     self.lines = []
+    self.lineNameMap = {}
 
   def clear(self):
     self.lines = []
+    self.lineNameMap = {}
     self.cleared.emit()
 
   def add(self, name, x, y, y_):
+    if name in self.lineNameMap:
+      i = 2
+      while True:
+        name2 = '%s_%d' % (name, i)
+        if name2 not in self.lineNameMap:
+          break
+        i += 1
+      name = name2
+
     x, y, y_ = Line.cleanUp(x, y, y_)
     l = Line(name, x, y, y_)
     self.lines.append(l)
+    self.lineNameMap[name] = l
     self.added.emit(l)
 
   def getLines(self):

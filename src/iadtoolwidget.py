@@ -447,7 +447,6 @@ class IADToolWidget(ToolWidgetBase):
 
   def saveState(self):
     state = super().saveState()
-    state['tool'] = self.tool.saveState()
     for cat in 'smooth', 'bgsub', 'interp':
       combo = getattr(self, '%sComboBox' % cat)
       curr, opt = combo.currentData()
@@ -456,7 +455,6 @@ class IADToolWidget(ToolWidgetBase):
 
   def restoreState(self, state):
     super().restoreState(state)
-    if 'tool' in state: self.tool.restoreState(state['tool'])
 
     for cat in 'smooth', 'bgsub', 'interp':
       combo = getattr(self, '%sComboBox' % cat)

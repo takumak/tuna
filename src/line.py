@@ -11,6 +11,11 @@ class Line:
     self.y_ = None if y_ is None else np.array(y_)
     self.plotErrors = False
 
+  def copy(self):
+    l = Line(self.name, self.x, self.y, self.y_)
+    l.plotErrors = self.plotErrors
+    return l
+
   @classmethod
   def cleanUp(cls, x, y, y_):
     X, Y, Y_ = [], [], []

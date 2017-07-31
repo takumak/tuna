@@ -13,12 +13,9 @@ from commonwidgets import *
 class FunctionList(TableWidget):
   functionChanged = pyqtSignal()
 
-  def __init__(self, funcClasses, tool, view):
+  def __init__(self, tool):
     super().__init__()
-
-    self.funcClasses = funcClasses
     self.tool = tool
-    self.view = view
 
     self.horizontalHeader().setResizeMode(QHeaderView.ResizeToContents)
     self.cellChanged.connect(self.parameterEdited)
@@ -70,8 +67,8 @@ class FunctionList(TableWidget):
 
   def functionSelected(self, row, combo, idx):
     func = combo.itemData(idx)
-    if inspect.isclass(func):
-      func = func(self.tool.getLines(), self.view)
+    if isinstance(func, str):
+      func = self.tool.addFunc(func)
       func.parameterChanged.connect(lambda: self.funcParameterChanged(row, func))
       combo.setItemData(idx, func)
     self.funcParameterChanged(row, func)
@@ -97,8 +94,8 @@ class FunctionList(TableWidget):
     combo.addItem('Select', None)
     combo.currentIndexChanged.connect(
       lambda idx: self.functionSelected(n, combo, idx))
-    for funcC in self.funcClasses:
-      combo.addItem(funcC.label, funcC)
+    for funcC in self.tool.funcClasses:
+      combo.addItem(funcC.label, funcC.name)
     self.setCellWidget(n, 0, combo)
 
   def getFunctions(self):
@@ -155,6 +152,7 @@ class FitToolWidget(ToolWidgetBase):
 
   def __init__(self, view):
     super().__init__()
+    self.tool.setView(view)
 
     vbox = VBoxLayout()
     vbox.setContentsMargins(4, 4, 4, 4)
@@ -164,7 +162,7 @@ class FitToolWidget(ToolWidgetBase):
     self.lineSelector.selectionChanged.connect(self.lineSelectionChanged)
     vbox.addWidget(self.lineSelector)
 
-    self.functionList = FunctionList(self.tool.funcClasses, self.tool, view)
+    self.functionList = FunctionList(self.tool)
     self.functionList.functionChanged.connect(self.toolSetFunctions)
     vbox.addWidget(self.functionList)
 
@@ -181,5 +179,5 @@ class FitToolWidget(ToolWidgetBase):
   def lineSelectionChanged(self):
     line = self.lineSelector.selectedLine()
     self.functionList.setEnabled(bool(line))
-    self.tool.setActiveLineName(line.name)
+    self.tool.setActiveLineName(line.name if line else None)
     self.plotRequested.emit(self.tool, False)

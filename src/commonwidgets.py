@@ -189,6 +189,9 @@ class FlowLayout(QLayout):
     self.doLayout(rect)
 
   def sizeHint(self):
+    if self.count() == 0:
+      return QSize(0, 0)
+
     s = [item.minimumSize() for item in self.items]
     w = sum([i.width() for i in s])
     h = max([i.height() for i in s])

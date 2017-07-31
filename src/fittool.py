@@ -19,6 +19,16 @@ class FitTool(ToolBase):
     self.fitCurveItem = None
     self.activeLineName = None
     self.funcParams = {}
+    self.view = None
+
+  def setView(self, view):
+    self.view = view
+
+  def addFunc(self, funcName):
+    for cls in self.funcClasses:
+      if cls.name == funcName:
+        return cls(self.getLines(), self.view)
+    raise RuntimeError('Function named "%s" is not defined' % funcName)
 
   def saveFuncParams(self):
     if self.activeLineName:
@@ -69,7 +79,7 @@ class FitTool(ToolBase):
   def getLines(self):
     line = self.activeLine()
     if line:
-      return [line]
+      return [line.normalize()]
     else:
       return [l.normalize() for l in self.lines]
 
@@ -106,15 +116,14 @@ class FitTool(ToolBase):
   def restoreState(self, state):
     super().restoreState(state)
     if 'functions' in state:
-      funcC = dict([(fc.name, fc) for fc in self.funcClasses])
       self.functions = []
       for name, id in state['functions']:
-        if name in funcC:
-          f = funcC[name]()
-          f.id = id
-          self.functions.append(f)
-        else:
-          logging.warning('Function named "%s" is not defined' % name)
+        try:
+          f = self.addFunc(name)
+        except:
+          log.warnException()
+        f.id = id
+        self.functions.append(f)
     if 'func_params' in state:
       self.funcParams = state['func_params']
     if 'active_line' in state:

@@ -1,7 +1,8 @@
 import sys
+import re
 import logging
 import html
-from PyQt5.QtCore import QPoint, QRect, QSize
+from PyQt5.QtCore import Qt, QPoint, QRect, QSize
 from PyQt5.QtGui import QKeySequence, QValidator, QPainter, QPen, QBrush, QColor
 from PyQt5.QtWidgets import QApplication, QTableWidget, QMenu, \
   QFrame, QVBoxLayout, QHBoxLayout, QWidget, QLabel, QLineEdit, QLayout
@@ -184,32 +185,23 @@ class FlowLayout(QLayout):
     self.items.append(item)
 
   def setGeometry(self, rect):
-    l, t = rect.x()+4, rect.y()+4
-    r, b = l+rect.width()-8, t+rect.height()-8
-
-    col, rh = 0, 0
-    x, y = l, t
-    for item in self.items:
-      s = item.minimumSize()
-
-      if col > 0 and x+s.width() >= r:
-        x = l
-        y += rh + 4
-        col, rh = 0, 0
-
-      item.setGeometry(QRect(x, y, s.width(), s.height()))
-      col += 1
-      rh = max([rh, s.height()])
-      x += s.width()+4
+    super().setGeometry(rect)
+    self.doLayout(rect)
 
   def sizeHint(self):
-    if len(self.items) == 0:
-      return QSize(0, 0)
-
     s = [item.minimumSize() for item in self.items]
     w = sum([i.width() for i in s])
     h = max([i.height() for i in s])
     return QSize(w, h)
+
+  def expandingDirections(self):
+    return Qt.Orientation(0)
+
+  def hasHeightForWidth(self):
+    return True
+
+  def heightForWidth(self, width):
+    return self.doLayout(QRect(0, 0, width, 0))
 
   def itemAt(self, idx):
     try:
@@ -225,3 +217,26 @@ class FlowLayout(QLayout):
       return item
     except IndexError:
       return None
+
+  def doLayout(self, rect):
+    l, t = rect.x(), rect.y()
+    r, b = l+rect.width(), t+rect.height()
+
+    width = 0
+    col, rh = 0, 0
+    x, y = l, t
+    for item in self.items:
+      s = item.minimumSize()
+
+      if col > 0 and x+s.width() >= r:
+        x = l
+        y += rh + 4
+        col, rh = 0, 0
+
+      item.setGeometry(QRect(x, y, s.width(), s.height()))
+      col += 1
+      rh = max([rh, s.height()])
+      x += s.width()+4
+      width = max(width, x-4)
+
+    return y-t+rh

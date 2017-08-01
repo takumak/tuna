@@ -95,7 +95,7 @@ class SettingItemNumber(SettingItemBase):
 
   def validate(self, text):
     if text == '' and self.emptyIsNone:
-      QValidator.Acceptable, 'OK'
+      return QValidator.Acceptable, 'OK'
 
     try:
       val = self.type_(text)

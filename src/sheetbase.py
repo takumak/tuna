@@ -155,7 +155,7 @@ class SheetBase:
     try:
       i = iter(vals)
     except TypeError:
-      return np.array([vals]*self.rowCount())
+      return np.full(self.rowCount(), vals)
 
     if len(vals) != self.rowCount():
       raise RuntimeError('Invalid value count')

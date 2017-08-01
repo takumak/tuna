@@ -6,13 +6,34 @@ import log
 from line import Line
 from toolbase import ToolBase
 from fitfunctions import *
+from settingitems import *
 
 
 
 class FitTool(ToolBase):
   name = 'fit'
   label = 'Fit'
-  funcClasses = [FitFuncGaussian, FitFuncTwoLines]
+
+  funcClasses = [
+    FitFuncGaussian, FitFuncBoltzmann2,
+    FitFuncConstant, FitFuncHeaviside,
+    FitFuncRectangularWindow
+  ]
+
+  optimizeMethods = [
+    'Nelder-Mead',
+    'Powell',
+    'CG',
+    'BFGS',
+    'Newton-CG',
+    'L-BFGS-B',
+    'TNC',
+    'COBYLA',
+    'SLSQP',
+    'dogleg',
+    'trust-ncg'
+  ]
+
 
   def __init__(self):
     super().__init__()
@@ -22,6 +43,13 @@ class FitTool(ToolBase):
     self.activeLineName = None
     self.funcParams = {}
     self.view = None
+
+    self.optimizeMethod = self.optimizeMethods[0]
+    self.addSettingItem(SettingItemFloat(
+      'optimize_tol', 'Tolerance', '',
+      min_=0, emptyIsNone=True))
+    self.optimizeResult = SettingItemFloat(
+      'optimize_res', 'Result', '0')
 
   def optimize(self, params):
     line = self.activeLine()
@@ -53,8 +81,13 @@ class FitTool(ToolBase):
     # y = np.sum([f(a0+3) for f in funcs], axis=0)
     # self.fitCurveItem.setData(x=x, y=y)
 
-    res = minimize(func, a0)
-    logging.info('Optimize done: %s' % ','.join(map(str, res.x)))
+    res = minimize(
+      func, a0,
+      method=self.optimizeMethod,
+      tol=self.optimize_tol.value()
+    )
+    self.optimizeResult.setStrValue('%.3e' % res.fun)
+    logging.debug('Optimize done: %s' % ','.join(map(str, res.x)))
 
     for p, v in zip(params, res.x):
       p.setValue(v)
@@ -107,6 +140,7 @@ class FitTool(ToolBase):
   def parameterChanged(self):
     self.saveFuncParams()
     self.updateFitCurve()
+    self.updateDiffCurve()
 
   def updateFitCurve(self):
     if self.fitCurveItem is None:
@@ -117,11 +151,12 @@ class FitTool(ToolBase):
     self.fitCurveItem.setData(x=x, y=y)
 
   def updateDiffCurve(self):
-    if self.diffCurveItem is None:
+    active = self.activeLine()
+    if self.diffCurveItem is None or active is None:
       return
 
     x, y = self.diffCurveItem.getData()
-    y = np.sum([f.y(x) for f in self.functions], axis=0) - self.activeLine().y
+    y = np.sum([f.y(x) for f in self.functions], axis=0) - active.y
     self.diffCurveItem.setData(x=x, y=y)
 
   def activeLine(self):
@@ -153,15 +188,17 @@ class FitTool(ToolBase):
       self.fitCurveItem.setPen(color=colorpicker.next(), width=2)
       items.append(self.fitCurveItem)
 
-    if self.diffCurveItem is None:
-      logging.debug('Generate "Diff" curve')
-      x = self.activeLine().x
-      self.diffCurveItem = pg.PlotCurveItem(
-        x=x, y=np.zeros(len(x)), name='Diff', antialias=True)
+    active = self.activeLine()
+    if active:
+      if self.diffCurveItem is None:
+        logging.debug('Generate "Diff" curve')
+        x = active.x
+        self.diffCurveItem = pg.PlotCurveItem(
+          x=x, y=np.zeros(len(x)), name='Diff', antialias=True)
 
-    self.updateDiffCurve()
-    self.diffCurveItem.setPen(color=colorpicker.next(), width=2)
-    items.append(self.diffCurveItem)
+      self.updateDiffCurve()
+      self.diffCurveItem.setPen(color=colorpicker.next(), width=2)
+      items.append(self.diffCurveItem)
 
     return items
 

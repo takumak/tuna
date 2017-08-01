@@ -9,7 +9,11 @@ from fithandles import *
 
 
 
-__all__ = ['FitFuncGaussian', 'FitFuncTwoLines']
+__all__ = [
+  'FitFuncGaussian', 'FitFuncBoltzmann2',
+  'FitFuncConstant', 'FitFuncHeaviside',
+  'FitFuncRectangularWindow'
+]
 
 
 
@@ -76,11 +80,6 @@ class FitFunctionBase(QObject):
     x1, x2 = self.getXrange(lines)
     return x2 - x1
 
-  def getHeight(self, lines):
-    if len(lines) == 0: return 1
-    y1, y2 = self.getYrange(lines)
-    return y2 - y1
-
   def getGraphItems(self, x, color, **opts):
     self.plotCurveItem = pg.PlotCurveItem(
       x=x, y=self.y(x),
@@ -94,6 +93,13 @@ class FitFunctionBase(QObject):
   def eval(self, name, formula, setArg):
     return FitParamFormula(name, formula, setArg, self.params)
 
+  def samedim(self, x, y):
+    try:
+      i = iter(y)
+      return y
+    except TypeError:
+      return np.full(len(x), y)
+
   def lambdify(self, params):
     paramNames = [p.name for p in params]
 
@@ -106,10 +112,8 @@ class FitFunctionBase(QObject):
     args = ['x'] + paramNames + fixed
     func = lambdify([Symbol(a) for a in args], expr, 'numpy')
 
-    def wrap(x, *vals):
-      return func(x, *(list(vals) + [self.paramsNameMap[n].value() for n in fixed]))
-
-    return wrap
+    return lambda x, *vals: self.samedim(
+      x, func(x, *(list(vals) + [self.paramsNameMap[n].value() for n in fixed])))
 
   def y(self, x):
     from sympy.parsing.sympy_parser import parse_expr
@@ -121,7 +125,7 @@ class FitFunctionBase(QObject):
     # from sympy.utilities.lambdify import lambdastr
     # logging.debug(lambdastr(args, expr))
 
-    y = lambda x: func(x, *[p.value() for p in self.params])
+    y = lambda x: self.samedim(x, func(x, *[p.value() for p in self.params]))
     self.y = y
     return y(x)
 
@@ -136,7 +140,8 @@ class FitFuncGaussian(FitFunctionBase):
     super().__init__()
 
     x1, x2 = self.getXrange(lines)
-    self.addParam(FitParam('a', self.getHeight(lines)*0.6))
+    y1, y2 = self.getYrange(lines)
+    self.addParam(FitParam('a', y2*0.6))
     self.addParam(FitParam('b', (x1 + x2)/2))
     self.addParam(FitParam('c', (x2 - x1)*0.1))
 
@@ -147,19 +152,20 @@ class FitFuncGaussian(FitFunctionBase):
 
 
 
-class FitFuncTwoLines(FitFunctionBase):
-  name = 'twoline'
-  label = 'TwoLines'
+class FitFuncBoltzmann2(FitFunctionBase):
+  name = 'boltzmann2'
+  label = 'Boltzmann 2'
   expr = '(a1*x+b1)/(1+exp((x-x0)/dx)) + (a2*x+b2)*(1-1/(1+exp((x-x0)/dx)))'
 
   def __init__(self, lines, view):
     super().__init__()
 
     x1, x2 = self.getXrange(lines)
+    y1, y2 = self.getYrange(lines)
     self.addParam(FitParam('a1', 0))
     self.addParam(FitParam('b1', 0))
     self.addParam(FitParam('a2', 0))
-    self.addParam(FitParam('b2', self.getHeight(lines)*0.8))
+    self.addParam(FitParam('b2', y2*0.8))
     self.addParam(FitParam('x0', (x1+x2)/2))
     self.addParam(FitParam('dx', 1))
 
@@ -217,3 +223,54 @@ class FitFuncTwoLines(FitFunctionBase):
     self.cy2.valueChanged.connect(setb2)
     self.addHandle(FitHandleTheta(view, self.cx2, self.cy2, theta2, 50))
     self.addHandle(FitHandlePosition(view, self.cx2, self.cy2))
+
+
+
+class FitFuncConstant(FitFunctionBase):
+  name = 'constant'
+  label = 'Constant'
+  expr = 'y0'
+
+  def __init__(self, lines, view):
+    super().__init__()
+    x1, x2 = self.getXrange(lines)
+    y1, y2 = self.getYrange(lines)
+    self.addParam(FitParam('y0', y2*0.8))
+    self.addParam(FitParam('x0', x1, hidden=True))
+    self.addHandle(FitHandlePosition(view, self.x0, self.y0))
+
+
+
+class FitFuncHeaviside(FitFunctionBase):
+  name = 'heaviside'
+  label = 'Heaviside'
+  expr = 'a*heaviside(x-x0, 1)'
+
+  def __init__(self, lines, view):
+    super().__init__()
+
+    x1, x2 = self.getXrange(lines)
+    y1, y2 = self.getYrange(lines)
+    self.addParam(FitParam('a', y2*0.8))
+    self.addParam(FitParam('x0', (x1 + x2)/2))
+
+    self.addHandle(FitHandlePosition(view, self.x0, self.a))
+
+
+
+class FitFuncRectangularWindow(FitFunctionBase):
+  name = 'rectangularwinow'
+  label = 'Rectangular window'
+  expr = 'a*heaviside(x-x0, 1)*heaviside(-(x-x1), 1)'
+
+  def __init__(self, lines, view):
+    super().__init__()
+
+    x1, x2 = self.getXrange(lines)
+    y1, y2 = self.getYrange(lines)
+    self.addParam(FitParam('a', y2*0.8))
+    self.addParam(FitParam('x0', x1 + (x2-x1)*0.2))
+    self.addParam(FitParam('x1', x2 - (x2-x1)*0.2))
+
+    self.addHandle(FitHandlePosition(view, self.x0, self.a))
+    self.addHandle(FitHandlePosition(view, self.x1, self.a))

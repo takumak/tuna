@@ -31,7 +31,7 @@ class FunctionList(TableWidget):
     item = self.item(r, c)
     param = item.data(Qt.UserRole)
     if param:
-      param.setValue(value)
+      param.setValue(float(item.text()))
 
   def funcParameterChanged(self, row, func_):
     func = self.cellWidget(row, 0).currentData()
@@ -183,12 +183,35 @@ class FitToolWidget(ToolWidgetBase):
     self.lineSelector.selectionChanged.connect(self.lineSelectionChanged)
     vbox.addWidget(self.lineSelector)
 
+    vbox.addWidget(HSeparator())
+
+    self.optimizeCombo = QComboBox()
+    for name in self.tool.optimizeMethods:
+      self.optimizeCombo.addItem(name)
+    self.optimizeCombo.currentIndexChanged.connect(self.setOptimizeMethod)
+    self.optimizeCombo.setCurrentIndex(0)
+    self.setOptimizeMethod()
+    hbox = HBoxLayout()
+    hbox.addWidget(QLabel('Optimize'))
+    hbox.addWidget(self.optimizeCombo)
+    hbox.addWidget(QLabel('Tolerance'))
+    hbox.addWidget(self.tool.optimize_tol.getWidget())
+    hbox.addWidget(QLabel('Prev. result'))
+    hbox.addWidget(self.tool.optimizeResult.getWidget())
+    hbox.addStretch(1)
+    vbox.addLayout(hbox)
+
+    vbox.addWidget(HSeparator())
+
     self.functionList = FunctionList(self.tool)
     self.functionList.functionChanged.connect(self.toolSetFunctions)
     self.functionList.addAction(
       '&Optimize selected parameters',
       self.optimize, QKeySequence('Ctrl+Enter,Ctrl+Return'))
     vbox.addWidget(self.functionList)
+
+  def setOptimizeMethod(self):
+    self.tool.optimizeMethod = self.optimizeCombo.currentText()
 
   def clear(self):
     self.lineSelector.clear()

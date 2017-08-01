@@ -1,51 +1,80 @@
-from PyQt5.QtCore import Qt
-from PyQt5.QtGui import QPainter
-from PyQt5.QtWidgets import QGraphicsLineItem
+from PyQt5.QtCore import Qt, QRectF
+from PyQt5.QtGui import QPainter, QPainterPath
+from PyQt5.QtWidgets import QGraphicsEllipseItem, QGraphicsLineItem
 import pyqtgraph as pg
 
-
-
-__all__ = ['PointItem', 'LineItem']
+from fitparameters import *
 
 
 
-class PointItem(pg.GraphItem):
-  def __init__(self, x, y, xyfilter=None):
+__all__ = ['PointItem', 'LineItem', 'CircleItem']
+
+
+
+class CircleItemBase(QGraphicsEllipseItem):
+  def __init__(self, cx, cy, radius, view):
     super().__init__()
-    self.x = x
-    self.y = y
-    self.size = 8
-    self.pen = pg.mkPen('#000', width=2)
-    self.brush = pg.mkBrush('#fff')
-    self.applyParams()
+    self.cx = cx
+    self.cy = cy
+    self.radius = radius
+    self.view = view
+
+    cx.valueChanged.connect(self.updateGeometry)
+    cy.valueChanged.connect(self.updateGeometry)
+    radius.valueChanged.connect(self.updateGeometry)
+    self.view.pixelRatioChanged.connect(self.updateGeometry)
+    self.updateGeometry()
+
+  def paint(self, p, *args):
+    p.setRenderHint(QPainter.Antialiasing)
+    super().paint(p, *args)
+
+  def calcRect(self, margin=0):
+    rx, ry = self.view.pixelRatio
+    cx, cy, r = self.cx.value(), self.cy.value(), self.radius.value()
+    w, h = (r+margin)*rx, (r+margin)*ry
+    return QRectF(cx-w, cy-h, w*2, h*2)
+
+  def updateGeometry(self):
+    self.setRect(self.calcRect())
+
+  def dataBounds(self, ax, frac, orthoRange=None):
+    if ax == 0:
+      x = self.cx.value()
+      return x, x
+    else:
+      y = self.cy.value()
+      return y, y
+
+  def boundingRect(self):
+    return self.calcRect(4)
+
+  def shape(self):
+    path = QPainterPath()
+    path.addEllipse(self.boundingRect())
+    return path
+
+
+
+class PointItem(CircleItemBase):
+  def __init__(self, x, y, view, color, xyfilter=None):
+    super().__init__(x, y, FitParam('radius', 4), view)
+    self.setPen(pg.mkPen(color, width=2))
+    self.setBrush(pg.mkBrush('#fff'))
     self.drag = None
     self.xyfilter = xyfilter
-
-    x.valueChanged.connect(self.applyParams)
-    y.valueChanged.connect(self.applyParams)
 
   def move(self, x, y):
     if self.xyfilter:
       x, y = self.xyfilter(x, y)
-    self.x.setValue(x)
-    self.y.setValue(y)
-
-  def setSize(self, size):
-    self.size = size
-    self.applyParams()
-
-  def applyParams(self):
-    self.setData(
-      pos=[(self.x.value(), self.y.value())],
-      symbol=['o'], size=[self.size],
-      symbolPen=[self.pen], symbolBrush=[self.brush]
-    )
+    self.cx.setValue(x)
+    self.cy.setValue(y)
 
   def hoverEvent(self, ev):
     if ev.enter:
-      self.setSize(10)
+      self.radius.setValue(6)
     elif ev.exit:
-      self.setSize(8)
+      self.radius.setValue(4)
 
   def mouseDragEvent(self, ev):
     if ev.button() != Qt.LeftButton:
@@ -54,7 +83,7 @@ class PointItem(pg.GraphItem):
 
     if ev.isStart():
       pos = ev.buttonDownPos()
-      self.drag = pos, self.x.value(), self.y.value()
+      self.drag = pos, self.cx.value(), self.cy.value()
 
     elif ev.isFinish():
       self.drag = None
@@ -74,19 +103,21 @@ class PointItem(pg.GraphItem):
 
 
 class LineItem(QGraphicsLineItem):
-  def __init__(self, x1, y1, x2, y2):
+  def __init__(self, x1, y1, x2, y2, color):
     super().__init__()
+
     self.x1 = x1
     self.y1 = y1
     self.x2 = x2
     self.y2 = y2
-    self.setPen(pg.mkPen('#000', width=2))
-    self.applyParams()
+
+    self.setPen(pg.mkPen(color, width=2))
 
     x1.valueChanged.connect(self.applyParams)
     y1.valueChanged.connect(self.applyParams)
     x2.valueChanged.connect(self.applyParams)
     y2.valueChanged.connect(self.applyParams)
+    self.applyParams()
 
   def paint(self, p, *args):
     p.setRenderHint(QPainter.Antialiasing)
@@ -101,3 +132,10 @@ class LineItem(QGraphicsLineItem):
     else:
       v = self.y1.value(), self.y2.value()
     return [min(v), max(v)]
+
+
+
+class CircleItem(CircleItemBase):
+  def __init__(self, cx, cy, r, view, color):
+    CircleItemBase.__init__(self, cx, cy, r, view)
+    self.setPen(pg.mkPen(color, width=1, style=Qt.DashLine))

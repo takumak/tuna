@@ -1,6 +1,7 @@
 import logging
 import inspect
 from PyQt5.QtCore import pyqtSignal, Qt
+from PyQt5.QtGui import QKeySequence
 from PyQt5.QtWidgets import QVBoxLayout, QHeaderView, QComboBox, \
   QTableWidgetItem, QLabel, QPushButton, QButtonGroup, QWidget
 
@@ -27,19 +28,10 @@ class FunctionList(TableWidget):
     self.setLastRow()
 
   def parameterEdited(self, r, c):
-    if c < 2 or c % 2 != 0:
-      return
-
-    func = self.cellWidget(r, 0).currentData()
-    if not func:
-      return
-
-    i = c//2-1
-    if i >= len(func.params):
-      return
-
-    value = float(self.item(r, c).text())
-    func.params[i].setValue(value)
+    item = self.item(r, c)
+    param = item.data(Qt.UserRole)
+    if param:
+      param.setValue(value)
 
   def funcParameterChanged(self, row, func_):
     func = self.cellWidget(row, 0).currentData()
@@ -50,14 +42,19 @@ class FunctionList(TableWidget):
     c = 0
 
     if func:
-      ncol = 1 + len(func.params)*2
+      params = func.editableParams()
+      ncol = 1 + len(params)*2
       if self.columnCount() < ncol:
         self.setColumnCount(ncol)
 
-      for i, param in enumerate(func.params):
+      for i, param in enumerate(params):
         c = 1 + i*2
-        self.setItem(row, c, QTableWidgetItem(param.label))
-        self.setItem(row, c+1, QTableWidgetItem('%g' % param.value()))
+        label = QTableWidgetItem(param.label)
+        label.setFlags(label.flags() & ~Qt.ItemIsEditable)
+        val = QTableWidgetItem('%g' % param.value())
+        val.setData(Qt.UserRole, param)
+        self.setItem(row, c, label)
+        self.setItem(row, c+1, val)
       c += 2
 
     for i in range(c, self.columnCount()):
@@ -68,7 +65,7 @@ class FunctionList(TableWidget):
   def functionSelected(self, row, combo, idx):
     func = combo.itemData(idx)
     if isinstance(func, str):
-      func = self.tool.addFunc(func)
+      func = self.tool.addFunction(func)
       func.parameterChanged.connect(lambda: self.funcParameterChanged(row, func))
       combo.setItemData(idx, func)
     self.funcParameterChanged(row, func)
@@ -83,9 +80,9 @@ class FunctionList(TableWidget):
         self.setColumnCount(1)
         break
 
-      combobox = self.cellWidget(n - 1, 0)
-      if combobox.currentData() is None:
-        return
+      combo = self.cellWidget(n - 1, 0)
+      if combo.currentData() is None:
+        return combo
 
       break
 
@@ -97,6 +94,7 @@ class FunctionList(TableWidget):
     for funcC in self.tool.funcClasses:
       combo.addItem(funcC.label, funcC.name)
     self.setCellWidget(n, 0, combo)
+    return combo
 
   def getFunctions(self):
     functions = []
@@ -106,6 +104,29 @@ class FunctionList(TableWidget):
       if func:
         functions.append(func)
     return functions
+
+  def setFunctions(self, functions):
+    self.clear()
+    self.setColumnCount(0)
+    self.setRowCount(0)
+
+    for r, func in enumerate(functions):
+      combo = self.setLastRow()
+      for i in range(combo.count()):
+        fname = combo.itemData(i)
+        if fname == func.name:
+          combo.setItemData(i, func)
+          combo.setCurrentIndex(i)
+          func.parameterChanged.connect(lambda: self.funcParameterChanged(r, func))
+          break
+
+  def selectedParameters(self):
+    params = []
+    for item in self.selectedItems():
+      param = item.data(Qt.UserRole)
+      if param:
+        params.append(param)
+    return params
 
 
 
@@ -164,6 +185,9 @@ class FitToolWidget(ToolWidgetBase):
 
     self.functionList = FunctionList(self.tool)
     self.functionList.functionChanged.connect(self.toolSetFunctions)
+    self.functionList.addAction(
+      '&Optimize selected parameters',
+      self.optimize, QKeySequence('Ctrl+Enter,Ctrl+Return'))
     vbox.addWidget(self.functionList)
 
   def clear(self):
@@ -181,3 +205,14 @@ class FitToolWidget(ToolWidgetBase):
     self.functionList.setEnabled(bool(line))
     self.tool.setActiveLineName(line.name if line else None)
     self.plotRequested.emit(self.tool, False)
+
+  def restoreState(self, state):
+    super().restoreState(state)
+    self.functionList.setFunctions(self.tool.functions)
+
+  def optimize(self):
+    params = self.functionList.selectedParameters()
+    if len(params) == 0:
+      logging.error('Select parameters to optimize')
+      return
+    self.tool.optimize(params)

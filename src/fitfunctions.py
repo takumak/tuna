@@ -1,7 +1,8 @@
-from PyQt5.QtCore import QObject, pyqtSignal
+import logging
+import uuid
 import numpy as np
 import pyqtgraph as pg
-import uuid
+from PyQt5.QtCore import QObject, pyqtSignal
 
 from fitparameters import *
 from fithandles import *
@@ -24,6 +25,9 @@ class FitFunctionBase(QObject):
 
     self.plotCurveItem = None
 
+  def editableParams(self):
+    return [p for p in self.params if not p.hidden]
+
   def __getattr__(self, name):
     if name in self.paramsNameMap:
       return self.paramsNameMap[name]
@@ -38,7 +42,8 @@ class FitFunctionBase(QObject):
   def setParams(self, params):
     self.blockSignals(True)
     for p in self.params:
-      p.setValue(params[p.name])
+      if p.name in params:
+        p.setValue(params[p.name])
     self.blockSignals(False)
     self.paramChanged()
 
@@ -84,61 +89,61 @@ class FitFunctionBase(QObject):
       pen=pg.mkPen(color=color, width=2),
       **opts
     )
-    return [self.plotCurveItem] + sum([h.getGraphItems() for h in self.handles], [])
+    return [self.plotCurveItem] + sum([h.getGraphItems(color) for h in self.handles], [])
 
-  def eval(self, name, formula, setArg, **params):
+  def eval(self, name, formula, setArg):
+    return FitParamFormula(name, formula, setArg, self.params)
+
+  def lambdify(self, params):
+    paramNames = [p.name for p in params]
+
     from sympy.parsing.sympy_parser import parse_expr
-    from sympy.solvers import solve
-    from sympy import Symbol, Eq, lambdify
+    from sympy import Symbol, lambdify
+    expr = parse_expr(self.expr)
+    # expr = expr.subs([(Symbol(p.name), p.value()) for p in self.params if p not in args])
+    # args = [Symbol('x')]+[Symbol(a.name) for a in args]
+    fixed = [s.name for s in expr.free_symbols if s.name != 'x' and s.name not in paramNames]
+    args = ['x'] + paramNames + fixed
+    func = lambdify([Symbol(a) for a in args], expr, 'numpy')
 
-    expr = parse_expr(formula)
-    args = list(expr.free_symbols)
+    def wrap(x, *vals):
+      return func(x, *(list(vals) + [self.paramsNameMap[n].value() for n in fixed]))
+
+    return wrap
+
+  def y(self, x):
+    from sympy.parsing.sympy_parser import parse_expr
+    from sympy import Symbol, lambdify
+    expr = parse_expr(self.expr)
+    args = [Symbol('x')]+[Symbol(p.name) for p in self.params]
     func = lambdify(args, expr, 'numpy')
 
-    params.update(self.paramsNameMap)
+    # from sympy.utilities.lambdify import lambdastr
+    # logging.debug(lambdastr(args, expr))
 
-    if setArg:
-      expr_i = solve(Eq(expr, Symbol('__')), Symbol(setArg.name))
-      if len(expr_i) != 1:
-        raise RuntimeError('Could not determine the inverse function of "y=%s"' % formula)
-      expr_i = expr_i[0]
-      args_i = list(expr_i.free_symbols)
-      func_i = lambdify(args_i, expr_i, 'numpy')
-    else:
-      func_i = None
-
-    get_ = lambda: func(*[params[a.name].value() for a in args])
-
-    if setArg:
-      set_ = lambda v: setArg.setValue(func_i(*[
-        (v if a.name == '__' else params[a.name].value()) for a in args_i]))
-    else:
-      set_ = None
-
-    return FitParameterFunc(name, get_, set_, [params[a.name] for a in args])
+    y = lambda x: func(x, *[p.value() for p in self.params])
+    self.y = y
+    return y(x)
 
 
 
 class FitFuncGaussian(FitFunctionBase):
   name = 'gaussian'
   label = 'Gaussian'
-  expr = 'a*exp[-(x-b)^2/2c^2]'
+  expr = 'a*exp(-(x-b)**2/(2*c**2))'
 
   def __init__(self, lines, view):
     super().__init__()
 
     x1, x2 = self.getXrange(lines)
-    self.addParam(FitParameter('a', self.getHeight(lines)*0.6))
-    self.addParam(FitParameter('b', (x1 + x2)/2))
-    self.addParam(FitParameter('c', (x2 - x1)*0.1))
+    self.addParam(FitParam('a', self.getHeight(lines)*0.6))
+    self.addParam(FitParam('b', (x1 + x2)/2))
+    self.addParam(FitParam('c', (x2 - x1)*0.1))
 
     half = self.eval('half', 'a/2', None)
     HWHM = self.eval('HWHM', 'b+c*sqrt(2*log(2))', self.c)
     self.addHandle(FitHandlePosition(view, self.b, self.a))
     self.addHandle(FitHandleLine(view, self.b, half, HWHM, half))
-
-  def y(self, x):
-    return self.a.value()*np.exp(-(x-self.b.value())**2/(2*self.c.value()**2))
 
 
 
@@ -151,12 +156,12 @@ class FitFuncTwoLines(FitFunctionBase):
     super().__init__()
 
     x1, x2 = self.getXrange(lines)
-    self.addParam(FitParameter('a1', 0))
-    self.addParam(FitParameter('b1', 0))
-    self.addParam(FitParameter('a2', 0))
-    self.addParam(FitParameter('b2', self.getHeight(lines)*0.8))
-    self.addParam(FitParameter('x0', (x1+x2)/2))
-    self.addParam(FitParameter('dx', 1))
+    self.addParam(FitParam('a1', 0))
+    self.addParam(FitParam('b1', 0))
+    self.addParam(FitParam('a2', 0))
+    self.addParam(FitParam('b2', self.getHeight(lines)*0.8))
+    self.addParam(FitParam('x0', (x1+x2)/2))
+    self.addParam(FitParam('dx', 1))
 
 
     y0 = '(a1*x0+b1)/2 + (a2*x0+b2)/2'
@@ -166,43 +171,49 @@ class FitFuncTwoLines(FitFunctionBase):
     self.addHandle(FitHandlePosition(view, self.x0, y0))
 
 
-    handlelen = min(self.getWidth(lines), self.getHeight(lines))*0.2
-    handlelen = FitParameterConst('len', 10)
-
-
     theta1 = self.eval('theta1', 'atan(a1)+pi', self.a1)
     theta1.setValue(-np.pi)
     theta1.min_ = np.pi/2
     theta1.max_ = np.pi*3/2
-    cx1 = FitParameter('cx1', self.x0.value())
-    cy1 = FitParameter('cy1', self.b1.value())
+    self.addParam(FitParam('cx1', self.x0.value(), hidden=True))
+    self.addParam(FitParam('cy1', self.b1.value(), hidden=True))
     def setb1():
-      b1 = cy1.value() - np.tan(self.a1.value())*cx1.value()
+      b1 = self.cy1.value() - np.tan(self.a1.value())*self.cx1.value()
+      self.b1.blockSignals(True)
       self.b1.setValue(b1)
+      self.b1.blockSignals(False)
+    def setcy1():
+      cy1 = self.a1.value()*self.cx1.value()+self.b1.value()
+      self.cy1.blockSignals(True)
+      self.cy1.setValue(cy1)
+      self.cy1.blockSignals(False)
     self.a1.valueChanged.connect(setb1)
-    cx1.valueChanged.connect(setb1)
-    cy1.valueChanged.connect(setb1)
-    self.addHandle(FitHandleTheta(view, cx1, cy1, theta1, 50))
-    self.addHandle(FitHandlePosition(view, cx1, cy1))
+    self.b1.valueChanged.connect(setcy1)
+    self.cx1.valueChanged.connect(setb1)
+    self.cy1.valueChanged.connect(setb1)
+    self.addHandle(FitHandleTheta(view, self.cx1, self.cy1, theta1, 50))
+    self.addHandle(FitHandlePosition(view, self.cx1, self.cy1))
 
 
     theta2 = self.eval('theta2', 'atan(a2)', self.a2)
     theta2.setValue(0)
     theta2.min_ = -np.pi/2
     theta2.max_ = np.pi/2
-    cx2 = FitParameter('cx2', self.x0.value())
-    cy2 = FitParameter('cy2', self.b2.value())
+    self.addParam(FitParam('cx2', self.x0.value(), hidden=True))
+    self.addParam(FitParam('cy2', self.b1.value(), hidden=True))
     def setb2():
-      b2 = cy2.value() - np.tan(self.a2.value())*cx2.value()
+      b2 = self.cy2.value() - np.tan(self.a2.value())*self.cx2.value()
+      self.b2.blockSignals(True)
       self.b2.setValue(b2)
+      self.b2.blockSignals(False)
+    def setcy2():
+      cy2 = self.a2.value()*self.cx2.value()+self.b2.value()
+      self.cy2.blockSignals(True)
+      self.cy2.setValue(cy2)
+      self.cy2.blockSignals(False)
     self.a2.valueChanged.connect(setb2)
-    cx2.valueChanged.connect(setb2)
-    cy2.valueChanged.connect(setb2)
-    self.addHandle(FitHandleTheta(view, cx2, cy2, theta2, 50))
-    self.addHandle(FitHandlePosition(view, cx2, cy2))
-
-  def y(self, x):
-    r = 1/(1+np.exp((x-self.x0.value())/self.dx.value()))
-    l1 = self.a1.value()*x + self.b1.value()
-    l2 = self.a2.value()*x + self.b2.value()
-    return l1*r + l2*(1-r)
+    self.b2.valueChanged.connect(setcy2)
+    self.cx2.valueChanged.connect(setb2)
+    self.cy2.valueChanged.connect(setb2)
+    self.addHandle(FitHandleTheta(view, self.cx2, self.cy2, theta2, 50))
+    self.addHandle(FitHandlePosition(view, self.cx2, self.cy2))

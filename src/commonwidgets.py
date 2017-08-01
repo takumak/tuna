@@ -20,18 +20,26 @@ class TableWidget(QTableWidget):
   def __init__(self):
     super().__init__()
     self.menu = QMenu()
-    self.menu.addAction('&Copy selected', self.copySelected, QKeySequence.Copy)
-    self.menu.addAction('&Paste',         self.paste,        QKeySequence.Paste)
+    self.keys = []
+
+    self.addAction('&Copy selected', self.copySelected, QKeySequence.Copy)
+    self.addAction('&Paste',         self.paste,        QKeySequence.Paste)
+
+  def addAction(self, label, func, key):
+    self.menu.addAction(label, func, key)
+    self.keys.append((key, func))
 
   def keyPressEvent(self, ev):
-    if ev.matches(QKeySequence.Copy):
-      self.copySelected()
-      return
+    for key, func in self.keys:
+      if isinstance(key, QKeySequence.StandardKey):
+        m = ev.matches(key)
+      else:
+        m = (ev.key() | int(ev.modifiers())) in key
 
-    if ev.matches(QKeySequence.Paste):
-      self.paste()
-      return
-
+      if m:
+        ev.accept()
+        func()
+        return
     super().keyPressEvent(ev)
 
   def contextMenuEvent(self, ev):

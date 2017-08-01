@@ -1,3 +1,4 @@
+from PyQt5.QtCore import pyqtSignal
 import pyqtgraph as pg
 
 
@@ -26,6 +27,8 @@ class GraphWidget(pg.PlotWidget):
     '#314004', '#aecf00', '#4b1f6f', '#ff950e', '#c5000b', '#0084d1'
   ]
 
+  pixelRatioChanged = pyqtSignal()
+
   def __init__(self):
     vb = pg.ViewBox(border=pg.mkPen(color='#000'))
     super().__init__(viewBox=vb)
@@ -33,6 +36,10 @@ class GraphWidget(pg.PlotWidget):
     self.legend = self.addLegend(offset=(10, 10))
     self.lines = []
     self.colorpicker = ColorPicker(self.colors)
+
+    self.pixelRatio = None
+    self.sigRangeChanged.connect(self.__geometryChanged)
+    self.__geometryChanged()
 
   def getColorPicker(self):
     return self.colorpicker
@@ -59,3 +66,15 @@ class GraphWidget(pg.PlotWidget):
 
     self.legend.addItem(curve, name=line.name)
     self.lines.append(line)
+
+  def __geometryChanged(self):
+    r = self.viewRect()
+    s = self.size()
+    rx = r.width()/s.width()
+    ry = r.height()/s.height()
+    self.pixelRatio = rx, ry
+    self.pixelRatioChanged.emit()
+
+  def resizeEvent(self, ev):
+    super().resizeEvent(ev)
+    self.__geometryChanged()

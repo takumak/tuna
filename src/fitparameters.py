@@ -4,37 +4,18 @@ from settingitems import *
 
 
 
-__all__ = ['FitParameter', 'FitParameterConst', 'FitParameterFunc']
+__all__ = ['FitParam', 'FitParamConst', 'FitParamFunc', 'FitParamFormula']
 
 
 
-class FitParameter(SettingItemFloat):
-  def __init__(self, *args, **kwargs):
-    if len(args) == 1 and isinstance(args[0], FitParameter):
-      self.parent = args[0]
-      self.parent.valueChanged.connect(lambda: self.valueChanged.emit())
-
-      p = self.parent
-      super().__init__(
-        p.name, p.label, p.default, validator=p.validator,
-        min_=p.min_, max_=p.max_, emptyIsNone=p.emptyIsNone)
-    else:
-      self.parent = None
-      name, default = args
-      super().__init__(name, name, default, **kwargs)
-
-  def value(self):
-    if self.parent:
-      return self.parent.value()
-    return super().value()
+class FitParam(SettingItemFloat):
+  def __init__(self, name, default, hidden=False):
+    super().__init__(name, name, default)
+    self.hidden = hidden
 
   def setValue(self, value):
     if self.max_ is not None and value > self.max_: value = self.max_
     if self.min_ is not None and value < self.min_: value = self.min_
-
-    if self.parent:
-      self.parent.setValue(value)
-      return
 
     from numbers import Number
     if not isinstance(value, Number):
@@ -44,13 +25,13 @@ class FitParameter(SettingItemFloat):
 
 
 
-class FitParameterConst(FitParameter):
+class FitParamConst(FitParam):
   def setValue(self, value):
     pass
 
 
 
-class FitParameterFunc(FitParameter):
+class FitParamFunc(FitParam):
   def __init__(self, name, get_, set_, refargs):
     self.get_ = get_
     self.set_ = set_
@@ -64,3 +45,39 @@ class FitParameterFunc(FitParameter):
   def setValue(self, value):
     if self.set_:
       self.set_(value)
+
+
+
+class FitParamFormula(FitParamFunc):
+  def __init__(self, name, formula, setArg, refargs, **kwargs):
+    from sympy.parsing.sympy_parser import parse_expr
+    from sympy.solvers import solve
+    from sympy import Symbol, Eq, lambdify
+
+    expr = parse_expr(formula)
+    args = list(expr.free_symbols)
+    func = lambdify(args, expr, 'numpy')
+
+    params = dict([(a.name, a) for a in refargs])
+    params.update(kwargs)
+    refargs = [params[a.name] for a in args]
+
+    if setArg:
+      expr_i = solve(Eq(expr, Symbol('__')), Symbol(setArg.name))
+      if len(expr_i) != 1:
+        raise RuntimeError('Could not determine the inverse function of "y=%s"' % formula)
+      expr_i = expr_i[0]
+      args_i = list(expr_i.free_symbols)
+      func_i = lambdify(args_i, expr_i, 'numpy')
+    else:
+      func_i = None
+
+    get_ = lambda: func(*[params[a.name].value() for a in args])
+
+    if setArg:
+      set_ = lambda v: setArg.setValue(func_i(*[
+        (v if a.name == '__' else params[a.name].value()) for a in args_i]))
+    else:
+      set_ = None
+
+    super().__init__(name, get_, set_, refargs)

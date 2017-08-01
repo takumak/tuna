@@ -12,17 +12,12 @@ __all__ = ['FitHandlePosition', 'FitHandleLine', 'FitHandleTheta']
 class FitHandleBase:
   def __init__(self, view):
     self.view = view
-    self.view.sigRangeChanged.connect(self.viewScaleChanged)
-    FitHandleBase.viewScaleChanged(self)
+    self.view.pixelRatioChanged.connect(self.pixelRatioChanged)
 
-  def viewScaleChanged(self):
-    r = self.view.viewRect()
-    s = self.view.size()
-    rx = r.width()/s.width()
-    ry = r.height()/s.height()
-    self.ratio = rx, ry
+  def pixelRatioChanged(self):
+    pass
 
-  def getGraphItems(self):
+  def getGraphItems(self, color):
     raise NotImplementedError()
 
 
@@ -33,8 +28,8 @@ class FitHandlePosition(FitHandleBase):
     self.x = x
     self.y = y
 
-  def getGraphItems(self):
-    return [PointItem(self.x, self.y)]
+  def getGraphItems(self, color):
+    return [PointItem(self.x, self.y, self.view, color)]
 
 
 class FitHandleLine(FitHandleBase):
@@ -46,8 +41,9 @@ class FitHandleLine(FitHandleBase):
     self.x2 = x2
     self.y2 = y2
 
-  def getGraphItems(self):
-    return [LineItem(self.x1, self.y1, self.x2, self.y2), PointItem(self.x2, self.y2)]
+  def getGraphItems(self, color):
+    return [LineItem(self.x1, self.y1, self.x2, self.y2, '#000'),
+            PointItem(self.x2, self.y2, self.view, color)]
 
 
 class FitHandleTheta(FitHandleBase):
@@ -59,15 +55,14 @@ class FitHandleTheta(FitHandleBase):
     self.theta = theta
     self.length = length
 
-    self.x = FitParameter('x', self.getX())
-    self.y = FitParameter('y', self.getY())
+    self.x = FitParam('x', self.getX())
+    self.y = FitParam('y', self.getY())
 
     cx.valueChanged.connect(self.updateXY)
     cy.valueChanged.connect(self.updateXY)
     theta.valueChanged.connect(self.updateXY)
 
-  def viewScaleChanged(self):
-    super().viewScaleChanged()
+  def pixelRatioChanged(self):
     self.updateXY()
 
   def atan(self, x, y, prev=None):
@@ -80,16 +75,16 @@ class FitHandleTheta(FitHandleBase):
 
   def viewTheta(self):
     theta = self.theta.value()
-    rx, ry = self.ratio
+    rx, ry = self.view.pixelRatio
     x = np.cos(theta)/rx
     y = np.sin(theta)/ry
     return self.atan(x, y)
 
   def getX(self):
-    return self.cx.value() + self.length*np.cos(self.viewTheta())*self.ratio[0]
+    return self.cx.value() + self.length*np.cos(self.viewTheta())*self.view.pixelRatio[0]
 
   def getY(self):
-    return self.cy.value() + self.length*np.sin(self.viewTheta())*self.ratio[1]
+    return self.cy.value() + self.length*np.sin(self.viewTheta())*self.view.pixelRatio[1]
 
   def updateXY(self):
     self.x.setValue(self.getX())
@@ -100,8 +95,7 @@ class FitHandleTheta(FitHandleBase):
     self.theta.setValue(theta)
     return self.getX(), self.getY()
 
-  def getGraphItems(self):
-    return [LineItem(self.cx, self.cy, self.x, self.y),
-            PointItem(self.x, self.y, self.xyfilter)]
-
-
+  def getGraphItems(self, color):
+    return [LineItem(self.cx, self.cy, self.x, self.y, color),
+            CircleItem(self.cx, self.cy, FitParamConst('r', self.length), self.view, color),
+            PointItem(self.x, self.y, self.view, color, self.xyfilter)]

@@ -222,8 +222,6 @@ class MainWindow(QMainWindow):
 
   def updateGraph(self):
     self.graphWidget.clearItems()
-    for line in self.curTool.getLines():
-      self.graphWidget.addLine(line)
     colorpicker = self.graphWidget.getColorPicker()
     for item in self.curTool.getGraphItems(colorpicker):
       self.graphWidget.addItem(item)

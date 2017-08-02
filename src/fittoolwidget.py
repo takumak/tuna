@@ -69,17 +69,18 @@ class FunctionList(TableWidget):
 
     self.parameterEdited.block()
 
-    c = 0
-    params = func.editableParams()
-    ncol = 1 + len(params)*2
-    if self.columnCount() < ncol:
-      self.setColumnCount(ncol)
+    c = -1
+    if func:
+      params = func.editableParams()
+      ncol = 1 + len(params)*2
+      if self.columnCount() < ncol:
+        self.setColumnCount(ncol)
 
-    for i, param in enumerate(params):
-      c = 1 + i*2
-      self.setItemText(row, c, param.name, editable=False)
-      val = self.setItemText(row, c+1, '%g' % param.value())
-      val.setData(Qt.UserRole, param)
+      for i, param in enumerate(params):
+        c = 1 + i*2
+        self.setItemText(row, c, param.name, editable=False)
+        val = self.setItemText(row, c+1, '%g' % param.value())
+        val.setData(Qt.UserRole, param)
 
     for i in range(c+2, self.columnCount()):
       self.setItemText(row, i, '')
@@ -205,12 +206,6 @@ class FitToolWidget(ToolWidgetBase):
     vbox.setContentsMargins(4, 4, 4, 4)
     self.setLayout(vbox)
 
-    self.lineSelector = LineSelector()
-    self.lineSelector.selectionChanged.connect(self.lineSelectionChanged)
-    vbox.addWidget(self.lineSelector)
-
-    vbox.addWidget(HSeparator())
-
     self.normWindow = FunctionList(self.tool.funcClasses, self.tool.createFunction)
     self.normWindow.functionChanged.connect(self.toolSetNormWindow)
     self.normWindow.focusIn.connect(lambda: self.setPlotMode('normwin'))
@@ -220,13 +215,18 @@ class FitToolWidget(ToolWidgetBase):
 
     vbox.addWidget(HSeparator())
 
+    self.lineSelector = LineSelector()
+    self.lineSelector.selectionChanged.connect(self.lineSelectionChanged)
+
     self.peakFunctions = FunctionList(self.tool.funcClasses, self.tool.createFunction)
     self.peakFunctions.functionChanged.connect(self.toolSetPeakFunctions)
     self.peakFunctions.focusIn.connect(lambda: self.setPlotMode('peaks'))
     self.peakFunctions.addAction(
       '&Optimize selected parameters',
       self.optimize, QKeySequence('Ctrl+Enter,Ctrl+Return'))
+
     vbox.addWidget(QLabel('Peaks'))
+    vbox.addWidget(self.lineSelector)
     vbox.addWidget(self.peakFunctions)
 
     vbox.addStretch(1)
@@ -271,7 +271,6 @@ class FitToolWidget(ToolWidgetBase):
 
   def lineSelectionChanged(self):
     line = self.lineSelector.selectedLine()
-    self.peakFunctions.setEnabled(bool(line))
     self.tool.setActiveLineName(line.name if line else None)
     self.plotRequested.emit(self.tool, False)
 

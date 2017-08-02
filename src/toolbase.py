@@ -1,4 +1,5 @@
 from PyQt5.QtCore import QObject, pyqtSignal
+import pyqtgraph as pg
 
 from line import Line
 from settingobj import SettingObj
@@ -34,12 +35,23 @@ class ToolBase(QObject, SettingObj):
     self.lines.append(l)
     self.lineNameMap[name] = l
     self.added.emit(l)
+    return l
 
   def getLines(self):
     return self.lines
 
   def getGraphItems(self, colorpicker):
-    return []
+    items = []
+    for line in self.getLines():
+      pen = pg.mkPen(color=col, width=2)
+      curve = pg.PlotCurveItem(x=line.x, y=line.y, pen=pen)
+      items.append(curve)
+      if line.plotErrors:
+        items.append(pg.ErrorBarItem(
+          x=line.x, y=line.y, height=line.y_*2, beam=0.2, pen=pen))
+        items.append(pg.ScatterPlotItem(
+          x=line.x, y=line.y, brush=pg.mkBrush(color=col)))
+    return items
 
   def getXrange(self):
     if len(self.lines) == 0: return 0, 1

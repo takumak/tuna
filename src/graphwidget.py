@@ -34,7 +34,6 @@ class GraphWidget(pg.PlotWidget):
     super().__init__(viewBox=vb)
     self.setBackground('#fff')
     self.legend = self.addLegend(offset=(10, 10))
-    self.lines = []
     self.colorpicker = ColorPicker(self.colors)
 
     self.pixelRatio = None
@@ -49,23 +48,7 @@ class GraphWidget(pg.PlotWidget):
       self.removeItem(item)
     self.legend.scene().removeItem(self.legend)
     self.legend = self.addLegend(offset=(10, 10))
-    self.lines.clear()
     self.colorpicker.reset()
-
-  def addLine(self, line):
-    col = self.colorpicker.next()
-
-    pen = pg.mkPen(color=col, width=2)
-    curve = pg.PlotCurveItem(x=line.x, y=line.y, pen=pen)
-    self.addItem(curve)
-    if line.plotErrors:
-      line.addItem(pg.ErrorBarItem(
-        x=line.x, y=line.y, height=line.y_*2, beam=0.2, pen=pen))
-      self.addItem(pg.ScatterPlotItem(
-        x=line.x, y=line.y, brush=pg.mkBrush(color=col)))
-
-    self.legend.addItem(curve, name=line.name)
-    self.lines.append(line)
 
   def __geometryChanged(self):
     r = self.viewRect()

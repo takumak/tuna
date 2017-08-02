@@ -227,6 +227,8 @@ class FitTool(ToolBase):
     line = self.activeLine()
 
     if not line:
+      for item in self.lineCurveItems:
+        item.setPen(color=colorpicker.next(), width=2)
       return self.lineCurveItems
 
     active = self.lineCurveItems[self.lines.index(line)]

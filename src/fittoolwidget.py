@@ -176,16 +176,20 @@ class LineSelector(QWidget):
     btn.setCheckable(True)
     btn.setChecked(active)
     btn.pressed.connect(lambda: self.unselectAll(btn))
-    btn.toggled.connect(lambda: self.selectionChanged.emit())
+    btn.toggled.connect(self.buttonToggled)
     self.layout.addWidget(btn)
     self.buttons.append((btn, line))
 
+  @blockable
+  def buttonToggled(self, checked):
+    self.selectionChanged.emit()
+
   def unselectAll(self, exclude):
-    self.blockSignals(True)
+    self.buttonToggled.block()
     for btn, line in self.buttons:
       if btn != exclude:
         btn.setChecked(False)
-    self.blockSignals(False)
+    self.buttonToggled.unblock()
 
   def selectedLine(self):
     for btn, line in self.buttons:

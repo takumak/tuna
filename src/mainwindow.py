@@ -245,7 +245,7 @@ class MainWindow(QMainWindow):
     self.sessionFilename = None
 
   def showOpenSessionDialog(self):
-    dlg = FileDialog('session_open')
+    dlg = FileDialog('openSession')
     if dlg.exec_() != dlg.Accepted:
       return
 

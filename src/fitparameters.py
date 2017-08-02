@@ -1,5 +1,7 @@
 import operator
+from PyQt5.QtCore import QObject, pyqtSignal
 
+from functions import blockable
 from settingitems import *
 
 
@@ -8,20 +10,36 @@ __all__ = ['FitParam', 'FitParamConst', 'FitParamFunc', 'FitParamFormula']
 
 
 
-class FitParam(SettingItemFloat):
+class FitParam(QObject):
+  valueChanged = pyqtSignal()
+
   def __init__(self, name, default, hidden=False):
-    super().__init__(name, name, default)
+    super().__init__()
+    self.name = name
+    self.value_ = default
     self.hidden = hidden
 
-  def setValue(self, value):
-    if self.max_ is not None and value > self.max_: value = self.max_
-    if self.min_ is not None and value < self.min_: value = self.min_
+    self.min_ = None
+    self.max_ = None
 
+  def value(self):
+    return self.value_
+
+  def checkValue(self, value):
     from numbers import Number
     if not isinstance(value, Number):
       raise TypeError('Fit parameter value must be a number, but got %s' % value)
 
-    super().setStrValue(str(value))
+    if self.max_ is not None and value > self.max_: value = self.max_
+    if self.min_ is not None and value < self.min_: value = self.min_
+
+    return value
+
+  def setValue(self, value):
+    value = self.checkValue(value)
+    if value != self.value_:
+      self.value_ = value
+      self.valueChanged.emit()
 
 
 
@@ -29,12 +47,16 @@ class FitParamConst(FitParam):
   def setValue(self, value):
     pass
 
+  def setPreviewValue(self, value):
+    pass
+
 
 
 class FitParamFunc(FitParam):
-  def __init__(self, name, get_, set_, refargs):
+  def __init__(self, name, get_, set_, setp, refargs):
     self.get_ = get_
     self.set_ = set_
+    self.setp = setp
     super().__init__(name, self.value())
     for a in refargs:
       a.valueChanged.connect(lambda: self.valueChanged.emit())
@@ -45,6 +67,10 @@ class FitParamFunc(FitParam):
   def setValue(self, value):
     if self.set_:
       self.set_(value)
+
+  def setPreviewValue(self, value):
+    if self.setp:
+      self.setp(value)
 
 
 
@@ -75,9 +101,12 @@ class FitParamFormula(FitParamFunc):
     get_ = lambda: func(*[params[a.name].value() for a in args])
 
     if setArg:
-      set_ = lambda v: setArg.setValue(func_i(*[
-        (v if a.name == '__' else params[a.name].value()) for a in args_i]))
+      tosetval = lambda v: func_i(*[
+        (v if a.name == '__' else params[a.name].value()) for a in args_i])
+      set_ = lambda v: setArg.setValue(tosetval(v))
+      setp = lambda v: setArg.setPreviewValue(tosetval(v))
     else:
       set_ = None
+      setp = None
 
-    super().__init__(name, get_, set_, refargs)
+    super().__init__(name, get_, set_, setp, refargs)

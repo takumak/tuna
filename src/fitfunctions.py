@@ -4,6 +4,7 @@ import numpy as np
 import pyqtgraph as pg
 from PyQt5.QtCore import QObject, pyqtSignal
 
+from functions import blockable
 from fitparameters import *
 from fithandles import *
 
@@ -18,7 +19,7 @@ __all__ = [
 
 
 class FitFunctionBase(QObject):
-  parameterChanged = pyqtSignal(name='parameterChanged')
+  parameterChanged = pyqtSignal(QObject, name='parameterChanged')
 
   def __init__(self):
     super().__init__()
@@ -44,11 +45,11 @@ class FitFunctionBase(QObject):
     return dict([(p.name, p.value()) for p in self.params])
 
   def setParams(self, params):
-    self.blockSignals(True)
+    self.paramChanged.block()
     for p in self.params:
       if p.name in params:
         p.setValue(params[p.name])
-    self.blockSignals(False)
+    self.paramChanged.unblock()
     self.paramChanged()
 
   def addParam(self, param):
@@ -56,11 +57,12 @@ class FitFunctionBase(QObject):
     self.paramsNameMap[param.name] = param
     param.valueChanged.connect(self.paramChanged)
 
+  @blockable
   def paramChanged(self):
     if self.plotCurveItem:
-      x, y = self.plotCurveItem.getData()
+      x = self.plotCurveItem.getData()[0]
       self.plotCurveItem.setData(x=x, y=self.y(x))
-    self.parameterChanged.emit()
+    self.parameterChanged.emit(self)
 
   def addHandle(self, handle):
     self.handles.append(handle)
@@ -83,7 +85,6 @@ class FitFunctionBase(QObject):
   def getGraphItems(self, x, color, **opts):
     self.plotCurveItem = pg.PlotCurveItem(
       x=x, y=self.y(x),
-      antialias=True,
       name=self.name,
       pen=pg.mkPen(color=color, width=2),
       **opts
@@ -93,39 +94,32 @@ class FitFunctionBase(QObject):
   def eval(self, name, formula, setArg):
     return FitParamFormula(name, formula, setArg, self.params)
 
-  def samedim(self, x, y):
-    try:
-      i = iter(y)
-      return y
-    except TypeError:
-      return np.full(len(x), y)
+  def parse_expr(self, expr):
+    from sympy.parsing.sympy_parser import parse_expr
+    from sympy import Symbol
+    expr = parse_expr(expr)
+    if 'x' not in [s.name for s in expr.free_symbols]:
+      expr = expr+Symbol('x')*0
+    return expr
 
   def lambdify(self, params):
     paramNames = [p.name for p in params]
 
-    from sympy.parsing.sympy_parser import parse_expr
     from sympy import Symbol, lambdify
-    expr = parse_expr(self.expr)
-    # expr = expr.subs([(Symbol(p.name), p.value()) for p in self.params if p not in args])
-    # args = [Symbol('x')]+[Symbol(a.name) for a in args]
+    expr = self.parse_expr(self.expr)
     fixed = [s.name for s in expr.free_symbols if s.name != 'x' and s.name not in paramNames]
     args = ['x'] + paramNames + fixed
     func = lambdify([Symbol(a) for a in args], expr, 'numpy')
 
-    return lambda x, *vals: self.samedim(
-      x, func(x, *(list(vals) + [self.paramsNameMap[n].value() for n in fixed])))
+    return lambda x, *vals: func(x, *(list(vals) + [self.paramsNameMap[n].value() for n in fixed]))
 
   def y(self, x):
-    from sympy.parsing.sympy_parser import parse_expr
     from sympy import Symbol, lambdify
-    expr = parse_expr(self.expr)
+    expr = self.parse_expr(self.expr)
     args = [Symbol('x')]+[Symbol(p.name) for p in self.params]
     func = lambdify(args, expr, 'numpy')
 
-    # from sympy.utilities.lambdify import lambdastr
-    # logging.debug(lambdastr(args, expr))
-
-    y = lambda x: self.samedim(x, func(x, *[p.value() for p in self.params]))
+    y = lambda x: func(x, *[p.value() for p in self.params])
     self.y = y
     return y(x)
 
@@ -136,11 +130,11 @@ class FitFuncGaussian(FitFunctionBase):
   label = 'Gaussian'
   expr = 'a*exp(-(x-b)**2/(2*c**2))'
 
-  def __init__(self, lines, view):
+  def __init__(self, view):
     super().__init__()
 
-    x1, x2 = self.getXrange(lines)
-    y1, y2 = self.getYrange(lines)
+    r = view.viewRect()
+    x1, x2, y1, y2 = r.left(), r.right(), r.top(), r.bottom()
     self.addParam(FitParam('a', y2*0.6))
     self.addParam(FitParam('b', (x1 + x2)/2))
     self.addParam(FitParam('c', (x2 - x1)*0.1))
@@ -157,11 +151,11 @@ class FitFuncBoltzmann2(FitFunctionBase):
   label = 'Boltzmann 2'
   expr = '(a1*x+b1)/(1+exp((x-x0)/dx)) + (a2*x+b2)*(1-1/(1+exp((x-x0)/dx)))'
 
-  def __init__(self, lines, view):
+  def __init__(self, view):
     super().__init__()
 
-    x1, x2 = self.getXrange(lines)
-    y1, y2 = self.getYrange(lines)
+    r = view.viewRect()
+    x1, x2, y1, y2 = r.left(), r.right(), r.top(), r.bottom()
     self.addParam(FitParam('a1', 0))
     self.addParam(FitParam('b1', 0))
     self.addParam(FitParam('a2', 0))
@@ -177,52 +171,37 @@ class FitFuncBoltzmann2(FitFunctionBase):
     self.addHandle(FitHandlePosition(view, self.x0, y0))
 
 
-    theta1 = self.eval('theta1', 'atan(a1)+pi', self.a1)
-    theta1.setValue(-np.pi)
-    theta1.min_ = np.pi/2
-    theta1.max_ = np.pi*3/2
     self.addParam(FitParam('cx1', self.x0.value(), hidden=True))
     self.addParam(FitParam('cy1', self.b1.value(), hidden=True))
-    def setb1():
-      b1 = self.cy1.value() - np.tan(self.a1.value())*self.cx1.value()
-      self.b1.blockSignals(True)
-      self.b1.setValue(b1)
-      self.b1.blockSignals(False)
-    def setcy1():
-      cy1 = self.a1.value()*self.cx1.value()+self.b1.value()
-      self.cy1.blockSignals(True)
-      self.cy1.setValue(cy1)
-      self.cy1.blockSignals(False)
-    self.a1.valueChanged.connect(setb1)
-    self.b1.valueChanged.connect(setcy1)
-    self.cx1.valueChanged.connect(setb1)
-    self.cy1.valueChanged.connect(setb1)
-    self.addHandle(FitHandleTheta(view, self.cx1, self.cy1, theta1, 50))
+    self.a1.valueChanged.connect(lambda: self.setB(1))
+    self.b1.valueChanged.connect(lambda: self.setcy(1))
+    self.cx1.valueChanged.connect(lambda: self.setB(1))
+    self.cy1.valueChanged.connect(lambda: self.setB(1))
+    self.addHandle(FitHandleGradient(view, self.cx1, self.cy1, self.a1, 50, False))
     self.addHandle(FitHandlePosition(view, self.cx1, self.cy1))
 
-
-    theta2 = self.eval('theta2', 'atan(a2)', self.a2)
-    theta2.setValue(0)
-    theta2.min_ = -np.pi/2
-    theta2.max_ = np.pi/2
     self.addParam(FitParam('cx2', self.x0.value(), hidden=True))
-    self.addParam(FitParam('cy2', self.b1.value(), hidden=True))
-    def setb2():
-      b2 = self.cy2.value() - np.tan(self.a2.value())*self.cx2.value()
-      self.b2.blockSignals(True)
-      self.b2.setValue(b2)
-      self.b2.blockSignals(False)
-    def setcy2():
-      cy2 = self.a2.value()*self.cx2.value()+self.b2.value()
-      self.cy2.blockSignals(True)
-      self.cy2.setValue(cy2)
-      self.cy2.blockSignals(False)
-    self.a2.valueChanged.connect(setb2)
-    self.b2.valueChanged.connect(setcy2)
-    self.cx2.valueChanged.connect(setb2)
-    self.cy2.valueChanged.connect(setb2)
-    self.addHandle(FitHandleTheta(view, self.cx2, self.cy2, theta2, 50))
+    self.addParam(FitParam('cy2', self.b2.value(), hidden=True))
+    self.a2.valueChanged.connect(lambda: self.setB(2))
+    self.b2.valueChanged.connect(lambda: self.setcy(2))
+    self.cx2.valueChanged.connect(lambda: self.setB(2))
+    self.cy2.valueChanged.connect(lambda: self.setB(2))
+    self.addHandle(FitHandleGradient(view, self.cx2, self.cy2, self.a2, 50))
     self.addHandle(FitHandlePosition(view, self.cx2, self.cy2))
+
+  def setB(self, num):
+    cx = getattr(self, 'cx%d' % num)
+    cy = getattr(self, 'cy%d' % num)
+    a = getattr(self, 'a%d' % num)
+    b = getattr(self, 'b%d' % num)
+    b.setValue(cy.value() - a.value()*cx.value())
+
+  def setcy(self, num):
+    cx = getattr(self, 'cx%d' % num)
+    cy = getattr(self, 'cy%d' % num)
+    a = getattr(self, 'a%d' % num)
+    b = getattr(self, 'b%d' % num)
+    cy.setValue(a.value()*cx.value()+b.value())
 
 
 
@@ -231,10 +210,10 @@ class FitFuncConstant(FitFunctionBase):
   label = 'Constant'
   expr = 'y0'
 
-  def __init__(self, lines, view):
+  def __init__(self, view):
     super().__init__()
-    x1, x2 = self.getXrange(lines)
-    y1, y2 = self.getYrange(lines)
+    r = view.viewRect()
+    x1, x2, y1, y2 = r.left(), r.right(), r.top(), r.bottom()
     self.addParam(FitParam('y0', y2*0.8))
     self.addParam(FitParam('x0', x1, hidden=True))
     self.addHandle(FitHandlePosition(view, self.x0, self.y0))
@@ -246,11 +225,11 @@ class FitFuncHeaviside(FitFunctionBase):
   label = 'Heaviside'
   expr = 'a*heaviside(x-x0, 1)'
 
-  def __init__(self, lines, view):
+  def __init__(self, view):
     super().__init__()
 
-    x1, x2 = self.getXrange(lines)
-    y1, y2 = self.getYrange(lines)
+    r = view.viewRect()
+    x1, x2, y1, y2 = r.left(), r.right(), r.top(), r.bottom()
     self.addParam(FitParam('a', y2*0.8))
     self.addParam(FitParam('x0', (x1 + x2)/2))
 
@@ -263,11 +242,11 @@ class FitFuncRectangularWindow(FitFunctionBase):
   label = 'Rectangular window'
   expr = 'a*heaviside(x-x0, 1)*heaviside(-(x-x1), 1)'
 
-  def __init__(self, lines, view):
+  def __init__(self, view):
     super().__init__()
 
-    x1, x2 = self.getXrange(lines)
-    y1, y2 = self.getYrange(lines)
+    r = view.viewRect()
+    x1, x2, y1, y2 = r.left(), r.right(), r.top(), r.bottom()
     self.addParam(FitParam('a', y2*0.8))
     self.addParam(FitParam('x0', x1 + (x2-x1)*0.2))
     self.addParam(FitParam('x1', x2 - (x2-x1)*0.2))

@@ -37,19 +37,22 @@ class FitTool(ToolBase):
 
   def __init__(self):
     super().__init__()
-    self.functions = []
-    self.fitCurveItem = None
+    self.normWindow = []
+    self.peakFunctions = []
+    self.sumCurveItem = None
     self.diffCurveItem = None
+    self.lineCurveItems = []
     self.activeLineName = None
-    self.funcParams = {}
+    self.peakFuncParams = {}
     self.view = None
+    self.mode = 'peaks'
 
     self.optimizeMethod = self.optimizeMethods[0]
     self.addSettingItem(SettingItemFloat(
       'optimize_tol', 'Tolerance', '',
       min_=0, emptyIsNone=True))
-    self.optimizeResult = SettingItemFloat(
-      'optimize_res', 'Result', '0')
+    self.diffSquareSum = SettingItemFloat(
+      'diffsqsum', 'Result', '0')
 
   def optimize(self, params):
     line = self.activeLine()
@@ -63,30 +66,21 @@ class FitTool(ToolBase):
       return lambda a: func(line.x, *[a[i] for i in args_i])
 
     funcs = []
-    for func in self.functions:
+    for func in self.peakFunctions:
       args, args_i = [], []
       p = list(zip(*[(p, i) for i, p in enumerate(params) if p in func.params]))
       if len(p) > 0: args, args_i = p
-      # if func.name == 'gaussian':
-      #   logging.debug('a=%f; %s' % (func.a.value(), ','.join([a.name for a in args])))
-      # else:
-      #   logging.debug('name=%s; %s' % (func.name, ','.join([a.name for a in args])))
       funcs.append(wrap(func.lambdify(args), args_i))
 
     from scipy.optimize import minimize
     func = lambda a: np.sum((np.sum([f(a) for f in funcs], axis=0) - line.y)**2)
     a0 = np.array([p.value() for p in params])
 
-    # x = line.x
-    # y = np.sum([f(a0+3) for f in funcs], axis=0)
-    # self.fitCurveItem.setData(x=x, y=y)
-
     res = minimize(
       func, a0,
       method=self.optimizeMethod,
       tol=self.optimize_tol.value()
     )
-    self.optimizeResult.setStrValue('%.3e' % res.fun)
     logging.debug('Optimize done: %s' % ','.join(map(str, res.x)))
 
     for p, v in zip(params, res.x):
@@ -95,60 +89,104 @@ class FitTool(ToolBase):
   def setView(self, view):
     self.view = view
 
-  def saveFuncParams(self):
-    if self.activeLineName:
-      logging.debug('Save func params')
-      if self.activeLineName not in self.funcParams:
-        self.funcParams[self.activeLineName] = {}
-      params = self.funcParams[self.activeLineName]
-      for func in self.functions:
-        params[func.id] = func.getParams()
+  def functions(self):
+    if self.mode == 'normwin':
+      return self.normWindow
+    if self.mode == 'peaks':
+      return self.peakFunctions
+    raise RuntimeError('[Bug] Invalid plot mode')
 
-  def restoreFuncParams(self):
-    if self.activeLineName and self.activeLineName in self.funcParams:
+  def savePeakFuncParams(self, func):
+    if self.activeLineName:
+      # logging.debug('Save func params')
+      if self.activeLineName not in self.peakFuncParams:
+        self.peakFuncParams[self.activeLineName] = {}
+      params = self.peakFuncParams[self.activeLineName]
+      params[func.id] = func.getParams()
+
+  def restorePeakFuncParams(self):
+    if self.activeLineName and self.activeLineName in self.peakFuncParams:
       logging.debug('Restore func params')
-      params = self.funcParams[self.activeLineName]
+      params = self.peakFuncParams[self.activeLineName]
       active = self.activeLineName
       self.activeLineName = None # prevent saving old func params
-      for func in self.functions:
+      for func in self.peakFunctions:
         if func.id in params:
           func.setParams(params[func.id])
       self.activeLineName = active
 
-  def clearFunctions(self):
-    for func in self.functions:
-      func.parameterChanged.disconnect(self.parameterChanged)
-    self.functions = []
-
-  def addFunction(self, funcName):
+  def createFunction(self, funcName):
     for cls in self.funcClasses:
       if cls.name == funcName:
-        f = cls(self.getLines(), self.view)
-        f.parameterChanged.connect(self.parameterChanged)
-        self.functions.append(f)
-        return f
+        return cls(self.view)
     raise RuntimeError('Function named "%s" is not defined' % funcName)
 
-  def setFunctions(self, functions):
-    self.clearFunctions()
-    self.functions = functions
-    self.restoreFuncParams()
-    for func in self.functions:
-      func.parameterChanged.connect(self.parameterChanged)
-    self.updateFitCurve()
+  def clearNormWindow(self):
+    for func in self.normWindow:
+      func.parameterChanged.disconnect(self.parameterChanged_normwin)
+    self.normWindow = []
 
-  def parameterChanged(self):
-    self.saveFuncParams()
-    self.updateFitCurve()
+  def setNormWindow(self, functions):
+    self.clearNormWindow()
+    self.normWindow = functions
+    for func in self.normWindow:
+      func.parameterChanged.connect(self.parameterChanged_normwin)
+    self.parameterChanged_normwin()
+    if self.mode == 'normwin':
+      self.updateLineCurves()
+
+  def parameterChanged_normwin(self):
+    self.updateLineCurves()
+
+  def clearPeakFunctions(self):
+    for func in self.peakFunctions:
+      func.parameterChanged.disconnect(self.parameterChanged_peaks)
+    self.peakFunctions = []
+
+  def setPeakFunctions(self, functions):
+    self.clearPeakFunctions()
+    self.peakFunctions = functions
+    self.restorePeakFuncParams()
+    for func in self.peakFunctions:
+      func.parameterChanged.connect(self.parameterChanged_peaks)
+    self.updateSumCurve()
     self.updateDiffCurve()
 
-  def updateFitCurve(self):
-    if self.fitCurveItem is None:
+  def parameterChanged_peaks(self, func):
+    self.savePeakFuncParams(func)
+    self.updateSumCurve()
+    self.updateDiffCurve()
+
+  def normalizeXY(self, x, y):
+    if len(self.normWindow) == 0:
+      yn = np.ones(len(x))
+    else:
+      yn = np.sum([f.y(x) for f in self.normWindow], axis=0)
+      ynmax = max(yn)
+      if ynmax > 0:
+        yn = yn/max(yn)
+    sumy = sum(y*yn)
+    return y/(sum(y) if sumy == 0 else sumy)
+
+  def normalizeLines(self):
+    for i, line in enumerate(self.lines):
+      y = self.normalizeXY(line.x, line.y)
+      if i == 0: S = sum(y)
+      line.y = y/S
+      line.y_ = None
+
+  def updateLineCurves(self):
+    self.normalizeLines()
+    for line, curve in zip(self.lines, self.lineCurveItems):
+      curve.setData(x=line.x, y=line.y)
+
+  def updateSumCurve(self):
+    if self.sumCurveItem is None:
       return
 
-    x, y = self.fitCurveItem.getData()
-    y = np.sum([f.y(x) for f in self.functions], axis=0)
-    self.fitCurveItem.setData(x=x, y=y)
+    x, y = self.sumCurveItem.getData()
+    y = np.sum([f.y(x) for f in self.functions()], axis=0)
+    self.sumCurveItem.setData(x=x, y=y)
 
   def updateDiffCurve(self):
     active = self.activeLine()
@@ -156,76 +194,107 @@ class FitTool(ToolBase):
       return
 
     x, y = self.diffCurveItem.getData()
-    y = np.sum([f.y(x) for f in self.functions], axis=0) - active.y
+    y = np.sum([f.y(x) for f in self.functions()], axis=0) - active.y
+    self.diffSquareSum.setStrValue('%.3e' % np.sum(y**2))
     self.diffCurveItem.setData(x=x, y=y)
 
   def activeLine(self):
     if self.activeLineName and self.activeLineName in self.lineNameMap:
-      return self.lineNameMap[self.activeLineName].normalize()
+      return self.lineNameMap[self.activeLineName]
     return None
 
   def getLines(self):
+    if self.mode == 'normwin':
+      return []
+
+    self.normalizeLines()
+
     line = self.activeLine()
     if line:
       return [line]
     else:
-      return [l.normalize() for l in self.lines]
+      return self.lines
 
   def getGraphItems(self, colorpicker):
     items = []
+
+    if self.mode == 'normwin':
+      self.lineCurveItems = []
+      for line in self.lines:
+        item = pg.PlotCurveItem(x=line.x, y=line.y, name=line.name)
+        item.setPen(color=colorpicker.next(), width=2)
+        self.lineCurveItems.append(item)
+      items += self.lineCurveItems
+
     x1, x2 = self.getXrange()
     x = np.linspace(x1, x2, 500)
-    for i, f in enumerate(self.functions):
+    for i, f in enumerate(self.functions()):
       items += f.getGraphItems(x, colorpicker.next())
 
-    if len(self.functions) >= 2:
-      if self.fitCurveItem is None:
+    if len(self.functions()) >= 2:
+      if self.sumCurveItem is None:
         logging.debug('Generate "Fit" curve')
-        self.fitCurveItem = pg.PlotCurveItem(
-          x=x, y=np.zeros(len(x)), name='Fit', antialias=True)
+        self.sumCurveItem = pg.PlotCurveItem(
+          x=x, y=np.zeros(len(x)), name='Fit')
 
-      self.updateFitCurve()
-      self.fitCurveItem.setPen(color=colorpicker.next(), width=2)
-      items.append(self.fitCurveItem)
+      self.updateSumCurve()
+      self.sumCurveItem.setPen(color=colorpicker.next(), width=2)
+      items.append(self.sumCurveItem)
 
-    active = self.activeLine()
-    if active:
-      if self.diffCurveItem is None:
-        logging.debug('Generate "Diff" curve')
-        x = active.x
-        self.diffCurveItem = pg.PlotCurveItem(
-          x=x, y=np.zeros(len(x)), name='Diff', antialias=True)
+    if self.mode == 'peaks':
+      active = self.activeLine()
 
-      self.updateDiffCurve()
-      self.diffCurveItem.setPen(color=colorpicker.next(), width=2)
-      items.append(self.diffCurveItem)
+      if active:
+        if self.diffCurveItem is None:
+          logging.debug('Generate "Diff" curve')
+          x = active.x
+          self.diffCurveItem = pg.PlotCurveItem(
+            x=x, y=np.zeros(len(x)), name='Diff')
+
+        self.updateDiffCurve()
+        self.diffCurveItem.setPen(color=colorpicker.next(), width=2)
+        items.append(self.diffCurveItem)
 
     return items
 
   def setActiveLineName(self, name):
     self.activeLineName = name
-    self.restoreFuncParams()
+    self.restorePeakFuncParams()
 
   def saveState(self):
     state = super().saveState()
-    state['functions'] = [(f.name, f.id) for f in self.functions]
-    state['func_params'] = self.funcParams
+    state['norm_window'] = [(f.name, f.getParams()) for f in self.normWindow]
+    state['peak_functions'] = [(f.name, f.id) for f in self.peakFunctions]
+    state['peak_func_params'] = self.peakFuncParams
     if self.activeLineName:
       state['active_line'] = self.activeLineName
     return state
 
   def restoreState(self, state):
     super().restoreState(state)
-    if 'functions' in state:
-      self.clearFunctions()
-      for name, id in state['functions']:
+
+    if 'norm_window' in state:
+      functions = []
+      for name, params in state['norm_window']:
         try:
-          f = self.addFunction(name)
-          f.id = id
+          f = self.createFunction(name)
+          f.setParams(params)
+          functions.append(f)
         except:
           log.warnException()
-    if 'func_params' in state:
-      self.funcParams = state['func_params']
+      self.setNormWindow(functions)
+
+    if 'peak_func_params' in state:
+      self.peakFuncParams = state['peak_func_params']
     if 'active_line' in state:
       self.activeLineName = state['active_line']
-    self.restoreFuncParams()
+    if 'peak_functions' in state:
+      functions = []
+      for name, id in state['peak_functions']:
+        try:
+          f = self.createFunction(name)
+          f.id = id
+          functions.append(f)
+        except:
+          log.warnException()
+      self.setPeakFunctions(functions)

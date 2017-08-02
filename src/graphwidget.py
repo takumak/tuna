@@ -56,13 +56,13 @@ class GraphWidget(pg.PlotWidget):
     col = self.colorpicker.next()
 
     pen = pg.mkPen(color=col, width=2)
-    curve = pg.PlotCurveItem(x=line.x, y=line.y, pen=pen, antialias=True)
+    curve = pg.PlotCurveItem(x=line.x, y=line.y, pen=pen)
     self.addItem(curve)
     if line.plotErrors:
       line.addItem(pg.ErrorBarItem(
-        x=line.x, y=line.y, height=line.y_*2, beam=0.2, pen=pen, antialias=True))
+        x=line.x, y=line.y, height=line.y_*2, beam=0.2, pen=pen))
       self.addItem(pg.ScatterPlotItem(
-        x=line.x, y=line.y, brush=pg.mkBrush(color=col), antialias=True))
+        x=line.x, y=line.y, brush=pg.mkBrush(color=col)))
 
     self.legend.addItem(curve, name=line.name)
     self.lines.append(line)

@@ -1,3 +1,4 @@
+import logging
 from PyQt5.QtCore import Qt, QRectF
 from PyQt5.QtGui import QPainter, QPainterPath
 from PyQt5.QtWidgets import QGraphicsEllipseItem, QGraphicsLineItem
@@ -63,6 +64,45 @@ class PointItem(CircleItemBase):
     self.setBrush(pg.mkBrush('#fff'))
     self.drag = None
     self.xyfilter = xyfilter
+    self.setFlag(self.ItemIsFocusable, True)
+
+  def focusInEvent(self, ev):
+    super().focusInEvent(ev)
+    self.setBrush(pg.mkBrush('#000'))
+    pass
+
+  def focusOutEvent(self, ev):
+    super().focusOutEvent(ev)
+    self.setBrush(pg.mkBrush('#fff'))
+
+  def keyPressEvent(self, ev):
+    dx, dy = ({
+      Qt.Key_Left:  (-1, 0),
+      Qt.Key_Right: (+1, 0),
+      Qt.Key_Up:    (0, +1),
+      Qt.Key_Down:  (0, -1)
+    }).get(ev.key(), (0, 0))
+
+    if dx == 0 and dy == 0:
+      return
+
+    mod = int(ev.modifiers())
+    if mod == 0:
+      pass
+    elif mod == Qt.ShiftModifier:
+      dx *= 10
+      dy *= 10
+    elif mod == Qt.ControlModifier:
+      dx *= .2
+      dy *= .2
+    else:
+      return
+
+    logging.debug('Move: %+d,%+d px' % (dx, dy))
+
+    rx, ry = self.view.pixelRatio
+    if dx: self.cx.setValue(self.cx.value() + dx*rx)
+    if dy: self.cy.setValue(self.cy.value() + dy*ry)
 
   def move(self, x, y):
     if self.xyfilter:
@@ -95,7 +135,17 @@ class PointItem(CircleItemBase):
 
       spos, x, y = self.drag
       off = ev.pos() - spos
-      x_, y_ = x + off.x(), y + off.y()
+
+      rx, ry = self.view.pixelRatio
+      dpx, dpy = off.x()/rx, off.y()/ry
+
+      if ev.modifiers() == Qt.ControlModifier:
+        if abs(dpx) > abs(dpy):
+          dpy = 0
+        else:
+          dpx = 0
+
+      x_, y_ = x + dpx*rx, y + dpy*ry
       self.move(x_, y_)
 
     ev.accept()

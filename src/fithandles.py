@@ -1,11 +1,13 @@
+import logging
 import numpy as np
 
+from functions import blockable
 from fitparameters import *
 from fitgraphitems import *
 
 
 
-__all__ = ['FitHandlePosition', 'FitHandleLine', 'FitHandleTheta']
+__all__ = ['FitHandlePosition', 'FitHandleLine', 'FitHandleGradient']
 
 
 
@@ -46,54 +48,70 @@ class FitHandleLine(FitHandleBase):
             PointItem(self.x2, self.y2, self.view, color)]
 
 
-class FitHandleTheta(FitHandleBase):
-  def __init__(self, view, cx, cy, theta, length):
+class FitHandleGradient(FitHandleBase):
+  def __init__(self, view, cx, cy, A, length, right=True):
     super().__init__(view)
 
     self.cx = cx
     self.cy = cy
-    self.theta = theta
+    self.A = A
     self.length = length
+    self.right = right
 
-    self.x = FitParam('x', self.getX())
-    self.y = FitParam('y', self.getY())
+    self.x = FitParam('x', 0)
+    self.y = FitParam('y', 0)
 
-    cx.valueChanged.connect(self.updateXY)
-    cy.valueChanged.connect(self.updateXY)
-    theta.valueChanged.connect(self.updateXY)
+    cx.valueChanged.connect(self.setXY)
+    cy.valueChanged.connect(self.setXY)
+    A.valueChanged.connect(self.setXY)
+
+    self.setXY()
 
   def pixelRatioChanged(self):
-    self.updateXY()
+    self.setXY()
 
-  def atan(self, x, y, prev=None):
-    if x == 0:
-      theta = np.pi/2*(1 if y>=0 else -1)
+  def xy2theta(self, x, y):
+    theta = np.arctan2(y - self.cy.value(), x - self.cx.value())
+    if self.right:
+      if theta > np.pi/2:
+        theta = np.pi/2
+      elif theta < -np.pi/2:
+        theta = -np.pi/2
     else:
-      theta = np.arctan2(y, x)
-    if theta < 0: theta += np.pi*2
+      if 0 <= theta < np.pi/2:
+        theta = np.pi/2
+      elif -np.pi/2 < theta < 0:
+        theta = -np.pi/2
     return theta
 
-  def viewTheta(self):
-    theta = self.theta.value()
+  def calcX(self, theta):
+    cos = np.cos(self.viewTheta(theta))
+    return self.cx.value() + self.length*cos*self.view.pixelRatio[0]
+
+  def calcY(self, theta):
+    sin = np.sin(self.viewTheta(theta))
+    return self.cy.value() + self.length*sin*self.view.pixelRatio[1]
+
+  @blockable
+  def setXY(self):
+    dx = 1 if self.right else -1
+    dy = self.A.value()*dx
+    theta = self.xy2theta(self.cx.value()+dx, self.cy.value()+dy)
+    self.x.setValue(self.calcX(theta))
+    self.y.setValue(self.calcY(theta))
+
+  def viewTheta(self, theta):
     rx, ry = self.view.pixelRatio
     x = np.cos(theta)/rx
     y = np.sin(theta)/ry
-    return self.atan(x, y)
-
-  def getX(self):
-    return self.cx.value() + self.length*np.cos(self.viewTheta())*self.view.pixelRatio[0]
-
-  def getY(self):
-    return self.cy.value() + self.length*np.sin(self.viewTheta())*self.view.pixelRatio[1]
-
-  def updateXY(self):
-    self.x.setValue(self.getX())
-    self.y.setValue(self.getY())
+    return np.arctan2(y, x)
 
   def xyfilter(self, x, y):
-    theta = self.atan(x - self.cx.value(), y - self.cy.value())
-    self.theta.setValue(theta)
-    return self.getX(), self.getY()
+    theta = self.xy2theta(x, y)
+    self.setXY.block()
+    self.A.setValue(np.tan(theta))
+    self.setXY.unblock()
+    return self.calcX(theta), self.calcY(theta)
 
   def getGraphItems(self, color):
     return [LineItem(self.cx, self.cy, self.x, self.y, color),

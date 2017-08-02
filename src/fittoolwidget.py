@@ -5,6 +5,7 @@ from PyQt5.QtGui import QKeySequence
 from PyQt5.QtWidgets import QVBoxLayout, QHeaderView, QComboBox, \
   QTableWidgetItem, QLabel, QPushButton, QButtonGroup, QWidget
 
+from functions import blockable
 from toolwidgetbase import ToolWidgetBase
 from fittool import FitTool
 from commonwidgets import *
@@ -13,10 +14,15 @@ from commonwidgets import *
 
 class FunctionList(TableWidget):
   functionChanged = pyqtSignal()
+  focusIn = pyqtSignal()
+  focusOut = pyqtSignal()
 
-  def __init__(self, tool):
+  def __init__(self, funcClasses, createFunc):
     super().__init__()
-    self.tool = tool
+    self.setSizeAdjustPolicy(self.AdjustToContents)
+
+    self.funcClasses = funcClasses
+    self.createFunc = createFunc
 
     self.horizontalHeader().setResizeMode(QHeaderView.ResizeToContents)
     self.cellChanged.connect(self.parameterEdited)
@@ -27,72 +33,91 @@ class FunctionList(TableWidget):
     vh.setDragDropMode(self.InternalMove)
     self.setLastRow()
 
+  def focusInEvent(self, ev):
+    super().focusInEvent(ev)
+    self.focusIn.emit()
+
+  def focusOutEvent(self, ev):
+    super().focusOutEvent(ev)
+    self.focusOut.emit()
+
+  @blockable
   def parameterEdited(self, r, c):
     item = self.item(r, c)
     param = item.data(Qt.UserRole)
     if param:
       param.setValue(float(item.text()))
 
-  def funcParameterChanged(self, row, func_):
-    func = self.cellWidget(row, 0).currentData()
-    if func_ != func: return
+  def setItemText(self, r, c, text, editable=True):
+    item = super().item(r, c)
+    if item is None:
+      item = QTableWidgetItem(text)
+      if not editable:
+        item.setFlags(item.flags() & ~Qt.ItemIsEditable)
+      self.setItem(r, c, item)
+    else:
+      item.setText(text)
+    return item
 
-    self.blockSignals(True)
+  def funcParameterChanged(self, func):
+    for row in range(self.rowCount()):
+      f = self.cellWidget(row, 0).currentData()
+      if f == func:
+        break
+    else:
+      return
+
+    self.parameterEdited.block()
 
     c = 0
+    params = func.editableParams()
+    ncol = 1 + len(params)*2
+    if self.columnCount() < ncol:
+      self.setColumnCount(ncol)
 
-    if func:
-      params = func.editableParams()
-      ncol = 1 + len(params)*2
-      if self.columnCount() < ncol:
-        self.setColumnCount(ncol)
+    for i, param in enumerate(params):
+      c = 1 + i*2
+      self.setItemText(row, c, param.name, editable=False)
+      val = self.setItemText(row, c+1, '%g' % param.value())
+      val.setData(Qt.UserRole, param)
 
-      for i, param in enumerate(params):
-        c = 1 + i*2
-        label = QTableWidgetItem(param.label)
-        label.setFlags(label.flags() & ~Qt.ItemIsEditable)
-        val = QTableWidgetItem('%g' % param.value())
-        val.setData(Qt.UserRole, param)
-        self.setItem(row, c, label)
-        self.setItem(row, c+1, val)
-      c += 2
+    for i in range(c+2, self.columnCount()):
+      self.setItemText(row, i, '')
 
-    for i in range(c, self.columnCount()):
-      self.setItem(row, i, QTableWidgetItem(''))
-
-    self.blockSignals(False)
+    self.parameterEdited.unblock()
 
   def functionSelected(self, row, combo, idx):
     func = combo.itemData(idx)
     if isinstance(func, str):
-      func = self.tool.addFunction(func)
-      func.parameterChanged.connect(lambda: self.funcParameterChanged(row, func))
-      combo.setItemData(idx, func)
-    self.funcParameterChanged(row, func)
+      for fc in self.funcClasses:
+        if fc.name == func:
+          func = self.createFunc(fc.name)
+          func.parameterChanged.connect(self.funcParameterChanged)
+          combo.setItemData(idx, func)
+          break
+      else:
+        raise RuntimeError('Function named "%s" is not defined' % func)
+    self.funcParameterChanged(func)
     self.setLastRow()
     self.functionChanged.emit()
 
   def setLastRow(self):
     n = self.rowCount()
 
-    while True:
-      if n == 0:
-        self.setColumnCount(1)
-        break
-
+    if n == 0:
+      self.setColumnCount(1)
+    else:
       combo = self.cellWidget(n - 1, 0)
       if combo.currentData() is None:
         return combo
-
-      break
 
     self.setRowCount(n + 1)
     combo = QComboBox()
     combo.addItem('Select', None)
     combo.currentIndexChanged.connect(
       lambda idx: self.functionSelected(n, combo, idx))
-    for funcC in self.tool.funcClasses:
-      combo.addItem(funcC.label, funcC.name)
+    for fc in self.funcClasses:
+      combo.addItem(fc.label, fc.name)
     self.setCellWidget(n, 0, combo)
     return combo
 
@@ -110,6 +135,7 @@ class FunctionList(TableWidget):
     self.setColumnCount(0)
     self.setRowCount(0)
 
+    self.setLastRow()
     for r, func in enumerate(functions):
       combo = self.setLastRow()
       for i in range(combo.count()):
@@ -117,7 +143,7 @@ class FunctionList(TableWidget):
         if fname == func.name:
           combo.setItemData(i, func)
           combo.setCurrentIndex(i)
-          func.parameterChanged.connect(lambda: self.funcParameterChanged(r, func))
+          func.parameterChanged.connect(self.funcParameterChanged)
           break
 
   def selectedParameters(self):
@@ -185,6 +211,26 @@ class FitToolWidget(ToolWidgetBase):
 
     vbox.addWidget(HSeparator())
 
+    self.normWindow = FunctionList(self.tool.funcClasses, self.tool.createFunction)
+    self.normWindow.functionChanged.connect(self.toolSetNormWindow)
+    self.normWindow.focusIn.connect(lambda: self.setPlotMode('normwin'))
+    self.toolSetNormWindow()
+    vbox.addWidget(QLabel('Normalize window'))
+    vbox.addWidget(self.normWindow)
+
+    vbox.addWidget(HSeparator())
+
+    self.peakFunctions = FunctionList(self.tool.funcClasses, self.tool.createFunction)
+    self.peakFunctions.functionChanged.connect(self.toolSetPeakFunctions)
+    self.peakFunctions.focusIn.connect(lambda: self.setPlotMode('peaks'))
+    self.peakFunctions.addAction(
+      '&Optimize selected parameters',
+      self.optimize, QKeySequence('Ctrl+Enter,Ctrl+Return'))
+    vbox.addWidget(QLabel('Peaks'))
+    vbox.addWidget(self.peakFunctions)
+
+    vbox.addStretch(1)
+
     self.optimizeCombo = QComboBox()
     for name in self.tool.optimizeMethods:
       self.optimizeCombo.addItem(name)
@@ -196,19 +242,10 @@ class FitToolWidget(ToolWidgetBase):
     hbox.addWidget(self.optimizeCombo)
     hbox.addWidget(QLabel('Tolerance'))
     hbox.addWidget(self.tool.optimize_tol.getWidget())
-    hbox.addWidget(QLabel('Prev. result'))
-    hbox.addWidget(self.tool.optimizeResult.getWidget())
+    hbox.addWidget(QLabel('Curr diff square sum'))
+    hbox.addWidget(self.tool.diffSquareSum.getWidget())
     hbox.addStretch(1)
     vbox.addLayout(hbox)
-
-    vbox.addWidget(HSeparator())
-
-    self.functionList = FunctionList(self.tool)
-    self.functionList.functionChanged.connect(self.toolSetFunctions)
-    self.functionList.addAction(
-      '&Optimize selected parameters',
-      self.optimize, QKeySequence('Ctrl+Enter,Ctrl+Return'))
-    vbox.addWidget(self.functionList)
 
   def setOptimizeMethod(self):
     self.tool.optimizeMethod = self.optimizeCombo.currentText()
@@ -219,23 +256,33 @@ class FitToolWidget(ToolWidgetBase):
   def add(self, line):
     self.lineSelector.add(line, line.name == self.tool.activeLineName)
 
-  def toolSetFunctions(self):
-    self.tool.setFunctions(self.functionList.getFunctions())
+  def toolSetNormWindow(self):
+    self.tool.setNormWindow(self.normWindow.getFunctions())
     self.plotRequested.emit(self.tool, False)
+
+  def toolSetPeakFunctions(self):
+    self.tool.setPeakFunctions(self.peakFunctions.getFunctions())
+    self.plotRequested.emit(self.tool, False)
+
+  def setPlotMode(self, mode):
+    if self.tool.mode != mode:
+      self.tool.mode = mode
+      self.plotRequested.emit(self.tool, False)
 
   def lineSelectionChanged(self):
     line = self.lineSelector.selectedLine()
-    self.functionList.setEnabled(bool(line))
+    self.peakFunctions.setEnabled(bool(line))
     self.tool.setActiveLineName(line.name if line else None)
     self.plotRequested.emit(self.tool, False)
 
-  def restoreState(self, state):
-    super().restoreState(state)
-    self.functionList.setFunctions(self.tool.functions)
-
   def optimize(self):
-    params = self.functionList.selectedParameters()
+    params = self.peakFunctions.selectedParameters()
     if len(params) == 0:
       logging.error('Select parameters to optimize')
       return
     self.tool.optimize(params)
+
+  def restoreState(self, state):
+    super().restoreState(state)
+    self.normWindow.setFunctions(self.tool.normWindow)
+    self.peakFunctions.setFunctions(self.tool.peakFunctions)

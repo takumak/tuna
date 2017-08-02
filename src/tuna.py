@@ -1,5 +1,6 @@
 import sys, os
 from PyQt5.QtWidgets import QApplication
+import pyqtgraph as pg
 
 import log
 
@@ -19,6 +20,8 @@ if __name__ == '__main__':
   import logging, log
   logging.basicConfig(level=logging.DEBUG)
   log.setup()
+
+  pg.setConfigOptions(antialias=True)
 
   app = Tsuna(exedir)
   log.setApp(app)

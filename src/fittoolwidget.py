@@ -257,9 +257,15 @@ class FitToolWidget(ToolWidgetBase):
 
     self.lineSelector = LineSelector()
     self.lineSelector.selectionChanged.connect(self.lineSelectionChanged)
+    vbox.addWidget(QLabel('Peaks'))
+    vbox.addWidget(self.lineSelector)
 
-    self.pressureBox = VBoxLayout()
+    self.pressureBox = HBoxLayout()
     self.pressureWidgets = {}
+    hbox = HBoxLayout()
+    hbox.addWidget(QLabel('Pressure'))
+    hbox.addLayout(self.pressureBox)
+    vbox.addLayout(hbox)
 
     self.peakFunctions = FunctionList(self.tool.funcClasses, self.tool.createFunction)
     self.peakFunctions.functionChanged.connect(self.toolSetPeakFunctions)
@@ -267,10 +273,6 @@ class FitToolWidget(ToolWidgetBase):
     self.peakFunctions.addAction(
       '&Optimize selected parameters',
       self.optimize, QKeySequence('Ctrl+Enter,Ctrl+Return'))
-
-    vbox.addWidget(QLabel('Peaks'))
-    vbox.addWidget(self.lineSelector)
-    vbox.addLayout(self.pressureBox)
     vbox.addWidget(self.peakFunctions)
 
     vbox.addStretch(1)
@@ -305,8 +307,8 @@ class FitToolWidget(ToolWidgetBase):
     self.lineSelector.add(line, active)
     pw = self.tool.getPressure(line.name).getWidget()
     pw.setVisible(active)
-    self.pressureWidgets[line.name] = pw
     self.pressureBox.addWidget(pw)
+    self.pressureWidgets[line.name] = pw
 
   def toolSetNormWindow(self):
     self.tool.setNormWindow(self.normWindow.getFunctions())
@@ -325,8 +327,10 @@ class FitToolWidget(ToolWidgetBase):
     line = self.lineSelector.selectedLine()
     self.tool.setActiveLineName(line.name if line else None)
     self.plotRequested.emit(self.tool, False)
+    self.setUpdatesEnabled(False)
     for name, pw in self.pressureWidgets.items():
       pw.setVisible(name == line.name)
+    self.setUpdatesEnabled(True)
 
   def optimize(self):
     params = self.peakFunctions.selectedParameters()

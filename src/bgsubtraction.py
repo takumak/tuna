@@ -30,7 +30,7 @@ class BGSubMinimum(BGSubBase):
 
   def func(self, line, lineF, x):
     v = min(line.y)
-    return lambda x: x/x*v
+    return lambda x: v+x*0
 
 
 
@@ -43,7 +43,7 @@ class BGSubEdgeBase(BGSubBase):
     x1, x2 = self.range(x)
     y = lineF(np.array([xi for xi in x if x1 <= xi <= x2]))
     v = np.average(y)
-    return lambda x: x/x*v
+    return lambda x: v+x*0
 
 
 

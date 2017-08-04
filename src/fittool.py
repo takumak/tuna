@@ -296,7 +296,7 @@ class FitTool(ToolBase):
 
   def getGraphItems_functions(self, colorpicker, functions):
     x1, x2 = self.getXrange()
-    x = np.linspace(x1, x2, 1000)
+    x = np.linspace(x1, x2, 500)
 
     items = []
     for f in functions:

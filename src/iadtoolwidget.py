@@ -5,7 +5,7 @@ from PyQt5.QtWidgets import QPushButton, QComboBox, QLabel, \
   QTableWidgetItem
 
 from iadtool import IADTool
-from toolwidgetbase import ToolWidgetBase
+from toolwidgetbase import *
 from commonwidgets import *
 from smoothing import *
 from bgsubtraction import *
@@ -41,43 +41,25 @@ class IADToolWidget(ToolWidgetBase):
     vbox.addWidget(HSeparator())
 
 
-    self.smoothComboBox = QComboBox()
-    hbox = HBoxLayout()
-    hbox.addWidget(QLabel('Smoothing'))
-    hbox.addWidget(self.smoothComboBox)
-    vbox.addLayout(hbox)
-    optl = VBoxLayout()
-    optl.setContentsMargins(40, 0, 0, 0)
-    vbox.addLayout(optl)
-    self.setupOptionsComboBox(self.smoothComboBox, optl, [
-      SmoothNop(), SmoothSavGol()])
+    def addMethodSelector(label, items):
+      for obj in items:
+        self.addSettingObj(obj)
+      sel = MethodSelector(label, items)
+      vbox.addWidget(sel)
+      return sel
 
 
-    self.bgsubComboBox = QComboBox()
-    hbox = HBoxLayout()
-    hbox.addWidget(QLabel('BG subtraction'))
-    hbox.addWidget(self.bgsubComboBox)
-    vbox.addLayout(hbox)
-    optl = VBoxLayout()
-    optl.setContentsMargins(40, 0, 0, 0)
-    vbox.addLayout(optl)
-    self.setupOptionsComboBox(self.bgsubComboBox, optl, [
+    self.smooth = addMethodSelector('Smoothing', [SmoothNop(), SmoothSavGol()])
+
+    self.bgsub  = addMethodSelector('BG subtraction', [
       BGSubNop(), BGSubMinimum(), BGSubLeftEdge(), BGSubRightEdge()])
 
-
-    self.interpComboBox = QComboBox()
-    hbox = HBoxLayout()
-    hbox.addWidget(QLabel('Interpolation'))
-    hbox.addWidget(self.interpComboBox)
+    self.interp = addMethodSelector('Interpolation', [
+      InterpCubicSpline(), InterpLinear(), InterpPchip(),
+      InterpAkima(), InterpKrogh(), InterpBarycentric()])
+    hbox = self.interp.comboHBox
     hbox.addWidget(QLabel('dx'))
     hbox.addWidget(self.tool.interpdx.getWidget())
-    vbox.addLayout(hbox)
-    optl = VBoxLayout()
-    optl.setContentsMargins(40, 0, 0, 0)
-    vbox.addLayout(optl)
-    self.setupOptionsComboBox(self.interpComboBox, optl, [
-      InterpCubicSpline(), InterpUnivariateSpline(), InterpLinear(),
-      InterpPchip(), InterpAkima(), InterpKrogh(), InterpBarycentric()])
 
 
     hbox = HBoxLayout()
@@ -343,9 +325,9 @@ class IADToolWidget(ToolWidgetBase):
       self.updateToolProps()
 
   def updateToolProps(self):
-    self.tool.bgsub = self.bgsubComboBox.currentData()[0]
-    self.tool.smooth = self.smoothComboBox.currentData()[0]
-    self.tool.interp = self.interpComboBox.currentData()[0]
+    self.tool.bgsub  = self.bgsub.currentItem()
+    self.tool.smooth = self.smooth.currentItem()
+    self.tool.interp = self.interp.currentItem()
 
     self.tool.iadX = []
     for x in self.getIADx():
@@ -447,21 +429,16 @@ class IADToolWidget(ToolWidgetBase):
 
   def saveState(self):
     state = super().saveState()
-    for cat in 'smooth', 'bgsub', 'interp':
-      combo = getattr(self, '%sComboBox' % cat)
-      curr, opt = combo.currentData()
-      state['curr_%s' % cat] = curr.name
+    for name in 'smooth', 'bgsub', 'interp':
+      sel = getattr(self, name)
+      curr = sel.currentItem()
+      state['curr_%s' % name] = curr.name
     return state
 
   def restoreState(self, state):
     super().restoreState(state)
-
-    for cat in 'smooth', 'bgsub', 'interp':
-      combo = getattr(self, '%sComboBox' % cat)
-      items = dict([(combo.itemData(i)[0].name, i) for i in range(combo.count())])
-
-      key = 'curr_%s' % cat
-      if key in state and state[key] in items:
-        combo.setCurrentIndex(items[state[key]])
-
+    for name in 'smooth', 'bgsub', 'interp':
+      key = 'curr_%s' % name
+      if key in state:
+        getattr(self, name).setCurrentItem(state[key])
     self.updateToolProps()

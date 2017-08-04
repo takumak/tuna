@@ -7,6 +7,7 @@ from line import Line
 from toolbase import ToolBase
 from fitfunctions import *
 from settingitems import *
+from functions import blockable
 
 
 
@@ -87,11 +88,14 @@ class FitTool(ToolBase):
     def wrap(func, args_i):
       return lambda a: func(line.x, *[a[i] for i in args_i])
 
+    srcfuncs = []
     funcs = []
     for func in self.peakFunctions:
       args, args_i = [], []
       p = list(zip(*[(p, i) for i, p in enumerate(params) if p in func.params]))
-      if len(p) > 0: args, args_i = p
+      if len(p) > 0:
+        args, args_i = p
+        srcfuncs.append(func)
       funcs.append(wrap(func.lambdify(args), args_i))
 
     from scipy.optimize import minimize
@@ -105,8 +109,12 @@ class FitTool(ToolBase):
     )
     logging.debug('Optimize done: %s' % ','.join(map(str, res.x)))
 
+    self.parameterChanged_peaks.block()
     for p, v in zip(params, res.x):
       p.setValue(v)
+    self.parameterChanged_peaks.unblock()
+    for f in srcfuncs:
+      self.parameterChanged_peaks(f)
 
   def setView(self, view):
     self.view = view
@@ -119,11 +127,12 @@ class FitTool(ToolBase):
     raise RuntimeError('[Bug] Invalid plot mode')
 
   def savePeakFuncParams(self, func):
-    if self.activeLineName:
-      # logging.debug('Save func params')
-      if self.activeLineName not in self.peakFuncParams:
-        self.peakFuncParams[self.activeLineName] = {}
-      params = self.peakFuncParams[self.activeLineName]
+    name = self.activeLineName
+    if name:
+      # logging.debug('Save func params: %s (%s)' % (name, func.name))
+      if name not in self.peakFuncParams:
+        self.peakFuncParams[name] = {}
+      params = self.peakFuncParams[name]
       params[func.id] = func.getParams()
 
   def restorePeakFuncParams(self):
@@ -135,6 +144,8 @@ class FitTool(ToolBase):
       for func in self.peakFunctions:
         if func.id in params:
           func.setParams(params[func.id])
+        else:
+          params[func.id] = func.getParams()
       self.activeLineName = active
 
   def createFunction(self, funcName):
@@ -162,7 +173,10 @@ class FitTool(ToolBase):
 
   def clearPeakFunctions(self):
     for func in self.peakFunctions:
-      func.parameterChanged.disconnect(self.parameterChanged_peaks)
+      try:
+        func.parameterChanged.disconnect(self.parameterChanged_peaks)
+      except TypeError:
+        log.warnException()
     self.peakFunctions = []
 
   def setPeakFunctions(self, functions):
@@ -174,6 +188,7 @@ class FitTool(ToolBase):
     self.updateSumCurve()
     self.updateDiffCurve()
 
+  @blockable
   def parameterChanged_peaks(self, func):
     self.savePeakFuncParams(func)
     self.updateSumCurve()

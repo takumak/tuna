@@ -91,6 +91,7 @@ class FunctionList(TableWidget):
 
     self.parameterEdited.unblock()
 
+  @blockable
   def functionSelected(self, row, combo, idx):
     func = combo.itemData(idx)
     if isinstance(func, str):
@@ -142,6 +143,7 @@ class FunctionList(TableWidget):
     self.setRowCount(0)
 
     self.setLastRow()
+    self.functionSelected.block()
     for r, func in enumerate(functions):
       combo = self.setLastRow()
       for i in range(combo.count()):
@@ -151,7 +153,9 @@ class FunctionList(TableWidget):
           combo.setCurrentIndex(i)
           func.parameterChanged.connect(self.funcParameterChanged)
           func.highlight.connect(self.highlight)
+          self.funcParameterChanged(func)
           break
+    self.functionSelected.unblock()
 
   def selectedParameters(self):
     params = []

@@ -37,6 +37,7 @@ class FitTool(ToolBase):
 
   def __init__(self):
     super().__init__()
+    self.bgsub = None
     self.normWindow = []
     self.peakFunctions = []
     self.sumCurveItem = None
@@ -53,6 +54,17 @@ class FitTool(ToolBase):
       min_=0, emptyIsNone=True))
     self.diffSquareSum = SettingItemFloat(
       'diffsqsum', 'Result', '0')
+
+  def setBGSub(self, bgsub):
+    if self.bgsub:
+      self.bgsub.disconnectAllValueChanged(self.bgsubParameterChanged)
+    self.bgsub = bgsub
+    self.bgsubParameterChanged()
+    self.bgsub.connectAllValueChanged(self.bgsubParameterChanged)
+
+  def bgsubParameterChanged(self):
+    self.normalizeLines()
+    self.updateDiffCurve()
 
   def clear(self):
     super().clear()
@@ -180,7 +192,11 @@ class FitTool(ToolBase):
 
   def normalizeLines(self):
     for i, (line, curve) in enumerate(zip(self.lines, self.lineCurveItems)):
-      y = self.normalizeXY(line.x, line.y)
+      x, y = line.x, line.y
+      if self.bgsub:
+        f = self.bgsub.func(line, None, x)
+        y = y - f(line.x)
+      y = self.normalizeXY(x, y)
       if i == 0: S = sum(y)
       line.y = y/S
       line.y_ = None

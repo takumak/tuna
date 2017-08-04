@@ -9,6 +9,14 @@ class SettingObj:
     self.__objects = []
     self.__widget = None
 
+  def connectAllValueChanged(self, func):
+    for item in self.__items:
+      item.valueChanged.connect(func)
+
+  def disconnectAllValueChanged(self, func):
+    for item in self.__items:
+      item.valueChanged.disconnect(func)
+
   def addSettingObj(self, obj):
     self.__objects.append(obj)
 

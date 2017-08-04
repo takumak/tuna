@@ -41,7 +41,10 @@ class BGSubEdgeBase(BGSubBase):
 
   def func(self, line, lineF, x):
     x1, x2 = self.range(x)
-    y = lineF(np.array([xi for xi in x if x1 <= xi <= x2]))
+    if lineF:
+      y = lineF(np.array([xi for xi in x if x1 <= xi <= x2]))
+    else:
+      y = np.array([y for x, y in zip(line.x, line.y) if x1 <= x <= x2])
     v = np.average(y)
     return lambda x: v+x*0
 

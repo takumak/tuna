@@ -6,7 +6,7 @@ from PyQt5.QtWidgets import QVBoxLayout, QHeaderView, QComboBox, \
   QTableWidgetItem, QLabel, QPushButton, QButtonGroup, QWidget
 
 from functions import blockable
-from toolwidgetbase import ToolWidgetBase
+from toolwidgetbase import *
 from fittool import FitTool
 from commonwidgets import *
 
@@ -216,6 +216,14 @@ class FitToolWidget(ToolWidgetBase):
     self.toolSetNormWindow()
     vbox.addWidget(QLabel('Normalize window'))
     vbox.addWidget(self.normWindow)
+
+    vbox.addWidget(HSeparator())
+
+    self.bgsub = MethodSelectorBGSub()
+    self.bgsub.selectionChanged.connect(
+      lambda: self.tool.setBGSub(self.bgsub.currentItem()))
+    self.addMethodSelector(self.bgsub)
+    vbox.addWidget(self.bgsub)
 
     vbox.addWidget(HSeparator())
 

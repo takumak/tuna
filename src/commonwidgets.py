@@ -65,7 +65,7 @@ class TableWidget(QTableWidget):
     for r, row in enumerate(rows):
       for c, text in enumerate(row):
         item = self.item(r0+r, c0+c)
-        if item.flags() & Qt.ItemIsEditable:
+        if item and item.flags() & Qt.ItemIsEditable:
           item.setText(text)
           self.cellChanged.emit(item.row(), item.column())
 

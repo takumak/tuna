@@ -4,10 +4,13 @@ from PyQt5.QtWidgets import QWidget, QComboBox, QLabel
 from toolbase import ToolBase
 from settingobj import SettingObj
 from commonwidgets import *
+from smoothing import *
+from bgsubtraction import *
+from interpolation import *
 
 
 
-__all__ = ['ToolWidgetBase', 'MethodSelector']
+__all__ = ['ToolWidgetBase', 'MethodSelectorSmooth', 'MethodSelectorBGSub', 'MethodSelectorInterp']
 
 
 
@@ -19,6 +22,7 @@ class ToolWidgetBase(QWidget, SettingObj):
     self.tool = self.toolClass()
     self.tool.cleared.connect(self.clear)
     self.tool.added.connect(self.add)
+    self.methodSelectors = []
 
   def clear(self):
     raise NotImplementedError()
@@ -29,19 +33,32 @@ class ToolWidgetBase(QWidget, SettingObj):
   def saveState(self):
     state = super().saveState()
     state['tool'] = self.tool.saveState()
+    for sel in self.methodSelectors:
+      state['curr_%s' % sel.name] = sel.currentItem().name
     return state
 
   def restoreState(self, state):
     super().restoreState(state)
     if 'tool' in state: self.tool.restoreState(state['tool'])
+    for sel in self.methodSelectors:
+      key = 'curr_%s' % sel.name
+      if key in state:
+        sel.setCurrentItem(state[key])
+
+  def addMethodSelector(self, sel):
+    for obj in sel.items:
+      self.addSettingObj(obj)
+    self.methodSelectors.append(sel)
 
 
 
-class MethodSelector(QWidget):
+class MethodSelectorBase(QWidget):
   selectionChanged = pyqtSignal()
 
-  def __init__(self, label, items):
+  def __init__(self, name, label, items):
     super().__init__()
+
+    self.name  = name
     self.label = label
     self.items = items
 
@@ -97,3 +114,23 @@ class MethodSelector(QWidget):
       if item.name == name:
         self.combo.setCurrentIndex(i)
         break
+
+
+
+class MethodSelectorSmooth(MethodSelectorBase):
+  def __init__(self):
+    super().__init__('smooth', 'Smoothing', [SmoothNop(), SmoothSavGol()])
+
+class MethodSelectorBGSub(MethodSelectorBase):
+  def __init__(self):
+    super().__init__('bgsub', 'BG subtraction', [
+      BGSubNop(), BGSubMinimum(), BGSubLeftEdge(), BGSubRightEdge()])
+
+class MethodSelectorInterp(MethodSelectorBase):
+  def __init__(self, dx):
+    super().__init__('interp', 'Interpolation', [
+      InterpCubicSpline(), InterpLinear(), InterpPchip(),
+      InterpAkima(), InterpKrogh(), InterpBarycentric()])
+
+    self.comboHBox.addWidget(QLabel('dx'))
+    self.comboHBox.addWidget(dx.getWidget())

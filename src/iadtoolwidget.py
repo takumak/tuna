@@ -7,9 +7,6 @@ from PyQt5.QtWidgets import QPushButton, QComboBox, QLabel, \
 from iadtool import IADTool
 from toolwidgetbase import *
 from commonwidgets import *
-from smoothing import *
-from bgsubtraction import *
-from interpolation import *
 
 
 
@@ -41,25 +38,13 @@ class IADToolWidget(ToolWidgetBase):
     vbox.addWidget(HSeparator())
 
 
-    def addMethodSelector(label, items):
-      for obj in items:
-        self.addSettingObj(obj)
-      sel = MethodSelector(label, items)
+    for name in 'Smooth', 'BGSub', 'Interp':
+      cls = globals()['MethodSelector%s' % name]
+      sel = cls(self.tool.interpdx) if name == 'Interp' else cls()
+      setattr(self, name.lower(), sel)
+      sel.selectionChanged.connect(self.replot)
+      self.addMethodSelector(sel)
       vbox.addWidget(sel)
-      return sel
-
-
-    self.smooth = addMethodSelector('Smoothing', [SmoothNop(), SmoothSavGol()])
-
-    self.bgsub  = addMethodSelector('BG subtraction', [
-      BGSubNop(), BGSubMinimum(), BGSubLeftEdge(), BGSubRightEdge()])
-
-    self.interp = addMethodSelector('Interpolation', [
-      InterpCubicSpline(), InterpLinear(), InterpPchip(),
-      InterpAkima(), InterpKrogh(), InterpBarycentric()])
-    hbox = self.interp.comboHBox
-    hbox.addWidget(QLabel('dx'))
-    hbox.addWidget(self.tool.interpdx.getWidget())
 
 
     hbox = HBoxLayout()
@@ -92,29 +77,6 @@ class IADToolWidget(ToolWidgetBase):
     self.tool.xoffUpdated.connect(self.updateXoff)
     self.tool.iadYUpdated.connect(self.updateIADy)
     self.tool.peaksUpdated.connect(self.updatePeaks)
-
-  def setupOptionsComboBox(self, combobox, optlayout, items):
-    def selected(idx):
-      for i in range(combobox.count()):
-        item, opt = combobox.itemData(i)
-        if opt is None: continue
-
-        if i == idx:
-          opt.show()
-        else:
-          opt.hide()
-      self.replot()
-
-    for item in items:
-      self.addSettingObj(item)
-      opt = item.getSettingWidget()
-      combobox.addItem(item.label, [item, opt])
-      if opt:
-        optlayout.addWidget(opt)
-    combobox.setCurrentIndex(0)
-    selected(combobox.currentIndex())
-    combobox.currentIndexChanged.connect(selected)
-
 
   def copyResult(self):
     rows = [self.columnLabels]

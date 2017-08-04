@@ -389,18 +389,6 @@ class IADToolWidget(ToolWidgetBase):
     self.updateToolProps()
     self.plotRequested.emit(self.tool, autoRange)
 
-  def saveState(self):
-    state = super().saveState()
-    for name in 'smooth', 'bgsub', 'interp':
-      sel = getattr(self, name)
-      curr = sel.currentItem()
-      state['curr_%s' % name] = curr.name
-    return state
-
   def restoreState(self, state):
     super().restoreState(state)
-    for name in 'smooth', 'bgsub', 'interp':
-      key = 'curr_%s' % name
-      if key in state:
-        getattr(self, name).setCurrentItem(state[key])
     self.updateToolProps()

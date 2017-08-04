@@ -7,6 +7,7 @@ from PyQt5.QtCore import QObject, pyqtSignal
 from functions import blockable
 from fitparameters import *
 from fithandles import *
+from fitgraphitems import *
 
 
 
@@ -20,15 +21,17 @@ __all__ = [
 
 class FitFunctionBase(QObject):
   parameterChanged = pyqtSignal(QObject, name='parameterChanged')
+  highlight = pyqtSignal(QObject, bool)
 
-  def __init__(self):
+  def __init__(self, view):
     super().__init__()
+    self.view = view
     self.id = str(uuid.uuid4())
     self.params = []
     self.paramsNameMap = {}
     self.handles = []
 
-    self.plotCurveItem = None
+    self.pathItem = None
 
   def editableParams(self):
     return [p for p in self.params if not p.hidden]
@@ -59,9 +62,9 @@ class FitFunctionBase(QObject):
 
   @blockable
   def paramChanged(self):
-    if self.plotCurveItem:
-      x = self.plotCurveItem.getData()[0]
-      self.plotCurveItem.setData(x=x, y=self.y(x))
+    if self.pathItem:
+      x = self.pathItem.x
+      self.pathItem.setXY(x, y=self.y(x))
     self.parameterChanged.emit(self)
 
   def addHandle(self, handle):
@@ -82,14 +85,10 @@ class FitFunctionBase(QObject):
     x1, x2 = self.getXrange(lines)
     return x2 - x1
 
-  def getGraphItems(self, x, color, **opts):
-    self.plotCurveItem = pg.PlotCurveItem(
-      x=x, y=self.y(x),
-      name=self.name,
-      pen=pg.mkPen(color=color, width=2),
-      **opts
-    )
-    return [self.plotCurveItem] + sum([h.getGraphItems(color) for h in self.handles], [])
+  def getGraphItems(self, x, color):
+    self.pathItem = PathItem(x, self.y(x), color, self.view)
+    self.pathItem.highlight.connect(lambda t: self.highlight.emit(self, t))
+    return [self.pathItem] + sum([h.getGraphItems(color) for h in self.handles], [])
 
   def eval(self, name, formula, setArg):
     return FitParamFormula(name, formula, setArg, self.params)
@@ -123,6 +122,10 @@ class FitFunctionBase(QObject):
     self.y = y
     return y(x)
 
+  def setHighlighted(self, highlighted):
+    if self.pathItem:
+      self.pathItem.setHighlighted(highlighted)
+
 
 
 class FitFuncGaussian(FitFunctionBase):
@@ -131,7 +134,7 @@ class FitFuncGaussian(FitFunctionBase):
   expr = 'a*exp(-(x-b)**2/(2*c**2))'
 
   def __init__(self, view):
-    super().__init__()
+    super().__init__(view)
 
     r = view.viewRect()
     x1, x2, y1, y2 = r.left(), r.right(), r.top(), r.bottom()
@@ -152,7 +155,7 @@ class FitFuncBoltzmann2(FitFunctionBase):
   expr = '(a1*x+b1)/(1+exp((x-x0)/dx)) + (a2*x+b2)*(1-1/(1+exp((x-x0)/dx)))'
 
   def __init__(self, view):
-    super().__init__()
+    super().__init__(view)
 
     r = view.viewRect()
     x1, x2, y1, y2 = r.left(), r.right(), r.top(), r.bottom()
@@ -211,7 +214,7 @@ class FitFuncConstant(FitFunctionBase):
   expr = 'y0'
 
   def __init__(self, view):
-    super().__init__()
+    super().__init__(view)
     r = view.viewRect()
     x1, x2, y1, y2 = r.left(), r.right(), r.top(), r.bottom()
     self.addParam(FitParam('y0', y2*0.8))
@@ -226,7 +229,7 @@ class FitFuncHeaviside(FitFunctionBase):
   expr = 'a*heaviside(x-x0, 1)'
 
   def __init__(self, view):
-    super().__init__()
+    super().__init__(view)
 
     r = view.viewRect()
     x1, x2, y1, y2 = r.left(), r.right(), r.top(), r.bottom()
@@ -243,7 +246,7 @@ class FitFuncRectangularWindow(FitFunctionBase):
   expr = 'a*heaviside(x-x0, 1)*heaviside(-(x-x1), 1)'
 
   def __init__(self, view):
-    super().__init__()
+    super().__init__(view)
 
     r = view.viewRect()
     x1, x2, y1, y2 = r.left(), r.right(), r.top(), r.bottom()

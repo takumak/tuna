@@ -1,7 +1,7 @@
 import logging
 import inspect
 from PyQt5.QtCore import pyqtSignal, Qt
-from PyQt5.QtGui import QKeySequence
+from PyQt5.QtGui import QKeySequence, QBrush
 from PyQt5.QtWidgets import QVBoxLayout, QHeaderView, QComboBox, \
   QTableWidgetItem, QLabel, QPushButton, QButtonGroup, QWidget
 
@@ -26,6 +26,7 @@ class FunctionList(TableWidget):
 
     self.horizontalHeader().setResizeMode(QHeaderView.ResizeToContents)
     self.cellChanged.connect(self.parameterEdited)
+    self.itemSelectionChanged.connect(self.updateHighlight)
 
     vh = self.verticalHeader()
     vh.setSectionsMovable(True)
@@ -59,12 +60,16 @@ class FunctionList(TableWidget):
       item.setText(text)
     return item
 
-  def funcParameterChanged(self, func):
+  def getFuncRow(self, func):
     for row in range(self.rowCount()):
       f = self.cellWidget(row, 0).currentData()
       if f == func:
-        break
-    else:
+        return row
+    return None
+
+  def funcParameterChanged(self, func):
+    row = self.getFuncRow(func)
+    if row is None:
       return
 
     self.parameterEdited.block()
@@ -94,6 +99,7 @@ class FunctionList(TableWidget):
         if fc.name == func:
           func = self.createFunc(fc.name)
           func.parameterChanged.connect(self.funcParameterChanged)
+          func.highlight.connect(self.highlight)
           combo.setItemData(idx, func)
           break
       else:
@@ -145,6 +151,7 @@ class FunctionList(TableWidget):
           combo.setItemData(i, func)
           combo.setCurrentIndex(i)
           func.parameterChanged.connect(self.funcParameterChanged)
+          func.highlight.connect(self.highlight)
           break
 
   def selectedParameters(self):
@@ -154,6 +161,24 @@ class FunctionList(TableWidget):
       if param:
         params.append(param)
     return params
+
+  def highlight(self, func, on):
+    import pyqtgraph as pg
+    row = self.getFuncRow(func)
+    if row is None:
+      return
+    for c in range(self.columnCount()):
+      item = self.item(row, c)
+      if item:
+        item.setBackground(pg.mkBrush(color='#ddd') if on else QBrush())
+
+  def updateHighlight(self):
+    rows = set([item.row() for item in self.selectedItems()])
+    for r in range(self.rowCount()):
+      combo = self.cellWidget(r, 0)
+      func = combo.currentData()
+      if func:
+        func.setHighlighted(r in rows)
 
 
 

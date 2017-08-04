@@ -141,6 +141,7 @@ class FitFuncGaussian(FitFunctionBase):
     self.addParam(FitParam('a', y2*0.6))
     self.addParam(FitParam('b', (x1 + x2)/2))
     self.addParam(FitParam('c', (x2 - x1)*0.1))
+    self.addParam(self.eval('I', 'sqrt(2*pi)*a*c', None))
 
     half = self.eval('half', 'a/2', None)
     HWHM = self.eval('HWHM', 'b+c*sqrt(2*log(2))', self.c)

@@ -258,6 +258,9 @@ class FitToolWidget(ToolWidgetBase):
     self.lineSelector = LineSelector()
     self.lineSelector.selectionChanged.connect(self.lineSelectionChanged)
 
+    self.pressureBox = VBoxLayout()
+    self.pressureWidgets = {}
+
     self.peakFunctions = FunctionList(self.tool.funcClasses, self.tool.createFunction)
     self.peakFunctions.functionChanged.connect(self.toolSetPeakFunctions)
     self.peakFunctions.focusIn.connect(lambda: self.setPlotMode('peaks'))
@@ -267,6 +270,7 @@ class FitToolWidget(ToolWidgetBase):
 
     vbox.addWidget(QLabel('Peaks'))
     vbox.addWidget(self.lineSelector)
+    vbox.addLayout(self.pressureBox)
     vbox.addWidget(self.peakFunctions)
 
     vbox.addStretch(1)
@@ -292,9 +296,17 @@ class FitToolWidget(ToolWidgetBase):
 
   def clear(self):
     self.lineSelector.clear()
+    while self.pressureBox.count() > 0:
+      self.pressureBox.takeAt(0)
+    self.pressureWidgets = {}
 
   def add(self, line):
-    self.lineSelector.add(line, line.name == self.tool.activeLineName)
+    active = line.name == self.tool.activeLineName
+    self.lineSelector.add(line, active)
+    pw = self.tool.getPressure(line.name).getWidget()
+    pw.setVisible(active)
+    self.pressureWidgets[line.name] = pw
+    self.pressureBox.addWidget(pw)
 
   def toolSetNormWindow(self):
     self.tool.setNormWindow(self.normWindow.getFunctions())
@@ -313,6 +325,8 @@ class FitToolWidget(ToolWidgetBase):
     line = self.lineSelector.selectedLine()
     self.tool.setActiveLineName(line.name if line else None)
     self.plotRequested.emit(self.tool, False)
+    for name, pw in self.pressureWidgets.items():
+      pw.setVisible(name == line.name)
 
   def optimize(self):
     params = self.peakFunctions.selectedParameters()

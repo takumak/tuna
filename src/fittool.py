@@ -1,4 +1,5 @@
 import logging
+import re
 import numpy as np
 import pyqtgraph as pg
 
@@ -46,6 +47,7 @@ class FitTool(ToolBase):
     self.lineCurveItems = []
     self.activeLineName = None
     self.peakFuncParams = {}
+    self.pressures = {}
     self.view = None
     self.mode = 'peaks'
 
@@ -76,6 +78,19 @@ class FitTool(ToolBase):
     item = pg.PlotCurveItem(x=line.x, y=line.y, name=line.name)
     self.lineCurveItems.append(item)
     return line
+
+  def getPressure(self, name):
+    if name in self.pressures:
+      p = self.pressures[name]
+    else:
+      p = SettingItemFloat(
+        'pressure', 'Pressure', '',
+        min_=0, emptyIsNone=True)
+      m = re.search(r'^([\+\-]?\d*(?:\.\d+)?)', name)
+      if m:
+        p.setStrValue(m.group(1))
+      self.pressures[name] = p
+    return p
 
   def optimize(self, params):
     line = self.activeLine()
@@ -307,6 +322,7 @@ class FitTool(ToolBase):
     state['norm_window'] = [(f.name, f.getParams()) for f in self.normWindow]
     state['peak_functions'] = [(f.name, f.id) for f in self.peakFunctions]
     state['peak_func_params'] = self.peakFuncParams
+    state['pressures'] = dict([(n, p.strValue()) for n, p in self.pressures.items()])
     if self.activeLineName:
       state['active_line'] = self.activeLineName
     return state
@@ -327,8 +343,10 @@ class FitTool(ToolBase):
 
     if 'peak_func_params' in state:
       self.peakFuncParams = state['peak_func_params']
+
     if 'active_line' in state:
       self.activeLineName = state['active_line']
+
     if 'peak_functions' in state:
       functions = []
       for name, id in state['peak_functions']:
@@ -339,3 +357,7 @@ class FitTool(ToolBase):
         except:
           log.warnException()
       self.setPeakFunctions(functions)
+
+    if 'pressures' in state:
+      for name, val in state['pressures'].items():
+        self.getPressure(name).setStrValue(str(val))

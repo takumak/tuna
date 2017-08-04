@@ -43,6 +43,7 @@ class ToolBase(QObject, SettingObj):
   def getGraphItems(self, colorpicker):
     items = []
     for line in self.getLines():
+      col = colorpicker.next()
       pen = pg.mkPen(color=col, width=2)
       curve = pg.PlotCurveItem(x=line.x, y=line.y, pen=pen)
       items.append(curve)

@@ -30,8 +30,7 @@ class FunctionList(TableWidget):
 
     vh = self.verticalHeader()
     vh.setSectionsMovable(True)
-    vh.setDragEnabled(True)
-    vh.setDragDropMode(self.InternalMove)
+    vh.sectionMoved.connect(lambda *args: self.functionChanged.emit())
     self.setLastRow()
 
   def focusInEvent(self, ev):
@@ -134,8 +133,8 @@ class FunctionList(TableWidget):
       combo = self.cellWidget(r, 0)
       func = combo.currentData()
       if func:
-        functions.append(func)
-    return functions
+        functions.append((func, self.visualRow(r)))
+    return [f for f, r in sorted(functions, key=lambda p: p[1])]
 
   def setFunctions(self, functions):
     self.clear()

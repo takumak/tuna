@@ -3,7 +3,8 @@ import inspect
 from PyQt5.QtCore import pyqtSignal, Qt
 from PyQt5.QtGui import QKeySequence, QBrush
 from PyQt5.QtWidgets import QVBoxLayout, QHeaderView, QComboBox, \
-  QTableWidgetItem, QLabel, QPushButton, QButtonGroup, QWidget
+  QTableWidgetItem, QLabel, QPushButton, QButtonGroup, QWidget, \
+  QCheckBox
 
 from functions import blockable
 from toolwidgetbase import *
@@ -270,12 +271,11 @@ class FitToolWidget(ToolWidgetBase):
     self.peakFunctions = FunctionList(self.tool.funcClasses, self.tool.createFunction)
     self.peakFunctions.functionChanged.connect(self.toolSetPeakFunctions)
     self.peakFunctions.focusIn.connect(lambda: self.setPlotMode('peaks'))
+    self.peakFunctions.itemSelectionChanged.connect(self.toolSetPlotParams)
     self.peakFunctions.addAction(
       '&Optimize selected parameters',
       self.optimize, QKeySequence('Ctrl+Enter,Ctrl+Return'))
     vbox.addWidget(self.peakFunctions)
-
-    vbox.addStretch(1)
 
     self.optimizeCombo = QComboBox()
     for name in self.tool.optimizeMethods:
@@ -292,6 +292,12 @@ class FitToolWidget(ToolWidgetBase):
     hbox.addWidget(self.tool.diffSquareSum.getWidget())
     hbox.addStretch(1)
     vbox.addLayout(hbox)
+
+    self.plotParams = QCheckBox('Plot Pressure vs Parameters')
+    self.plotParams.toggled.connect(self.toolSetPlotParams)
+    vbox.addWidget(self.plotParams)
+
+    vbox.addStretch(1)
 
   def setOptimizeMethod(self):
     self.tool.optimizeMethod = self.optimizeCombo.currentText()
@@ -322,6 +328,19 @@ class FitToolWidget(ToolWidgetBase):
     if self.tool.mode != mode:
       self.tool.mode = mode
       self.plotRequested.emit(self.tool, False)
+
+  def toolSetPlotParams(self, *args):
+    params = []
+    if self.plotParams.isChecked():
+      for item in self.peakFunctions.selectedItems():
+        p = item.data(Qt.UserRole)
+        if p:
+          params.append(p)
+
+    if len(params) == 0: params = None
+    if params != self.tool.plotParams:
+      self.tool.plotParams = params
+      self.plotRequested.emit(self.tool, True)
 
   def lineSelectionChanged(self):
     line = self.lineSelector.selectedLine()

@@ -50,6 +50,7 @@ class FitTool(ToolBase):
     self.pressures = {}
     self.view = None
     self.mode = 'peaks'
+    self.plotParams = None
 
     self.optimizeMethod = self.optimizeMethods[0]
     self.addSettingItem(SettingItemFloat(
@@ -256,9 +257,33 @@ class FitTool(ToolBase):
     return None
 
   def getLines(self):
+    if self.plotParams:
+      lines = []
+      for param in self.plotParams:
+        func = param.func
+        x, y = [], []
+        for line in self.lines:
+          x_ = self.getPressure(line.name).value()
+          if x_ is None: continue
+
+          if line.name not in self.peakFuncParams: continue
+          params = self.peakFuncParams[line.name]
+          if func.id not in params: continue
+          y_ = params[func.id].get(param.name)
+          if y_ is None: continue
+
+          x.append(x_)
+          y.append(y_)
+
+        lines.append(Line(param.name, x, y, None))
+      return lines
+
     return []
 
   def getGraphItems(self, colorpicker):
+    if self.plotParams:
+      return super().getGraphItems(colorpicker)
+
     self.normalizeLines()
     if self.mode == 'normwin':
       for item in self.lineCurveItems:

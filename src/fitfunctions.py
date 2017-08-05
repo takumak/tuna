@@ -56,6 +56,7 @@ class FitFunctionBase(QObject):
     self.paramChanged()
 
   def addParam(self, param):
+    param.func = self
     self.params.append(param)
     self.paramsNameMap[param.name] = param
     param.valueChanged.connect(self.paramChanged)

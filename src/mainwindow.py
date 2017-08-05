@@ -119,8 +119,6 @@ class MainWindow(QMainWindow):
       log.warnException()
       return
 
-    logging.info('Drag and drop here to open multiple files')
-
   def dragEnterEvent(self, ev):
     if not ev.mimeData().hasUrls():
       return

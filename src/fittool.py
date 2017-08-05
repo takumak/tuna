@@ -72,6 +72,8 @@ class FitTool(ToolBase):
 
   def clear(self):
     super().clear()
+    self.sumCurveItem = None
+    self.diffCurveItem = None
     self.lineCurveItems = []
 
   def add(self, *args):
@@ -246,7 +248,7 @@ class FitTool(ToolBase):
     if self.diffCurveItem is None or active is None:
       return
 
-    x, y = self.diffCurveItem.getData()
+    x = active.x
     y = np.sum([f.y(x) for f in self.functions()], axis=0) - active.y
     self.diffSquareSum.setStrValue('%.3e' % np.sum(y**2))
     self.diffCurveItem.setData(x=x, y=y)

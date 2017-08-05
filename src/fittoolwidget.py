@@ -142,7 +142,6 @@ class FunctionList(TableWidget):
     self.setColumnCount(0)
     self.setRowCount(0)
 
-    self.setLastRow()
     self.functionSelected.block()
     for r, func in enumerate(functions):
       combo = self.setLastRow()
@@ -156,6 +155,7 @@ class FunctionList(TableWidget):
           self.funcParameterChanged(func)
           break
     self.functionSelected.unblock()
+    self.setLastRow()
 
   def selectedParameters(self):
     params = []

@@ -43,6 +43,9 @@ class blockable:
   def __init__(self, func):
     self.func = func
     self.blocked = {}
+    self.functors = {}
 
   def __get__(self, obj, cls):
-    return self.functor(self, obj)
+    if obj not in self.functors:
+      self.functors[obj] = self.functor(self, obj)
+    return self.functors[obj]

@@ -354,7 +354,7 @@ class FitToolWidget(ToolWidgetBase):
     self.plotRequested.emit(self.tool, False)
     self.setUpdatesEnabled(False)
     for name, pw in self.pressureWidgets.items():
-      pw.setVisible(name == line.name)
+      pw.setVisible(line and name == line.name)
     self.setUpdatesEnabled(True)
 
   def optimize(self):

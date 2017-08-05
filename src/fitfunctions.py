@@ -31,6 +31,7 @@ class FitFunctionBase(QObject):
     self.params = []
     self.paramsNameMap = {}
     self.handles = []
+    self.plotParams = []
 
     self.pathItem = None
 
@@ -61,6 +62,9 @@ class FitFunctionBase(QObject):
     self.params.append(param)
     self.paramsNameMap[param.name] = param
     param.valueChanged.connect(self.paramChanged)
+
+  def addPlotParam(self, param, mode, ylabel):
+    self.plotParams.append((param, mode, ylabel))
 
   @blockable
   def paramChanged(self):
@@ -155,11 +159,16 @@ class FitFuncGaussian(FitFunctionBase):
     self.addParam(FitParam('b', (x1 + x2)/2))
     self.addParam(FitParam('c', (x2 - x1)*0.1))
     self.addParam(self.eval('I', 'sqrt(2*pi)*a*c', None))
+    self.addParam(self.eval('HWHM', 'c*sqrt(2*log(2))', None))
 
     half = self.eval('half', 'a/2', None)
-    HWHM = self.eval('HWHM', 'b+c*sqrt(2*log(2))', self.c)
+    x1 = self.eval('x1', 'b+c*sqrt(2*log(2))', self.c)
     self.addHandle(FitHandlePosition(view, self.b, self.a))
-    self.addHandle(FitHandleLine(view, self.b, half, HWHM, half))
+    self.addHandle(FitHandleLine(view, self.b, half, x1, half))
+
+    self.addPlotParam(self.b, 'diff', 'Energy shift (eV)')
+    self.addPlotParam(self.I, 'percent', 'Intensity change (%)')
+    self.addPlotParam(self.HWHM, 'percent', 'HWHM change (%)')
 
 
 

@@ -388,3 +388,10 @@ class FitTool(ToolBase):
     if 'pressures' in state:
       for name, val in state['pressures'].items():
         self.getPressure(name).setStrValue(str(val))
+
+  def newSession(self):
+    super().newSession()
+    self.clearNormWindow()
+    self.clearPeakFunctions()
+    self.peakFuncParams = {}
+    self.pressures = {}

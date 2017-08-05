@@ -239,6 +239,9 @@ class MainWindow(QMainWindow):
   def newSession(self):
     self.sourcesWidget.removeAllFiles()
     self.sessionFilename = None
+    for tw in self.toolWidgets:
+      tw.newSession()
+    self.graphWidget.clear()
 
   def showOpenSessionDialog(self):
     dlg = FileDialog('session_open')

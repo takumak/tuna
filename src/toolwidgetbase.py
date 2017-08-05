@@ -65,6 +65,9 @@ class ToolWidgetBase(QWidget, SettingObj):
     finally:
       wb.close()
 
+  def newSession(self):
+    self.tool.newSession()
+
 
 
 class MethodSelectorBase(QWidget):

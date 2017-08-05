@@ -34,6 +34,12 @@ class FunctionList(TableWidget):
     vh.sectionMoved.connect(lambda *args: self.functionChanged.emit())
     self.setLastRow()
 
+  def clear(self):
+    super().clear()
+    self.setColumnCount(0)
+    self.setRowCount(0)
+    self.setLastRow()
+
   def focusInEvent(self, ev):
     super().focusInEvent(ev)
     self.focusIn.emit()
@@ -140,8 +146,6 @@ class FunctionList(TableWidget):
 
   def setFunctions(self, functions):
     self.clear()
-    self.setColumnCount(0)
-    self.setRowCount(0)
 
     self.functionSelected.block()
     for r, func in enumerate(functions):
@@ -311,7 +315,8 @@ class FitToolWidget(ToolWidgetBase):
   def clear(self):
     self.lineSelector.clear()
     while self.pressureBox.count() > 0:
-      self.pressureBox.takeAt(0)
+      pw = self.pressureBox.takeAt(0).widget()
+      pw.close()
     self.pressureWidgets = {}
 
   def add(self, line):
@@ -372,3 +377,9 @@ class FitToolWidget(ToolWidgetBase):
   def writeXlsx(self, wb):
     from fitxlsxwriter import FitXlsxWriter
     FitXlsxWriter(self.tool).write(wb)
+
+  def newSession(self):
+    super().newSession()
+    self.normWindow.clear()
+    self.peakFunctions.clear()
+    self.bgsub.combo.setCurrentIndex(0)

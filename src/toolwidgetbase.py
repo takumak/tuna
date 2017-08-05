@@ -7,6 +7,7 @@ from commonwidgets import *
 from smoothing import *
 from bgsubtraction import *
 from interpolation import *
+from dialogs import *
 
 
 
@@ -16,6 +17,7 @@ __all__ = ['ToolWidgetBase', 'MethodSelectorSmooth', 'MethodSelectorBGSub', 'Met
 
 class ToolWidgetBase(QWidget, SettingObj):
   plotRequested = pyqtSignal(ToolBase, bool, name='plotRequested')
+  xlsxRecalcMsg = 'Press F9 (for Excel) or Ctrl+Shift+F9 (for LibreOffice) to re-calculate cell formulae'
 
   def __init__(self):
     super().__init__()
@@ -49,6 +51,19 @@ class ToolWidgetBase(QWidget, SettingObj):
     for obj in sel.items:
       self.addSettingObj(obj)
     self.methodSelectors.append(sel)
+
+  def exportXlsx(self):
+    dlg = FileDialog('export_xlsx')
+    if dlg.exec_() != dlg.Accepted:
+      return
+    filename = dlg.selectedFiles()[0]
+
+    import xlsxwriter
+    wb = xlsxwriter.Workbook(filename)
+    try:
+      self.writeXlsx(wb)
+    finally:
+      wb.close()
 
 
 

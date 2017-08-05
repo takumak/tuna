@@ -299,6 +299,12 @@ class FitToolWidget(ToolWidgetBase):
 
     vbox.addStretch(1)
 
+    hbox = HBoxLayout()
+    btn = QPushButton('Export xlsx')
+    btn.clicked.connect(self.exportXlsx)
+    hbox.addWidget(btn)
+    vbox.addLayout(hbox)
+
   def setOptimizeMethod(self):
     self.tool.optimizeMethod = self.optimizeCombo.currentText()
 
@@ -362,3 +368,7 @@ class FitToolWidget(ToolWidgetBase):
     super().restoreState(state)
     self.normWindow.setFunctions(self.tool.normWindow)
     self.peakFunctions.setFunctions(self.tool.peakFunctions)
+
+  def writeXlsx(self, wb):
+    from fitxlsxwriter import FitXlsxWriter
+    FitXlsxWriter(self.tool).write(wb)

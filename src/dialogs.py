@@ -12,10 +12,10 @@ __all__ = ['FileDialog']
 
 class FileDialog(QFileDialog):
   params = {
-    'file_import':     ('Import file',  QFileDialog.AcceptOpen, QFileDialog.ExistingFiles, 'Any files (*)', None),
-    'session_open':    ('Open session', QFileDialog.AcceptOpen, QFileDialog.ExistingFiles, 'Session files (*.json)', None),
-    'session_save':    ('Save session', QFileDialog.AcceptSave, QFileDialog.AnyFile,       'Session files (*.json)', 'json'),
-    'iad_export_xlsx': ('Export xlsx',  QFileDialog.AcceptSave, QFileDialog.AnyFile,       'Excel files (*.xlsx)', 'xlsx')
+    'file_import':  ('Import file',  QFileDialog.AcceptOpen, QFileDialog.ExistingFiles, 'Any files (*)', None),
+    'session_open': ('Open session', QFileDialog.AcceptOpen, QFileDialog.ExistingFiles, 'Session files (*.json)', None),
+    'session_save': ('Save session', QFileDialog.AcceptSave, QFileDialog.AnyFile,       'Session files (*.json)', 'json'),
+    'export_xlsx':  ('Export xlsx',  QFileDialog.AcceptSave, QFileDialog.AnyFile,       'Excel files (*.xlsx)', 'xlsx')
   }
   state = None
   states = {}

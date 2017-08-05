@@ -22,6 +22,7 @@ __all__ = [
 class FitFunctionBase(QObject):
   parameterChanged = pyqtSignal(QObject, name='parameterChanged')
   highlight = pyqtSignal(QObject, bool)
+  expr_excel = None
 
   def __init__(self, view):
     super().__init__()
@@ -127,12 +128,23 @@ class FitFunctionBase(QObject):
     if self.pathItem:
       self.pathItem.setHighlighted(highlighted)
 
+  @classmethod
+  def excelExpr(cls):
+    if not cls.expr_excel:
+      from sympy.parsing.sympy_parser import parse_expr
+      from sympy import Symbol
+      expr = parse_expr(cls.expr)
+      expr = expr.subs([(s, Symbol('%%(%s)s' % s.name)) for s in expr.free_symbols])
+      cls.expr_excel = str(expr)
+    return cls.expr_excel
+
 
 
 class FitFuncGaussian(FitFunctionBase):
   name = 'gaussian'
   label = 'Gaussian'
   expr = 'a*exp(-(x-b)**2/(2*c**2))'
+  expr_excel = '%(a)s*exp(-((%(x)s-%(b)s)^2)/(2*(%(c)s^2)))'
 
   def __init__(self, view):
     super().__init__(view)

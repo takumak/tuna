@@ -87,24 +87,11 @@ class IADToolWidget(ToolWidgetBase):
       rows.append(row)
     QApplication.clipboard().setText('\n'.join(['\t'.join(r) for r in rows]))
 
-  def exportXlsx(self):
-    dlg = FileDialog('iad_export_xlsx')
-    if dlg.exec_() != dlg.Accepted:
-      return
-    filename = dlg.selectedFiles()[0]
-
-    import xlsxwriter
-    wb = xlsxwriter.Workbook(filename)
-    try:
-      self.writeXlsx(wb)
-    finally:
-      wb.close()
-
   def writeXlsx(self, wb):
     ws_IAD = wb.add_worksheet('IAD')
     ws_err = wb.add_worksheet('IAD err')
 
-    ws_IAD.write(0, 0, 'Press F9 (for Excel) or Ctrl+Shift+F9 (for LibreOffice) to re-calculate cell formulae')
+    ws_IAD.write(0, 0, self.xlsxRecalcMsg)
 
     errCells = self.writeXlsx_err(wb, ws_err, 0, 0)
     errCells = ["='%s'!%s" % (ws_err.name, c) for c in errCells]

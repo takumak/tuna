@@ -191,10 +191,7 @@ class FitTool(ToolBase):
 
   def clearPeakFunctions(self):
     for func in self.peakFunctions:
-      try:
-        func.parameterChanged.disconnect(self.parameterChanged_peaks)
-      except TypeError:
-        log.warnException()
+      func.parameterChanged.disconnect(self.parameterChanged_peaks)
     self.peakFunctions = []
 
   def setPeakFunctions(self, functions):

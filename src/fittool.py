@@ -17,7 +17,8 @@ class FitTool(ToolBase):
   label = 'Fit'
 
   funcClasses = [
-    FitFuncGaussian, FitFuncBoltzmann2,
+    FitFuncGaussian, FitFuncPseudoVoigt,
+    FitFuncBoltzmann2,
     FitFuncConstant, FitFuncHeaviside,
     FitFuncRectangularWindow
   ]

@@ -12,7 +12,7 @@ from fitgraphitems import *
 
 
 __all__ = [
-  'FitFuncGaussian', 'FitFuncBoltzmann2',
+  'FitFuncGaussian', 'FitFuncPseudoVoigt', 'FitFuncBoltzmann2',
   'FitFuncConstant', 'FitFuncHeaviside',
   'FitFuncRectangularWindow'
 ]
@@ -169,6 +169,28 @@ class FitFuncGaussian(FitFunctionBase):
     self.addPlotParam(self.b, 'diff', 'Energy shift (eV)')
     self.addPlotParam(self.I, 'percent', 'Intensity change (%)')
     self.addPlotParam(self.HWHM, 'percent', 'HWHM change (%)')
+
+
+
+class FitFuncPseudoVoigt(FitFunctionBase):
+  name = 'pseudovoigt'
+  label = 'PseudoVoigt'
+  expr = 'a*(m*(w**2)/((x-x0)**2+w**2) + (1-m)*exp(-ln(2)/(w**2)*(x-x0)**2))'
+
+  def __init__(self, view):
+    super().__init__(view)
+
+    r = view.viewRect()
+    x1, x2, y1, y2 = r.left(), r.right(), r.top(), r.bottom()
+    self.addParam(FitParam('a', y2*0.6))
+    self.addParam(FitParam('x0', (x1 + x2)/2))
+    self.addParam(FitParam('w', (x2 - x1)*0.1))
+    self.addParam(FitParam('m', 0.1))
+
+    half = self.eval('half', 'a/2', None)
+    x1 = self.eval('x1', 'x0+w', self.w)
+    self.addHandle(FitHandlePosition(view, self.x0, self.a))
+    self.addHandle(FitHandleLine(view, self.x0, half, x1, half))
 
 
 

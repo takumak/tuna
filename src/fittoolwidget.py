@@ -10,6 +10,7 @@ from functions import blockable
 from toolwidgetbase import *
 from fittool import FitTool
 from commonwidgets import *
+from fitparameters import FitParam
 
 
 
@@ -52,7 +53,7 @@ class FunctionList(TableWidget):
   def parameterEdited(self, r, c):
     item = self.item(r, c)
     param = item.data(Qt.UserRole)
-    if param:
+    if isinstance(param, FitParam):
       param.setValue(float(item.text()))
 
   def setItemText(self, r, c, text, editable=True):
@@ -94,7 +95,8 @@ class FunctionList(TableWidget):
         val.setData(Qt.UserRole, param)
 
     for i in range(c+2, self.columnCount()):
-      self.setItemText(row, i, '')
+      item = self.setItemText(row, i, '')
+      item.setData(Qt.UserRole, None)
 
     self.parameterEdited.unblock()
 

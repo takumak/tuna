@@ -27,13 +27,14 @@ class FitTool(ToolBase):
     'Powell',
     'CG',
     'BFGS',
-    'Newton-CG',
     'L-BFGS-B',
     'TNC',
     'COBYLA',
     'SLSQP',
-    'dogleg',
-    'trust-ncg'
+    # requires Jacobian
+    # 'Newton-CG',
+    # 'dogleg',
+    # 'trust-ncg'
   ]
 
 
@@ -101,7 +102,8 @@ class FitTool(ToolBase):
       logging.warning('Line not selected')
       return
 
-    logging.debug('Optimize: %s' % ','.join(['%s=%g' % (p.name, p.value()) for p in params]))
+    logging.debug('Optimize: %s using %s' % (
+      ','.join(['%s' % p.name for p in params]), self.optimizeMethod))
 
     def wrap(func, args_i):
       return lambda a: func(line.x, *[a[i] for i in args_i])

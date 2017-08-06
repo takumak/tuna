@@ -363,6 +363,7 @@ class FitToolWidget(ToolWidgetBase):
     for name, pw in self.pressureWidgets.items():
       pw.setVisible(bool(line and name == line.name))
     self.setUpdatesEnabled(True)
+    self.peakFunctions.setFocus()
 
   def optimize(self):
     params = self.peakFunctions.selectedParameters()

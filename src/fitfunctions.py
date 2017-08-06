@@ -21,7 +21,7 @@ __all__ = [
 
 class FitFunctionBase(QObject):
   parameterChanged = pyqtSignal(QObject, name='parameterChanged')
-  highlight = pyqtSignal(QObject, bool)
+  highlightChanged = pyqtSignal(QObject, bool)
   expr_excel = None
 
   def __init__(self, view):
@@ -34,6 +34,7 @@ class FitFunctionBase(QObject):
     self.plotParams = []
 
     self.pathItem = None
+    self.highlighted = False
 
   def editableParams(self):
     return [p for p in self.params if not p.hidden]
@@ -92,9 +93,17 @@ class FitFunctionBase(QObject):
     return x2 - x1
 
   def getGraphItems(self, x, color):
-    self.pathItem = PathItem(x, self.y(x), color, self.view)
-    self.pathItem.highlight.connect(lambda t: self.highlight.emit(self, t))
-    return [self.pathItem] + sum([h.getGraphItems(color) for h in self.handles], [])
+    self.pathItem = PathItem(self.view, color)
+    self.pathItem.setXY(x, self.y(x))
+    self.pathItem.touchable = True
+    items = [self.pathItem] + sum([h.getGraphItems(color) for h in self.handles], [])
+
+    touchables = [item for item in items if item.touchable]
+    for item in touchables:
+      item.hoveringChanged.connect(lambda: self.setHighlighted(
+        True in [item.hovering for item in touchables]))
+
+    return items
 
   def eval(self, name, formula, setArg):
     return FitParamFormula(name, formula, setArg, self.params)
@@ -129,6 +138,10 @@ class FitFunctionBase(QObject):
     return y(x)
 
   def setHighlighted(self, highlighted):
+    highlighted = bool(highlighted)
+    if highlighted != self.highlighted:
+      self.highlighted = highlighted
+      self.highlightChanged.emit(self, highlighted)
     if self.pathItem:
       self.pathItem.setHighlighted(highlighted)
 

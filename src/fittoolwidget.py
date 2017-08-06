@@ -108,7 +108,7 @@ class FunctionList(TableWidget):
         if fc.name == func:
           func = self.createFunc(fc.name)
           func.parameterChanged.connect(self.funcParameterChanged)
-          func.highlight.connect(self.highlight)
+          func.highlightChanged.connect(self.highlight)
           combo.setItemData(idx, func)
           break
       else:
@@ -158,7 +158,7 @@ class FunctionList(TableWidget):
           combo.setItemData(i, func)
           combo.setCurrentIndex(i)
           func.parameterChanged.connect(self.funcParameterChanged)
-          func.highlight.connect(self.highlight)
+          func.highlightChanged.connect(self.highlight)
           self.funcParameterChanged(func)
           break
     self.functionSelected.unblock()

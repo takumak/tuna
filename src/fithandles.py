@@ -44,7 +44,7 @@ class FitHandleLine(FitHandleBase):
     self.y2 = y2
 
   def getGraphItems(self, color):
-    return [LineItem(self.x1, self.y1, self.x2, self.y2, '#000'),
+    return [LineItem(self.x1, self.y1, self.x2, self.y2, self.view, '#000'),
             PointItem(self.x2, self.y2, self.view, color)]
 
 
@@ -114,6 +114,6 @@ class FitHandleGradient(FitHandleBase):
     return self.calcX(theta), self.calcY(theta)
 
   def getGraphItems(self, color):
-    return [LineItem(self.cx, self.cy, self.x, self.y, color),
+    return [LineItem(self.cx, self.cy, self.x, self.y, self.view, color),
             CircleItem(self.cx, self.cy, FitParamConst('r', self.length), self.view, color),
             PointItem(self.x, self.y, self.view, color, self.xyfilter)]

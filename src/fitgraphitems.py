@@ -14,41 +14,71 @@ __all__ = ['PointItem', 'LineItem', 'CircleItem', 'PathItem']
 
 
 
-class CircleItemBase(QGraphicsEllipseItem):
-  def __init__(self, cx, cy, radius, view):
-    super().__init__()
-    self.cx = cx
-    self.cy = cy
-    self.radius = radius
-    self.view = view
+class GraphItemBase(QGraphicsObject):
+  hoveringChanged = pyqtSignal()
+  touchable = False
 
-    cx.valueChanged.connect(self.updateGeometry)
-    cy.valueChanged.connect(self.updateGeometry)
-    radius.valueChanged.connect(self.updateGeometry)
-    self.view.pixelRatioChanged.connect(self.updateGeometry)
-    self.updateGeometry()
+  def __init__(self, view):
+    super().__init__()
+    self.view = view
+    self.view.pixelRatioChanged.connect(self.pixelRatioChanged)
+    self.pen = None
+    self.brush = None
+    self.hovering = False
+    self.setAcceptHoverEvents(True)
+
+  def pixelRatioChanged(self):
+    pass
+
+  def addParam(self, name, param):
+    setattr(self, name, param)
+    param.valueChanged.connect(self.paramChanged)
+
+  def paramChanged(self):
+    pass
 
   def paint(self, p, *args):
     p.setRenderHint(QPainter.Antialiasing)
+    if self.pen: p.setPen(self.pen)
+    if self.brush: p.setBrush(self.brush)
+
+  def dataBounds(self, ax, frac, orthoRange=None):
+    return None
+
+  def hoverEvent(self, ev):
+    if ev.enter:
+      self.hovering = True
+    elif ev.exit:
+      self.hovering = False
+    self.hoveringChanged.emit()
+
+
+
+class CircleItemBase(GraphItemBase):
+  def __init__(self, cx, cy, radius, view):
+    super().__init__(view)
+    self.addParam('cx', cx)
+    self.addParam('cy', cy)
+    self.addParam('radius', radius)
+
+  def pixelRatioChanged(self):
+    super().pixelRatioChanged()
+    self.update()
+
+  def paramChanged(self):
+    super().paramChanged()
+    self.update()
+
+  def paint(self, p, *args):
     super().paint(p, *args)
+    cx, cy, r = self.cx.value(), self.cy.value(), self.radius.value()
+    p.drawEllipse(self.calcRect())
 
   def calcRect(self, margin=0):
     rx, ry = self.view.pixelRatio
     cx, cy, r = self.cx.value(), self.cy.value(), self.radius.value()
     w, h = (r+margin)*rx, (r+margin)*ry
     return QRectF(cx-w, cy-h, w*2, h*2)
-
-  def updateGeometry(self):
-    self.setRect(self.calcRect())
-
-  def dataBounds(self, ax, frac, orthoRange=None):
-    # if ax == 0:
-    #   x = self.cx.value()
-    #   return x, x
-    # else:
-    #   y = self.cy.value()
-    #   return y, y
-    return None
 
   def boundingRect(self):
     return self.calcRect(4)
@@ -61,22 +91,27 @@ class CircleItemBase(QGraphicsEllipseItem):
 
 
 class PointItem(CircleItemBase):
+  touchable = True
+
   def __init__(self, x, y, view, color, xyfilter=None):
     super().__init__(x, y, FitParam('radius', 4), view)
-    self.setPen(pg.mkPen(color, width=2))
-    self.setBrush(pg.mkBrush('#fff'))
-    self.drag = None
     self.xyfilter = xyfilter
     self.setFlag(self.ItemIsFocusable, True)
+    self.drag = None
+
+    self.pen = pg.mkPen(color, width=2)
+    self.brush = pg.mkBrush('#fff')
+    self.setZValue(1)
 
   def focusInEvent(self, ev):
     super().focusInEvent(ev)
-    self.setBrush(pg.mkBrush('#000'))
-    pass
+    self.brush = pg.mkBrush('#000')
+    self.update()
 
   def focusOutEvent(self, ev):
     super().focusOutEvent(ev)
-    self.setBrush(pg.mkBrush('#fff'))
+    self.brush = pg.mkBrush('#fff')
+    self.update()
 
   def keyPressEvent(self, ev):
     dx, dy = ({
@@ -114,6 +149,7 @@ class PointItem(CircleItemBase):
     self.cy.setValue(y)
 
   def hoverEvent(self, ev):
+    super().hoverEvent(ev)
     if ev.enter:
       self.radius.setValue(6)
     elif ev.exit:
@@ -155,65 +191,25 @@ class PointItem(CircleItemBase):
 
 
 
-class LineItem(QGraphicsLineItem):
-  def __init__(self, x1, y1, x2, y2, color):
-    super().__init__()
-
-    self.x1 = x1
-    self.y1 = y1
-    self.x2 = x2
-    self.y2 = y2
-
-    self.setPen(pg.mkPen(color, width=2))
-
-    x1.valueChanged.connect(self.applyParams)
-    y1.valueChanged.connect(self.applyParams)
-    x2.valueChanged.connect(self.applyParams)
-    y2.valueChanged.connect(self.applyParams)
-    self.applyParams()
-
-  def paint(self, p, *args):
-    p.setRenderHint(QPainter.Antialiasing)
-    super().paint(p, *args)
-
-  def applyParams(self):
-    self.setLine(*[v.value() for v in (self.x1, self.y1, self.x2, self.y2)])
-
-  def dataBounds(self, ax, frac, orthoRange=None):
-    # if ax == 0:
-    #   v = self.x1.value(), self.x2.value()
-    # else:
-    #   v = self.y1.value(), self.y2.value()
-    # return [min(v), max(v)]
-    return None
-
-
-
 class CircleItem(CircleItemBase):
   def __init__(self, cx, cy, r, view, color):
     CircleItemBase.__init__(self, cx, cy, r, view)
-    self.setPen(pg.mkPen(color, width=1, style=Qt.DashLine))
+    self.pen = pg.mkPen(color, width=1, style=Qt.DashLine)
 
 
 
-class PathItem(QGraphicsObject):
-  highlight = pyqtSignal(bool)
-
-  def __init__(self, x, y, color, view):
-    super().__init__()
-    self.color = color
-    self.view = view
-
+class PathItem(GraphItemBase):
+  def __init__(self, view, color):
+    super().__init__(view)
     self.hoverWidth = 8
     self.pen = pg.mkPen(color, width=2)
 
-    self.setXY(x, y)
-    self.setAcceptHoverEvents(True)
-    self.view.pixelRatioChanged.connect(self.createStroke)
+  def pixelRatioChanged(self):
+    super().pixelRatioChanged()
+    self.createStroke()
 
   def paint(self, p, *args):
-    p.setRenderHint(QPainter.Antialiasing)
-    p.setPen(self.pen)
+    super().paint(p, *args)
     p.drawPath(self.path)
 
   def createPath(self, x_, y_, fill=Qt.OddEvenFill):
@@ -314,15 +310,31 @@ class PathItem(QGraphicsObject):
   def shape(self):
     return self.stroke
 
-  def hoverEvent(self, ev):
-    if ev.enter:
-      self.pen.setWidth(4)
-      self.highlight.emit(True)
-    elif ev.exit:
-      self.pen.setWidth(2)
-      self.highlight.emit(False)
-    self.update()
-
   def setHighlighted(self, highlighted):
     self.pen.setWidth(4 if highlighted else 2)
     self.update()
+
+
+
+class LineItem(PathItem):
+  def __init__(self, x1, y1, x2, y2, view, color):
+    super().__init__(view, color)
+    self.addParam('x1', x1)
+    self.addParam('y1', y1)
+    self.addParam('x2', x2)
+    self.addParam('y2', y2)
+    self.paramChanged()
+
+  def paramChanged(self):
+    super().paramChanged()
+    self.setXY(*self.getArray())
+
+  def getArray(self):
+    return (np.array([self.x1.value(), self.x2.value()]),
+            np.array([self.y1.value(), self.y2.value()]))
+
+  def hoverEvent(self, ev):
+    pass
+
+  def dataBounds(self, ax, frac, orthoRange=None):
+    return None

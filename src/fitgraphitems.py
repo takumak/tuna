@@ -158,6 +158,9 @@ class DraggablePointItem(CircleItemBase):
     self.cy.setValue(y)
 
   def hoverEvent(self, ev):
+    if self.drag:
+      return
+
     super().hoverEvent(ev)
     if ev.enter:
       self.radius.setValue(6)

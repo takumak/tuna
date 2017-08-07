@@ -31,7 +31,7 @@ class FitHandlePosition(FitHandleBase):
     self.y = y
 
   def getGraphItems(self, color):
-    return [PointItem(self.x, self.y, self.view, color)]
+    return [DraggablePointItem(self.x, self.y, self.view, color)]
 
 
 class FitHandleLine(FitHandleBase):
@@ -45,7 +45,7 @@ class FitHandleLine(FitHandleBase):
 
   def getGraphItems(self, color):
     return [LineItem(self.x1, self.y1, self.x2, self.y2, self.view, '#000'),
-            PointItem(self.x2, self.y2, self.view, color)]
+            DraggablePointItem(self.x2, self.y2, self.view, color)]
 
 
 class FitHandleGradient(FitHandleBase):
@@ -116,4 +116,4 @@ class FitHandleGradient(FitHandleBase):
   def getGraphItems(self, color):
     return [LineItem(self.cx, self.cy, self.x, self.y, self.view, color),
             CircleItem(self.cx, self.cy, FitParamConst('r', self.length), self.view, color),
-            PointItem(self.x, self.y, self.view, color, self.xyfilter)]
+            DraggablePointItem(self.x, self.y, self.view, color, self.xyfilter)]

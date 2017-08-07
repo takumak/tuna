@@ -33,7 +33,7 @@ class FitFunctionBase(QObject):
     self.handles = []
     self.plotParams = []
 
-    self.pathItem = None
+    self.plotCurveItem = None
     self.highlighted = False
 
   def editableParams(self):
@@ -69,9 +69,9 @@ class FitFunctionBase(QObject):
 
   @blockable
   def paramChanged(self):
-    if self.pathItem:
-      x = self.pathItem.x
-      self.pathItem.setXY(x, y=self.y(x))
+    if self.plotCurveItem:
+      x = self.plotCurveItem.x
+      self.plotCurveItem.setXY(x, y=self.y(x))
     self.parameterChanged.emit(self)
 
   def addHandle(self, handle):
@@ -93,10 +93,8 @@ class FitFunctionBase(QObject):
     return x2 - x1
 
   def getGraphItems(self, x, color):
-    self.pathItem = PathItem(self.view, color)
-    self.pathItem.setXY(x, self.y(x))
-    self.pathItem.touchable = True
-    items = [self.pathItem] + sum([h.getGraphItems(color) for h in self.handles], [])
+    self.plotCurveItem = PlotCurveItem(x, self.y(x), self.view, color)
+    items = [self.plotCurveItem] + sum([h.getGraphItems(color) for h in self.handles], [])
 
     touchables = [item for item in items if item.touchable]
     for item in touchables:
@@ -142,8 +140,8 @@ class FitFunctionBase(QObject):
     if highlighted != self.highlighted:
       self.highlighted = highlighted
       self.highlightChanged.emit(self, highlighted)
-    if self.pathItem:
-      self.pathItem.setHighlighted(highlighted)
+    if self.plotCurveItem:
+      self.plotCurveItem.setHighlighted(highlighted)
 
   @classmethod
   def excelExpr(cls):

@@ -7,6 +7,7 @@ import log
 from line import Line
 from toolbase import ToolBase
 from fitfunctions import *
+from fitgraphitems import *
 from settingitems import *
 from functions import blockable
 
@@ -80,7 +81,7 @@ class FitTool(ToolBase):
 
   def add(self, *args):
     line = super().add(*args)
-    item = pg.PlotCurveItem(x=line.x, y=line.y, name=line.name)
+    item = PlotCurveItem(line.x, line.y, self.view, '#000')
     self.lineCurveItems.append(item)
     return line
 
@@ -233,15 +234,15 @@ class FitTool(ToolBase):
       if i == 0: S = sum(y)
       line.y = y/S
       line.y_ = None
-      curve.setData(x=line.x, y=line.y)
+      curve.setXY(line.x, line.y)
 
   def updateSumCurve(self):
     if self.sumCurveItem is None:
       return
 
-    x, y = self.sumCurveItem.getData()
+    x = self.sumCurveItem.x
     y = np.sum([f.y(x) for f in self.functions()], axis=0)
-    self.sumCurveItem.setData(x=x, y=y)
+    self.sumCurveItem.setXY(x, y)
 
   def updateDiffCurve(self):
     active = self.activeLine()
@@ -251,7 +252,7 @@ class FitTool(ToolBase):
     x = active.x
     y = np.sum([f.y(x) for f in self.functions()], axis=0) - active.y
     self.diffSquareSum.setStrValue('%.3e' % np.sum(y**2))
-    self.diffCurveItem.setData(x=x, y=y)
+    self.diffCurveItem.setXY(x, y)
 
   def activeLine(self):
     if self.activeLineName and self.activeLineName in self.lineNameMap:
@@ -289,7 +290,7 @@ class FitTool(ToolBase):
     self.normalizeLines()
     if self.mode == 'normwin':
       for item in self.lineCurveItems:
-        item.setPen(color=colorpicker.next(), width=2)
+        item.setColor(colorpicker.next())
       return self.lineCurveItems + self.getGraphItems_functions(colorpicker, self.normWindow)
     elif self.mode == 'peaks':
       return self.getGraphItems_peaks(colorpicker)
@@ -297,27 +298,25 @@ class FitTool(ToolBase):
       raise RuntimeError('[Bug] Invalid plot mode - "%s"' % self.mode)
 
   def getGraphItems_peaks(self, colorpicker):
-    line = self.activeLine()
+    active = self.activeLine()
+    if active:
+      items = [self.lineCurveItems[self.lines.index(active)]]
+    else:
+      items = self.lineCurveItems
+    for item in items:
+      item.setColor(colorpicker.next())
 
-    if not line:
-      for item in self.lineCurveItems:
-        item.setPen(color=colorpicker.next(), width=2)
-      return self.lineCurveItems
-
-    active = self.lineCurveItems[self.lines.index(line)]
-    active.setPen(color=colorpicker.next(), width=2)
-
-    items = [active]
     items += self.getGraphItems_functions(colorpicker, self.peakFunctions)
 
-    if self.diffCurveItem is None:
-      logging.debug('Generate diff curve')
-      x = line.x
-      self.diffCurveItem = pg.PlotCurveItem(
-        x=x, y=np.zeros(len(x)), name='Diff')
-    self.updateDiffCurve()
-    self.diffCurveItem.setPen(color=colorpicker.next(), width=2)
-    items.append(self.diffCurveItem)
+    if active:
+      if self.diffCurveItem is None:
+        logging.debug('Generate diff curve')
+        x = active.x
+        self.diffCurveItem = PlotCurveItem(x, np.zeros(len(x)), self.view, '#000')
+
+      self.updateDiffCurve()
+      self.diffCurveItem.setColor(colorpicker.next())
+      items.append(self.diffCurveItem)
 
     return items
 
@@ -332,10 +331,9 @@ class FitTool(ToolBase):
     if len(functions) >= 2:
       if self.sumCurveItem is None:
         logging.debug('Generate sum curve')
-        self.sumCurveItem = pg.PlotCurveItem(
-          x=x, y=np.zeros(len(x)), name='Sum')
+        self.sumCurveItem = PlotCurveItem(x, np.zeros(len(x)), self.view, '#000')
       self.updateSumCurve()
-      self.sumCurveItem.setPen(color=colorpicker.next(), width=2)
+      self.sumCurveItem.setColor(colorpicker.next())
       items.append(self.sumCurveItem)
 
     return items

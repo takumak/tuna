@@ -1,6 +1,6 @@
 import logging
 from PyQt5.QtCore import pyqtSignal, QObject, Qt, QRectF, QByteArray, QDataStream
-from PyQt5.QtGui import QPainter, QPainterPath, QPainterPathStroker
+from PyQt5.QtGui import QPainter, QPainterPath, QPainterPathStroker, QColor
 from PyQt5.QtWidgets import QGraphicsEllipseItem, QGraphicsLineItem, QGraphicsObject
 import pyqtgraph as pg
 import numpy as np
@@ -10,7 +10,7 @@ from fitparameters import *
 
 
 
-__all__ = ['PointItem', 'LineItem', 'CircleItem', 'PathItem']
+__all__ = ['DraggablePointItem', 'LineItem', 'CircleItem', 'PlotCurveItem']
 
 
 
@@ -25,7 +25,7 @@ class GraphItemBase(QGraphicsObject):
     self.pen = None
     self.brush = None
     self.hovering = False
-    self.setAcceptHoverEvents(True)
+    self.__boundingRect = None
 
   def pixelRatioChanged(self):
     pass
@@ -35,7 +35,9 @@ class GraphItemBase(QGraphicsObject):
     param.valueChanged.connect(self.paramChanged)
 
   def paramChanged(self):
-    pass
+    self.prepareGeometryChange()
+    self.invalidateBoundingRect()
+    self.update()
 
   def paint(self, p, *args):
     p.setRenderHint(QPainter.Antialiasing)
@@ -44,6 +46,17 @@ class GraphItemBase(QGraphicsObject):
 
   def dataBounds(self, ax, frac, orthoRange=None):
     return None
+
+  def boundingRect(self):
+    if self.__boundingRect is None:
+      self.__boundingRect = self.boundingRect_()
+    return self.__boundingRect
+
+  def boundingRect_(self):
+    return QRectF()
+
+  def invalidateBoundingRect(self):
+    self.__boundingRect = None
 
   def hoverEvent(self, ev):
     if ev.enter:
@@ -61,17 +74,12 @@ class CircleItemBase(GraphItemBase):
     self.addParam('cy', cy)
     self.addParam('radius', radius)
 
-  def pixelRatioChanged(self):
-    super().pixelRatioChanged()
-    self.update()
-
-  def paramChanged(self):
-    super().paramChanged()
-    self.update()
+  # def pixelRatioChanged(self):
+  #   super().pixelRatioChanged()
+  #   self.update()
 
   def paint(self, p, *args):
     super().paint(p, *args)
-    cx, cy, r = self.cx.value(), self.cy.value(), self.radius.value()
     p.drawEllipse(self.calcRect())
 
   def calcRect(self, margin=0):
@@ -80,17 +88,17 @@ class CircleItemBase(GraphItemBase):
     w, h = (r+margin)*rx, (r+margin)*ry
     return QRectF(cx-w, cy-h, w*2, h*2)
 
-  def boundingRect(self):
+  def boundingRect_(self):
     return self.calcRect(4)
 
   def shape(self):
     path = QPainterPath()
-    path.addEllipse(self.boundingRect())
+    path.addEllipse(self.calcRect(4))
     return path
 
 
 
-class PointItem(CircleItemBase):
+class DraggablePointItem(CircleItemBase):
   touchable = True
 
   def __init__(self, x, y, view, color, xyfilter=None):
@@ -102,6 +110,7 @@ class PointItem(CircleItemBase):
     self.pen = pg.mkPen(color, width=2)
     self.brush = pg.mkBrush('#fff')
     self.setZValue(1)
+    self.setAcceptHoverEvents(True)
 
   def focusInEvent(self, ev):
     super().focusInEvent(ev)
@@ -199,20 +208,33 @@ class CircleItem(CircleItemBase):
 
 
 class PathItem(GraphItemBase):
+  maxLineWidth = 2
+
   def __init__(self, view, color):
     super().__init__(view)
-    self.hoverWidth = 8
     self.pen = pg.mkPen(color, width=2)
 
-  def pixelRatioChanged(self):
-    super().pixelRatioChanged()
-    self.createStroke()
+  def setColor(self, color):
+    self.pen.setColor(QColor(color))
 
   def paint(self, p, *args):
     super().paint(p, *args)
     p.drawPath(self.path)
 
-  def createPath(self, x_, y_, fill=Qt.OddEvenFill):
+  def setXY(self, x, y):
+    self.x = x
+    self.y = y
+    self.updatePath()
+
+    self.prepareGeometryChange()
+    self.invalidateBoundingRect()
+    self.update()
+
+  def updatePath(self):
+    self.path = self.createPath(self.x, self.y)
+
+  @classmethod
+  def createPath(cls, x, y, fill=Qt.OddEvenFill):
     # https://code.woboq.org/qt5/qtbase/src/gui/painting/qpainterpath.cpp.html#_ZrsR11QDataStreamR12QPainterPath
     # http://doc.qt.io/qt-5/qpainterpath.html#ElementType-enum
     # http://doc.qt.io/qt-5/qt.html#FillRule-enum
@@ -236,15 +258,15 @@ class PathItem(GraphItemBase):
 
     path = QPainterPath()
 
-    N = x_.shape[0]
+    N = x.shape[0]
     if N == 0:
       return path
 
     data = np.empty(N+2, dtype=[('type', '<i4'), ('x', '<f8'), ('y', '<f8')])
     data[1]['type'] = 0
     data[2:N+1]['type'] = 1
-    data[1:N+1]['x'] = x_
-    data[1:N+1]['y'] = y_
+    data[1:N+1]['x'] = x
+    data[1:N+1]['y'] = y
 
     fpos = 20*(N+1)
 
@@ -260,15 +282,64 @@ class PathItem(GraphItemBase):
     ds >> path
     return path
 
-  def setXY(self, x, y):
-    self.x = x
-    self.y = y
-    self.path = self.createPath(x, y)
-    self.createStroke()
+  def dataBounds(self, ax, frac, orthoRange=None):
+    if ax == 0:
+      return min(self.x), max(self.x)
+    else:
+      return min(self.y), max(self.y)
 
-  def createStroke(self):
+  def boundingRect_(self):
     rx, ry = self.view.pixelRatio
-    w = self.hoverWidth
+    x1, x2 = min(self.x), max(self.x)
+    y1, y2 = min(self.y), max(self.y)
+    mx, my = self.maxLineWidth*rx, self.maxLineWidth*ry
+    return QRectF(x1-mx/2, y1-my/2, x2-x1+mx, y2-y1+my)
+
+
+
+class LineItem(PathItem):
+  def __init__(self, x1, y1, x2, y2, view, color):
+    super().__init__(view, color)
+    self.addParam('x1', x1)
+    self.addParam('y1', y1)
+    self.addParam('x2', x2)
+    self.addParam('y2', y2)
+    self.paramChanged()
+
+  def paramChanged(self):
+    super().paramChanged()
+    self.setXY(*self.getArray())
+
+  def getArray(self):
+    return (np.array([self.x1.value(), self.x2.value()]),
+            np.array([self.y1.value(), self.y2.value()]))
+
+  def dataBounds(self, ax, frac, orthoRange=None):
+    return None
+
+
+
+class PlotCurveItem(PathItem):
+  touchable = True
+  maxLineWidth = 4
+
+  def __init__(self, x, y, view, color):
+    super().__init__(view, color)
+    self.shapePath = None
+    self.setXY(x, y)
+    self.setAcceptHoverEvents(True)
+
+  def pixelRatioChanged(self):
+    super().pixelRatioChanged()
+    self.shapePath = None
+
+  def updatePath(self):
+    super().updatePath()
+    self.shapePath = None
+
+  def createShapePath(self):
+    rx, ry = self.view.pixelRatio
+    w = 8
 
     dx = self.x[1:] - self.x[:-1]
     dy = self.y[1:] - self.y[:-1]
@@ -291,50 +362,13 @@ class PathItem(GraphItemBase):
       Qt.WindingFill
     )
     stroke.closeSubpath()
-    self.stroke = stroke
-
-  def dataBounds(self, ax, frac, orthoRange=None):
-    if ax == 0:
-      return min(self.x), max(self.x)
-    else:
-      return min(self.y), max(self.y)
-
-  def boundingRect(self):
-    rx, ry = self.view.pixelRatio
-    x1, x2 = min(self.x), max(self.x)
-    y1, y2 = min(self.y), max(self.y)
-    mx = self.hoverWidth*rx
-    my = self.hoverWidth*ry
-    return QRectF(x1-mx/2, y1-my/2, x2-x1+mx, y2-y1+my)
+    return stroke
 
   def shape(self):
-    return self.stroke
+    if not self.shapePath:
+      self.shapePath = self.createShapePath()
+    return self.shapePath
 
   def setHighlighted(self, highlighted):
-    self.pen.setWidth(4 if highlighted else 2)
     self.update()
-
-
-
-class LineItem(PathItem):
-  def __init__(self, x1, y1, x2, y2, view, color):
-    super().__init__(view, color)
-    self.addParam('x1', x1)
-    self.addParam('y1', y1)
-    self.addParam('x2', x2)
-    self.addParam('y2', y2)
-    self.paramChanged()
-
-  def paramChanged(self):
-    super().paramChanged()
-    self.setXY(*self.getArray())
-
-  def getArray(self):
-    return (np.array([self.x1.value(), self.x2.value()]),
-            np.array([self.y1.value(), self.y2.value()]))
-
-  def hoverEvent(self, ev):
-    pass
-
-  def dataBounds(self, ax, frac, orthoRange=None):
-    return None
+    self.pen.setWidth(4 if highlighted else 2)

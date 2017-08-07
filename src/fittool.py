@@ -290,7 +290,7 @@ class FitTool(ToolBase):
     self.normalizeLines()
     if self.mode == 'normwin':
       for item in self.lineCurveItems:
-        item.setColor(colorpicker.next())
+        item.setPenColor(colorpicker.next())
       return self.lineCurveItems + self.getGraphItems_functions(colorpicker, self.normWindow)
     elif self.mode == 'peaks':
       return self.getGraphItems_peaks(colorpicker)
@@ -304,7 +304,7 @@ class FitTool(ToolBase):
     else:
       items = self.lineCurveItems
     for item in items:
-      item.setColor(colorpicker.next())
+      item.setPenColor(colorpicker.next())
 
     items += self.getGraphItems_functions(colorpicker, self.peakFunctions)
 
@@ -315,7 +315,7 @@ class FitTool(ToolBase):
         self.diffCurveItem = PlotCurveItem(x, np.zeros(len(x)), self.view, '#000')
 
       self.updateDiffCurve()
-      self.diffCurveItem.setColor(colorpicker.next())
+      self.diffCurveItem.setPenColor(colorpicker.next())
       items.append(self.diffCurveItem)
 
     return items
@@ -333,7 +333,7 @@ class FitTool(ToolBase):
         logging.debug('Generate sum curve')
         self.sumCurveItem = PlotCurveItem(x, np.zeros(len(x)), self.view, '#000')
       self.updateSumCurve()
-      self.sumCurveItem.setColor(colorpicker.next())
+      self.sumCurveItem.setPenColor(colorpicker.next())
       items.append(self.sumCurveItem)
 
     return items

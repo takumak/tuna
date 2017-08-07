@@ -29,6 +29,10 @@ class GraphItemBase(QGraphicsObject):
     self.hovering = False
     self.__boundingRect = None
 
+  def setPenColor(self, color):
+    if self.pen:
+      self.pen.setColor(QColor(color))
+
   def pixelRatioChanged(self):
     pass
 
@@ -270,9 +274,6 @@ class PathItem(GraphItemBase):
   def __init__(self, view, color):
     super().__init__(view)
     self.pen = pg.mkPen(color, width=2)
-
-  def setColor(self, color):
-    self.pen.setColor(QColor(color))
 
   def paint_(self, painter):
     painter.drawPath(self.path)

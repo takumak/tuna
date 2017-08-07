@@ -2,6 +2,7 @@ numpy
 scipy
 pyqt5
 pyqtgraph
+pyopengl
 pyexcel
 pyexcel-io
 pyexcel-xls

@@ -32,6 +32,7 @@ class GraphWidget(pg.PlotWidget):
   def __init__(self):
     vb = pg.ViewBox(border=pg.mkPen(color='#000'))
     super().__init__(viewBox=vb)
+    self.useOpenGL(True)
     self.setBackground('#fff')
     self.legend = self.addLegend(offset=(10, 10))
     self.colorpicker = ColorPicker(self.colors)

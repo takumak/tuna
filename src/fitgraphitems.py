@@ -1,10 +1,12 @@
 import logging
 from PyQt5.QtCore import pyqtSignal, QObject, Qt, QRectF, QByteArray, QDataStream
 from PyQt5.QtGui import QPainter, QPainterPath, QPainterPathStroker, QColor
+from PyQt5.QtOpenGL import QGLWidget
 from PyQt5.QtWidgets import QGraphicsEllipseItem, QGraphicsLineItem, QGraphicsObject
 import pyqtgraph as pg
 import numpy as np
 import struct
+from OpenGL import GL
 
 from fitparameters import *
 
@@ -39,10 +41,24 @@ class GraphItemBase(QGraphicsObject):
     self.invalidateBoundingRect()
     self.update()
 
-  def paint(self, p, *args):
-    p.setRenderHint(QPainter.Antialiasing)
-    if self.pen: p.setPen(self.pen)
-    if self.brush: p.setBrush(self.brush)
+  def paint(self, painter, option, widget):
+    if isinstance(widget, QGLWidget):
+      painter.beginNativePainting()
+      try:
+        self.paintGL()
+      finally:
+        painter.endNativePainting()
+    else:
+      painter.setRenderHint(QPainter.Antialiasing)
+      if self.pen: painter.setPen(self.pen)
+      if self.brush: painter.setBrush(self.brush)
+      self.paint_(painter)
+
+  def paint_(self, painter):
+    pass
+
+  def paintGL(self):
+    pass
 
   def dataBounds(self, ax, frac, orthoRange=None):
     return None
@@ -65,6 +81,32 @@ class GraphItemBase(QGraphicsObject):
       self.hovering = False
     self.hoveringChanged.emit()
 
+  def GL_drawPath(self, x, y, mode=GL.GL_LINE_STRIP):
+    points = np.empty((len(x), 2))
+    points[:,0] = x
+    points[:,1] = y
+
+    GL.glEnableClientState(GL.GL_VERTEX_ARRAY)
+    try:
+      GL.glVertexPointerf(points)
+
+      if mode in (GL.GL_LINES, GL.GL_LINE_STRIP, GL.GL_LINE_LOOP):
+        GL.glEnable(GL.GL_LINE_SMOOTH)
+        GL.glHint(GL.GL_LINE_SMOOTH_HINT, GL.GL_NICEST)
+        GL.glEnable(GL.GL_BLEND)
+        GL.glBlendFunc(GL.GL_SRC_ALPHA, GL.GL_ONE_MINUS_SRC_ALPHA)
+
+        color = self.pen.color()
+        GL.glLineWidth(self.pen.width())
+      elif mode == GL.GL_TRIANGLE_FAN:
+        color = self.brush.color()
+
+      GL.glColor3f(color.red()/255, color.green()/255, color.blue()/255)
+
+      GL.glDrawArrays(mode, 0, points.shape[0]);
+    finally:
+      GL.glDisableClientState(GL.GL_VERTEX_ARRAY);
+
 
 
 class CircleItemBase(GraphItemBase):
@@ -74,13 +116,25 @@ class CircleItemBase(GraphItemBase):
     self.addParam('cy', cy)
     self.addParam('radius', radius)
 
-  # def pixelRatioChanged(self):
-  #   super().pixelRatioChanged()
-  #   self.update()
+  def paint_(self, painter):
+    painter.drawEllipse(self.calcRect())
 
-  def paint(self, p, *args):
-    super().paint(p, *args)
-    p.drawEllipse(self.calcRect())
+  def paintGL(self):
+    rx, ry = self.view.pixelRatio
+    cx, cy, r = self.cx.value(), self.cy.value(), self.radius.value()
+    theta = np.linspace(0, np.pi*2, 40)
+    x, y = cx + r*np.cos(theta)*rx, cy + r*np.sin(theta)*ry
+    if self.brush:
+      self.GL_drawPath(x, y, GL.GL_TRIANGLE_FAN)
+
+    if self.pen:
+      if self.pen.style() == Qt.DashLine:
+        theta = np.linspace(0, np.pi*2, 40)
+        x, y = cx + r*np.cos(theta)*rx, cy + r*np.sin(theta)*ry
+        mode = GL.GL_LINES
+      else:
+        mode = GL.GL_LINE_STRIP
+      self.GL_drawPath(x, y, mode)
 
   def calcRect(self, margin=0):
     rx, ry = self.view.pixelRatio
@@ -114,12 +168,12 @@ class DraggablePointItem(CircleItemBase):
 
   def focusInEvent(self, ev):
     super().focusInEvent(ev)
-    self.brush = pg.mkBrush('#000')
+    self.brush.setColor(self.pen.color())
     self.update()
 
   def focusOutEvent(self, ev):
     super().focusOutEvent(ev)
-    self.brush = pg.mkBrush('#fff')
+    self.brush.setColor(QColor(255, 255, 255))
     self.update()
 
   def keyPressEvent(self, ev):
@@ -220,9 +274,11 @@ class PathItem(GraphItemBase):
   def setColor(self, color):
     self.pen.setColor(QColor(color))
 
-  def paint(self, p, *args):
-    super().paint(p, *args)
-    p.drawPath(self.path)
+  def paint_(self, painter):
+    painter.drawPath(self.path)
+
+  def paintGL(self):
+    self.GL_drawPath(self.x, self.y)
 
   def setXY(self, x, y):
     self.x = x
@@ -330,6 +386,7 @@ class PlotCurveItem(PathItem):
     super().__init__(view, color)
     self.shapePath = None
     self.setXY(x, y)
+    self.setHighlighted(False)
     self.setAcceptHoverEvents(True)
 
   def pixelRatioChanged(self):

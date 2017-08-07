@@ -148,14 +148,15 @@ class FitTool(ToolBase):
       return self.peakFunctions
     raise RuntimeError('[Bug] Invalid plot mode')
 
-  def savePeakFuncParams(self, func):
+  def savePeakFuncParams(self):
     name = self.activeLineName
     if name:
       # logging.debug('Save func params: %s (%s)' % (name, func.name))
       if name not in self.peakFuncParams:
         self.peakFuncParams[name] = {}
       params = self.peakFuncParams[name]
-      params[func.id] = func.getParams()
+      for func in self.peakFunctions:
+        params[func.id] = func.getParams()
 
   def restorePeakFuncParams(self):
     if self.activeLineName and self.activeLineName in self.peakFuncParams:
@@ -209,7 +210,7 @@ class FitTool(ToolBase):
 
   @blockable
   def parameterChanged_peaks(self, func):
-    self.savePeakFuncParams(func)
+    self.savePeakFuncParams()
     self.updateSumCurve()
     self.updateDiffCurve()
 

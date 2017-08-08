@@ -48,7 +48,7 @@ class MainWindow(QMainWindow):
 
     dock_p = None
     toolDockWidgets = []
-    self.toolIAD = IADToolWidget()
+    self.toolIAD = IADToolWidget(self.graphWidget)
     self.tools = []
     self.toolWidgets = [self.toolIAD, FitToolWidget(self.graphWidget)]
     self.curTool = self.toolIAD.tool

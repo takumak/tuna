@@ -3,6 +3,7 @@ import pyqtgraph as pg
 
 from line import Line
 from settingobj import SettingObj
+from graphitems import *
 
 
 
@@ -10,8 +11,9 @@ class ToolBase(QObject, SettingObj):
   cleared = pyqtSignal()
   added = pyqtSignal(Line)
 
-  def __init__(self):
+  def __init__(self, graphWidget):
     super().__init__()
+    self.graphWidget = graphWidget
     self.lines = []
     self.lineNameMap = {}
 
@@ -44,14 +46,13 @@ class ToolBase(QObject, SettingObj):
     items = []
     for line in self.getLines():
       col = colorpicker.next()
-      pen = pg.mkPen(color=col, width=2)
-      curve = pg.PlotCurveItem(x=line.x, y=line.y, pen=pen)
+      curve = PlotCurveItem(line.x, line.y, self.graphWidget, col)
       items.append(curve)
-      if line.plotErrors:
-        items.append(pg.ErrorBarItem(
-          x=line.x, y=line.y, height=line.y_*2, beam=0.2, pen=pen))
-        items.append(pg.ScatterPlotItem(
-          x=line.x, y=line.y, brush=pg.mkBrush(color=col)))
+      # if line.plotErrors:
+      #   items.append(pg.ErrorBarItem(
+      #     x=line.x, y=line.y, height=line.y_*2, beam=0.2, pen=pen))
+      #   items.append(pg.ScatterPlotItem(
+      #     x=line.x, y=line.y, brush=pg.mkBrush(color=col)))
     return items
 
   def getXrange(self):

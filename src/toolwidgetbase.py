@@ -19,9 +19,9 @@ class ToolWidgetBase(QWidget, SettingObj):
   plotRequested = pyqtSignal(ToolBase, bool, name='plotRequested')
   xlsxRecalcMsg = 'Press F9 (for Excel) or Ctrl+Shift+F9 (for LibreOffice) to re-calculate cell formulae'
 
-  def __init__(self):
+  def __init__(self, graphWidget):
     super().__init__()
-    self.tool = self.toolClass()
+    self.tool = self.toolClass(graphWidget)
     self.tool.cleared.connect(self.clear)
     self.tool.added.connect(self.add)
     self.methodSelectors = []

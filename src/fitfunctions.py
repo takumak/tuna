@@ -31,7 +31,6 @@ class FitFunctionBase(QObject):
     self.params = []
     self.paramsNameMap = {}
     self.handles = []
-    self.plotParams = []
 
     self.plotCurveItem = None
     self.highlighted = False
@@ -63,9 +62,6 @@ class FitFunctionBase(QObject):
     self.params.append(param)
     self.paramsNameMap[param.name] = param
     param.valueChanged.connect(self.paramChanged)
-
-  def addPlotParam(self, param, mode, ylabel):
-    self.plotParams.append((param, mode, ylabel))
 
   @blockable
   def paramChanged(self):
@@ -103,8 +99,8 @@ class FitFunctionBase(QObject):
 
     return items
 
-  def eval(self, name, formula, setArg):
-    return FitParamFormula(name, formula, setArg, self.params)
+  def eval(self, name, formula, setArg, **kwargs):
+    return FitParamFormula(name, formula, setArg, self.params, **kwargs)
 
   def parse_expr(self, expr):
     from sympy.parsing.sympy_parser import parse_expr
@@ -166,20 +162,16 @@ class FitFuncGaussian(FitFunctionBase):
 
     r = view.viewRect()
     x1, x2, y1, y2 = r.left(), r.right(), r.top(), r.bottom()
-    self.addParam(FitParam('a', y2*0.6))
-    self.addParam(FitParam('b', (x1 + x2)/2))
-    self.addParam(FitParam('c', (x2 - x1)*0.1))
-    self.addParam(self.eval('I', 'sqrt(2*pi)*a*c', None))
-    self.addParam(self.eval('HWHM', 'c*sqrt(2*log(2))', None))
+    self.addParam(FitParam('a', y2*0.6, plotMode='ratio'))
+    self.addParam(FitParam('b', (x1 + x2)/2, plotMode='diff'))
+    self.addParam(FitParam('c', (x2 - x1)*0.1, plotMode='ratio'))
+    self.addParam(self.eval('Area', 'sqrt(2*pi)*a*c', None, plotMode='ratio'))
+    self.addParam(self.eval('HWHM', 'c*sqrt(2*log(2))', None, plotMode='ratio'))
 
     half = self.eval('half', 'a/2', None)
     x1 = self.eval('x1', 'b+c*sqrt(2*log(2))', self.c)
     self.addHandle(FitHandlePosition(view, self.b, self.a))
     self.addHandle(FitHandleLine(view, self.b, half, x1, half))
-
-    self.addPlotParam(self.b, 'diff', 'Energy shift (eV)')
-    self.addPlotParam(self.I, 'percent', 'Intensity change (%)')
-    self.addPlotParam(self.HWHM, 'percent', 'HWHM change (%)')
 
 
 

@@ -245,9 +245,8 @@ class LineSelector(QWidget):
 class FitToolWidget(ToolWidgetBase):
   toolClass = FitTool
 
-  def __init__(self, view):
-    super().__init__()
-    self.tool.setView(view)
+  def __init__(self, graphWidget):
+    super().__init__(graphWidget)
 
     vbox = VBoxLayout()
     vbox.setContentsMargins(4, 4, 4, 4)

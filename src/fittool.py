@@ -40,8 +40,8 @@ class FitTool(ToolBase):
   ]
 
 
-  def __init__(self):
-    super().__init__()
+  def __init__(self, graphWidget):
+    super().__init__(graphWidget)
     self.bgsub = None
     self.normWindow = []
     self.peakFunctions = []
@@ -51,7 +51,6 @@ class FitTool(ToolBase):
     self.activeLineName = None
     self.peakFuncParams = {}
     self.pressures = {}
-    self.view = None
     self.mode = 'peaks'
     self.plotParams = None
 
@@ -81,7 +80,7 @@ class FitTool(ToolBase):
 
   def add(self, *args):
     line = super().add(*args)
-    item = PlotCurveItem(line.x, line.y, self.view, '#000')
+    item = PlotCurveItem(line.x, line.y, self.graphWidget, '#000')
     self.lineCurveItems.append(item)
     return line
 
@@ -138,9 +137,6 @@ class FitTool(ToolBase):
     for f in srcfuncs:
       self.parameterChanged_peaks(f)
 
-  def setView(self, view):
-    self.view = view
-
   def functions(self):
     if self.mode == 'normwin':
       return self.normWindow
@@ -174,7 +170,7 @@ class FitTool(ToolBase):
   def createFunction(self, funcName):
     for cls in self.funcClasses:
       if cls.name == funcName:
-        return cls(self.view)
+        return cls(self.graphWidget)
     raise RuntimeError('Function named "%s" is not defined' % funcName)
 
   def clearNormWindow(self):
@@ -266,6 +262,7 @@ class FitTool(ToolBase):
       for param in self.plotParams:
         func = param.func
         x, y = [], []
+
         for line in self.lines:
           x_ = self.getPressure(line.name).value()
           if x_ is None: continue
@@ -279,7 +276,7 @@ class FitTool(ToolBase):
           x.append(x_)
           y.append(y_)
 
-        lines.append(Line(param.name, x, y, None))
+        lines.append(Line(param.name, x, param.plotValues(y), None))
       return lines
 
     return []
@@ -313,7 +310,7 @@ class FitTool(ToolBase):
       if self.diffCurveItem is None:
         logging.debug('Generate diff curve')
         x = active.x
-        self.diffCurveItem = PlotCurveItem(x, np.zeros(len(x)), self.view, '#000')
+        self.diffCurveItem = PlotCurveItem(x, np.zeros(len(x)), self.graphWidget, '#000')
 
       self.updateDiffCurve()
       self.diffCurveItem.setPenColor(colorpicker.next())
@@ -332,7 +329,7 @@ class FitTool(ToolBase):
     if len(functions) >= 2:
       if self.sumCurveItem is None:
         logging.debug('Generate sum curve')
-        self.sumCurveItem = PlotCurveItem(x, np.zeros(len(x)), self.view, '#000')
+        self.sumCurveItem = PlotCurveItem(x, np.zeros(len(x)), self.graphWidget, '#000')
       self.updateSumCurve()
       self.sumCurveItem.setPenColor(colorpicker.next())
       items.append(self.sumCurveItem)

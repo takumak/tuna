@@ -15,8 +15,8 @@ class IADTool(ToolBase):
   iadYUpdated = pyqtSignal(name='iadYUpdated')
   peaksUpdated = pyqtSignal(name='peaksUpdated')
 
-  def __init__(self):
-    super().__init__()
+  def __init__(self, graphWidget):
+    super().__init__(graphWidget)
 
     self.mode = 'orig'
     self.base = -1

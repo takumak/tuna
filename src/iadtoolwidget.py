@@ -14,8 +14,8 @@ class IADToolWidget(ToolWidgetBase):
   toolClass = IADTool
   columnLabels = ['Name', 'IAD X', 'IAD Y', 'X offset', 'Weight center', 'Peak x', 'Peak y']
 
-  def __init__(self):
-    super().__init__()
+  def __init__(self, graphWidget):
+    super().__init__(graphWidget)
     self.selectBaseGroup = None
 
     vbox = VBoxLayout()

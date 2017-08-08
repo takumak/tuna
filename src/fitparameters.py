@@ -1,5 +1,6 @@
 import operator
 from PyQt5.QtCore import QObject, pyqtSignal
+import numpy as np
 
 from functions import blockable
 from settingitems import *
@@ -12,12 +13,18 @@ __all__ = ['FitParam', 'FitParamConst', 'FitParamFunc', 'FitParamFormula']
 
 class FitParam(QObject):
   valueChanged = pyqtSignal()
+  plotModes = [
+    ('absolute', 'Absolute values'),
+    ('diff', 'Differences'),
+    ('ratio', 'Differences in ratio')
+  ]
 
-  def __init__(self, name, default, hidden=False):
+  def __init__(self, name, default, hidden=False, plotMode='absolute'):
     super().__init__()
     self.name = name
     self.value_ = default
     self.hidden = hidden
+    self.plotMode = plotMode
 
     self.min_ = None
     self.max_ = None
@@ -43,6 +50,21 @@ class FitParam(QObject):
       self.value_ = value
       self.valueChanged.emit()
 
+  def plotValues(self, values):
+    fname = 'plotValues_%s' % self.plotMode
+    if not hasattr(self, fname):
+      raise RuntimeError('Invalid plot mode - %s' % self.plotMode)
+    return getattr(self, fname)(np.array(values))
+
+  def plotValues_absolute(self, values):
+    return values
+
+  def plotValues_diff(self, values):
+    return values - values[0]
+
+  def plotValues_ratio(self, values):
+    return (values - values[0])/values[0]
+
 
 
 class FitParamConst(FitParam):
@@ -56,10 +78,10 @@ class FitParamConst(FitParam):
 
 
 class FitParamFunc(FitParam):
-  def __init__(self, name, get_, set_, refargs):
+  def __init__(self, name, get_, set_, refargs, **kwargs):
     self.get_ = get_
     self.set_ = set_
-    super().__init__(name, self.value())
+    super().__init__(name, self.value(), **kwargs)
 
     if set_ is None:
       self.readOnly = True
@@ -87,7 +109,6 @@ class FitParamFormula(FitParamFunc):
     func = lambdify(args, expr, 'numpy')
 
     params = dict([(a.name, a) for a in refargs])
-    params.update(kwargs)
     refargs = [params[a.name] for a in args]
 
     if setArg:
@@ -109,4 +130,4 @@ class FitParamFormula(FitParamFunc):
     else:
       set_ = None
 
-    super().__init__(name, get_, set_, refargs)
+    super().__init__(name, get_, set_, refargs, **kwargs)

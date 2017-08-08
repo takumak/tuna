@@ -166,6 +166,7 @@ class FitTool(ToolBase):
         else:
           params[func.id] = func.getParams()
       self.activeLineName = active
+      self.savePeakFuncParams()
 
   def createFunction(self, funcName):
     for cls in self.funcClasses:

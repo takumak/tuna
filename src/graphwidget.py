@@ -32,8 +32,8 @@ class GraphWidget(pg.PlotWidget):
   pixelRatioChanged = pyqtSignal()
 
   def __init__(self):
-    vb = pg.ViewBox(border=pg.mkPen(color='#000'))
-    super().__init__(viewBox=vb)
+    self.viewBox = pg.ViewBox(border=pg.mkPen(color='#000'))
+    super().__init__(viewBox=self.viewBox)
     self.useOpenGL(True)
     self.setBackground('#fff')
     # self.legend = self.addLegend(offset=(10, 10))

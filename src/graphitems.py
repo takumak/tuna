@@ -46,6 +46,17 @@ class GraphItemBase(QGraphicsObject):
   def paint(self, painter, option, widget):
     if isinstance(widget, QGLWidget):
       painter.beginNativePainting()
+
+      GL.glDisable(GL.GL_STENCIL_TEST)
+
+      vb = self.view.viewBox
+      tl = vb.mapToParent(vb.boundingRect().topLeft())
+      br = vb.mapToParent(vb.boundingRect().bottomRight())
+      x, y = tl.x() + 1, self.view.size().height() - br.y() + 1
+      w, h = br.x() - x, br.y() - tl.y() - 1
+      GL.glEnable(GL.GL_SCISSOR_TEST)
+      GL.glScissor(*map(int, (x, y, w, h)))
+
       try:
         self.paintGL()
       finally:

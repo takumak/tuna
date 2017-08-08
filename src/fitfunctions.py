@@ -1,13 +1,6 @@
-import logging
-import uuid
-import numpy as np
-import pyqtgraph as pg
-from PyQt5.QtCore import QObject, pyqtSignal
-
-from functions import blockable
+from fitfunctionbase import FitFunctionBase
 from fitparameters import *
 from fithandles import *
-from fitgraphitems import *
 
 
 
@@ -19,143 +12,12 @@ __all__ = [
 
 
 
-class FitFunctionBase(QObject):
-  parameterChanged = pyqtSignal(QObject, name='parameterChanged')
-  highlightChanged = pyqtSignal(QObject, bool)
-  expr_excel = None
-
-  def __init__(self, view):
-    super().__init__()
-    self.view = view
-    self.id = str(uuid.uuid4())
-    self.params = []
-    self.paramsNameMap = {}
-    self.handles = []
-
-    self.plotCurveItem = None
-    self.highlighted = False
-
-  def editableParams(self):
-    return [p for p in self.params if not p.hidden]
-
-  def __getattr__(self, name):
-    if name in self.paramsNameMap:
-      return self.paramsNameMap[name]
-    raise AttributeError()
-
-  def y(self, x):
-    raise NotImplementedError()
-
-  def getParams(self):
-    return dict([(p.name, p.value()) for p in self.params])
-
-  def setParams(self, params):
-    self.paramChanged.block()
-    for p in self.params:
-      if p.name in params:
-        p.setValue(params[p.name])
-    self.paramChanged.unblock()
-    self.paramChanged()
-
-  def addParam(self, param):
-    param.func = self
-    self.params.append(param)
-    self.paramsNameMap[param.name] = param
-    param.valueChanged.connect(self.paramChanged)
-
-  @blockable
-  def paramChanged(self):
-    if self.plotCurveItem:
-      x = self.plotCurveItem.x
-      self.plotCurveItem.setXY(x, y=self.y(x))
-    self.parameterChanged.emit(self)
-
-  def addHandle(self, handle):
-    self.handles.append(handle)
-
-  def getXrange(self, lines):
-    if len(lines) == 0: return 0, 1
-    l1, l2 = zip(*[l.getXrange() for l in lines])
-    return min(l1), max(l2)
-
-  def getYrange(self, lines):
-    if len(lines) == 0: return 0, 1
-    l1, l2 = zip(*[l.getYrange() for l in lines])
-    return min(l1), max(l2)
-
-  def getWidth(self, lines):
-    if len(lines) == 0: return 1
-    x1, x2 = self.getXrange(lines)
-    return x2 - x1
-
-  def getGraphItems(self, x, color):
-    self.plotCurveItem = PlotCurveItem(x, self.y(x), self.view, color)
-    items = [self.plotCurveItem] + sum([h.getGraphItems(color) for h in self.handles], [])
-
-    touchables = [item for item in items if item.touchable]
-    for item in touchables:
-      item.hoveringChanged.connect(lambda: self.setHighlighted(
-        True in [item.hovering for item in touchables]))
-
-    return items
-
-  def eval(self, name, formula, setArg, **kwargs):
-    return FitParamFormula(name, formula, setArg, self.params, **kwargs)
-
-  def parse_expr(self, expr):
-    from sympy.parsing.sympy_parser import parse_expr
-    from sympy import Symbol
-    expr = parse_expr(expr)
-    if 'x' not in [s.name for s in expr.free_symbols]:
-      expr = expr+Symbol('x')*0
-    return expr
-
-  def lambdify(self, params):
-    paramNames = [p.name for p in params]
-
-    from sympy import Symbol, lambdify
-    expr = self.parse_expr(self.expr)
-    fixed = [s.name for s in expr.free_symbols if s.name != 'x' and s.name not in paramNames]
-    args = ['x'] + paramNames + fixed
-    func = lambdify([Symbol(a) for a in args], expr, 'numpy')
-
-    return lambda x, *vals: func(x, *(list(vals) + [self.paramsNameMap[n].value() for n in fixed]))
-
-  def y(self, x):
-    from sympy import Symbol, lambdify
-    expr = self.parse_expr(self.expr)
-    args = [Symbol('x')]+[Symbol(p.name) for p in self.params]
-    func = lambdify(args, expr, 'numpy')
-
-    y = lambda x: func(x, *[p.value() for p in self.params])
-    self.y = y
-    return y(x)
-
-  def setHighlighted(self, highlighted):
-    highlighted = bool(highlighted)
-    if highlighted != self.highlighted:
-      self.highlighted = highlighted
-      self.highlightChanged.emit(self, highlighted)
-    if self.plotCurveItem:
-      self.plotCurveItem.setHighlighted(highlighted)
-
-  @classmethod
-  def excelExpr(cls):
-    if not cls.expr_excel:
-      from sympy.parsing.sympy_parser import parse_expr
-      from sympy import Symbol
-      expr = parse_expr(cls.expr)
-      expr = expr.subs([(s, Symbol('%%(%s)s' % s.name)) for s in expr.free_symbols])
-      cls.expr_excel = str(expr)
-    return cls.expr_excel
-
-
-
 class FitFuncGaussian(FitFunctionBase):
   name = 'gaussian'
   label = 'Gaussian'
   expr = 'a*exp(-(x-b)**2/(2*c**2))'
   expr_excel = '%(a)s*exp(-((%(x)s-%(b)s)^2)/(2*(%(c)s^2)))'
+  expr_latex = r'a\exp\left(-\frac{(x-b)^2}{2c^2}\right)'
 
   def __init__(self, view):
     super().__init__(view)
@@ -164,9 +26,8 @@ class FitFuncGaussian(FitFunctionBase):
     x1, x2, y1, y2 = r.left(), r.right(), r.top(), r.bottom()
     self.addParam(FitParam('a', y2*0.6))
     self.addParam(FitParam('b', (x1 + x2)/2, plotMode='diff'))
-    self.addParam(FitParam('c', (x2 - x1)*0.1))
+    self.addParam(FitParam('c', (x2 - x1)*0.1, plotMode='ratio'))
     self.addParam(self.eval('Area', 'sqrt(2*pi)*a*c', None, plotMode='ratio'))
-    self.addParam(self.eval('HWHM', 'c*sqrt(2*log(2))', None, plotMode='ratio'))
 
     half = self.eval('half', 'a/2', None)
     x1 = self.eval('x1', 'b+c*sqrt(2*log(2))', self.c)
@@ -179,6 +40,8 @@ class FitFuncPseudoVoigt(FitFunctionBase):
   name = 'pseudovoigt'
   label = 'PseudoVoigt'
   expr = 'a*(m*(w**2)/((x-x0)**2+w**2) + (1-m)*exp(-ln(2)/(w**2)*(x-x0)**2))'
+  expr_excel = '%(a)s*(%(m)s*(%(w)s^2)/((%(x)s-%(x0)s)^2+w^2) + (1-%(m)s)*exp(-ln(2)/(%(w)s^2)*((%(x)s-%(x0)s)^2)))'
+  expr_latex = r'a\left[ m\frac{w^2}{(x-x_0)^2 + w^2} + (1-m)\exp\left(-\frac{\ln(2)}{w^2}(x-x_0)^2\right) \right]'
 
   def __init__(self, view):
     super().__init__(view)
@@ -201,6 +64,7 @@ class FitFuncBoltzmann2(FitFunctionBase):
   name = 'boltzmann2'
   label = 'Boltzmann 2'
   expr = '(a1*x+b1)/(1+exp((x-x0)/dx)) + (a2*x+b2)*(1-1/(1+exp((x-x0)/dx)))'
+  expr_latex = r'(a_1x+b_1)\frac{1}{1+\exp[(x-x_0)/dx]} + (a_2x+b_2)\left\{1 - \frac{1}{1+\exp[(x-x_0)/dx]}\right\}'
 
   def __init__(self, view):
     super().__init__(view)
@@ -260,6 +124,7 @@ class FitFuncConstant(FitFunctionBase):
   name = 'constant'
   label = 'Constant'
   expr = 'y0'
+  expr_latex = r'y_0'
 
   def __init__(self, view):
     super().__init__(view)
@@ -275,6 +140,12 @@ class FitFuncHeaviside(FitFunctionBase):
   name = 'heaviside'
   label = 'Heaviside'
   expr = 'a*heaviside(x-x0, 1)'
+  expr_latex = r'''
+a\cdot\begin{cases}
+  0 & (x-x_0 < 0) \\
+  1 & (0 \le x-x_0)
+\end{cases}
+'''
 
   def __init__(self, view):
     super().__init__(view)
@@ -292,6 +163,13 @@ class FitFuncRectangularWindow(FitFunctionBase):
   name = 'rectangularwinow'
   label = 'Rectangular window'
   expr = 'a*heaviside(x-x0, 1)*heaviside(-(x-x1), 1)'
+  expr_latex = r'''
+a\cdot\begin{cases}
+  0 & (x < x_0) \\
+  1 & (x_0 \le x \le x_1) \\
+  0 & (x_0 < x)
+\end{cases}
+'''
 
   def __init__(self, view):
     super().__init__(view)

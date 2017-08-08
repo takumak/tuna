@@ -204,8 +204,9 @@ class PlotCurveItem(PathItem):
   touchable = True
   maxLineWidth = 4
 
-  def __init__(self, x, y, view, color):
+  def __init__(self, x, y, view, color, label=None):
     super().__init__(view, color)
+    self.label = label
     self.shapePath = None
     self.setXY(x, y)
     self.setHighlighted(False)

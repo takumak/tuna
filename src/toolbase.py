@@ -46,7 +46,7 @@ class ToolBase(QObject, SettingObj):
     items = []
     for line in self.getLines():
       col = colorpicker.next()
-      curve = PlotCurveItem(line.x, line.y, self.graphWidget, col)
+      curve = PlotCurveItem(line.x, line.y, self.graphWidget, col, line.name)
       items.append(curve)
       # if line.plotErrors:
       #   items.append(pg.ErrorBarItem(

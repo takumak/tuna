@@ -80,7 +80,7 @@ class FitTool(ToolBase):
 
   def add(self, *args):
     line = super().add(*args)
-    item = PlotCurveItem(line.x, line.y, self.graphWidget, '#000')
+    item = PlotCurveItem(line.x, line.y, self.graphWidget, '#000', line.name)
     self.lineCurveItems.append(item)
     return line
 
@@ -310,7 +310,7 @@ class FitTool(ToolBase):
       if self.diffCurveItem is None:
         logging.debug('Generate diff curve')
         x = active.x
-        self.diffCurveItem = PlotCurveItem(x, np.zeros(len(x)), self.graphWidget, '#000')
+        self.diffCurveItem = PlotCurveItem(x, np.zeros(len(x)), self.graphWidget, '#000', 'Diff')
 
       self.updateDiffCurve()
       self.diffCurveItem.setPenColor(colorpicker.next())
@@ -329,7 +329,7 @@ class FitTool(ToolBase):
     if len(functions) >= 2:
       if self.sumCurveItem is None:
         logging.debug('Generate sum curve')
-        self.sumCurveItem = PlotCurveItem(x, np.zeros(len(x)), self.graphWidget, '#000')
+        self.sumCurveItem = PlotCurveItem(x, np.zeros(len(x)), self.graphWidget, '#000', 'Sum')
       self.updateSumCurve()
       self.sumCurveItem.setPenColor(colorpicker.next())
       items.append(self.sumCurveItem)

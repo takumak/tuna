@@ -1,6 +1,8 @@
 from PyQt5.QtCore import pyqtSignal
 import pyqtgraph as pg
 
+from graphitems import PlotCurveItem
+
 
 
 class ColorPicker:
@@ -34,7 +36,7 @@ class GraphWidget(pg.PlotWidget):
     super().__init__(viewBox=vb)
     self.useOpenGL(True)
     self.setBackground('#fff')
-    self.legend = self.addLegend(offset=(10, 10))
+    # self.legend = self.addLegend(offset=(10, 10))
     self.colorpicker = ColorPicker(self.colors)
 
     self.pixelRatio = None
@@ -47,8 +49,8 @@ class GraphWidget(pg.PlotWidget):
   def clearItems(self):
     for item in self.items():
       self.removeItem(item)
-    self.legend.scene().removeItem(self.legend)
-    self.legend = self.addLegend(offset=(10, 10))
+    # self.legend.scene().removeItem(self.legend)
+    # self.legend = self.addLegend(offset=(10, 10))
     self.colorpicker.reset()
 
   def __geometryChanged(self):

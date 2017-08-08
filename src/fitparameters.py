@@ -22,6 +22,8 @@ class FitParam(QObject):
     self.min_ = None
     self.max_ = None
 
+    self.readOnly = False
+
   def value(self):
     return self.value_
 
@@ -44,20 +46,24 @@ class FitParam(QObject):
 
 
 class FitParamConst(FitParam):
-  def setValue(self, value):
-    pass
+  def __init__(self, *args, **kwargs):
+    super().__init__(*args, **kwargs)
+    self.readOnly = True
 
-  def setPreviewValue(self, value):
+  def setValue(self, value):
     pass
 
 
 
 class FitParamFunc(FitParam):
-  def __init__(self, name, get_, set_, setp, refargs):
+  def __init__(self, name, get_, set_, refargs):
     self.get_ = get_
     self.set_ = set_
-    self.setp = setp
     super().__init__(name, self.value())
+
+    if set_ is None:
+      self.readOnly = True
+
     for a in refargs:
       a.valueChanged.connect(lambda: self.valueChanged.emit())
 
@@ -67,10 +73,6 @@ class FitParamFunc(FitParam):
   def setValue(self, value):
     if self.set_:
       self.set_(value)
-
-  def setPreviewValue(self, value):
-    if self.setp:
-      self.setp(value)
 
 
 
@@ -104,9 +106,7 @@ class FitParamFormula(FitParamFunc):
       tosetval = lambda v: func_i(*[
         (v if a.name == '__' else params[a.name].value()) for a in args_i])
       set_ = lambda v: setArg.setValue(tosetval(v))
-      setp = lambda v: setArg.setPreviewValue(tosetval(v))
     else:
       set_ = None
-      setp = None
 
-    super().__init__(name, get_, set_, setp, refargs)
+    super().__init__(name, get_, set_, refargs)

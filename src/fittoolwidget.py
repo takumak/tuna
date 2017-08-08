@@ -94,9 +94,17 @@ class FunctionList(TableWidget):
         val = self.setItemText(row, c+1, '%g' % param.value())
         val.setData(Qt.UserRole, param)
 
+        f = val.flags()
+        if param.readOnly:
+          f &= ~Qt.ItemIsEditable
+        else:
+          f |= Qt.ItemIsEditable
+        val.setFlags(f)
+
     for i in range(c+2, self.columnCount()):
       item = self.setItemText(row, i, '')
       item.setData(Qt.UserRole, None)
+      item.setFlags(item.flags() & ~Qt.ItemIsEditable)
 
     self.parameterEdited.unblock()
 
@@ -366,7 +374,7 @@ class FitToolWidget(ToolWidgetBase):
     self.peakFunctions.setFocus()
 
   def optimize(self):
-    params = self.peakFunctions.selectedParameters()
+    params = [p for p in self.peakFunctions.selectedParameters() if not p.readOnly]
     if len(params) == 0:
       logging.error('Select parameters to optimize')
       return

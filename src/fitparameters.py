@@ -19,7 +19,7 @@ class FitParam(QObject):
     ('ratio', 'Differences in ratio')
   ]
 
-  def __init__(self, name, default, hidden=False, plotMode='absolute'):
+  def __init__(self, name, default, hidden=False, plotMode=None):
     super().__init__()
     self.name = name
     self.value_ = default
@@ -51,7 +51,7 @@ class FitParam(QObject):
       self.valueChanged.emit()
 
   def plotValues(self, values):
-    fname = 'plotValues_%s' % self.plotMode
+    fname = 'plotValues_%s' % (self.plotMode or 'absolute')
     if not hasattr(self, fname):
       raise RuntimeError('Invalid plot mode - %s' % self.plotMode)
     return getattr(self, fname)(np.array(values))

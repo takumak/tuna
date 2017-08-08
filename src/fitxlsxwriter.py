@@ -4,7 +4,7 @@ from xlsxwriter.utility import xl_rowcol_to_cell as cellName, xl_range_abs as ra
 
 class FitXlsxWriter:
   recalcMsg = 'Press F9 (for Excel) or Ctrl+Shift+F9 (for LibreOffice) to re-calculate cell formulae'
-  formatForPlotModes = {'diff': '0.00', 'percent': '0.00%'}
+  formatForPlotModes = {'diff': '+0.00;-0.00', 'ratio': '+0.00%;-0.00%'}
 
   def __init__(self, tool):
     self.tool = tool
@@ -76,7 +76,8 @@ class FitXlsxWriter:
     plotdata = {}
     ylabels = []
     for i, func in enumerate(self.funcs):
-      N = len(func.plotParams)
+      plotParams = [p for p in func.params if p.plotMode]
+      N = len(plotParams)
       if N == 0:
         continue
       elif N == 1:
@@ -84,32 +85,32 @@ class FitXlsxWriter:
       else:
         ws.merge_range(r1, cc, r1, cc+N-1, 'F%d' % i)
 
-      for c, (param, mode, ylabel) in enumerate(func.plotParams):
-        ws.write(r1+1, cc+c, ylabel)
+      for c, param in enumerate(plotParams):
+        ws.write(r1+1, cc+c, param.name)
 
         for r, line in enumerate(self.lines):
           cell0 = self.paramCells[(self.lines[0].name, func.id, param.name)]
           celli = self.paramCells[(line.name, func.id, param.name)]
-          if mode == 'diff':
+          if param.plotMode == 'diff':
             f = '=%s-%s' % (celli, cell0)
-          elif mode == 'percent':
+          elif param.plotMode == 'ratio':
             f = '=({1}-{0})/{0}'.format(cell0, celli)
           else:
-            raise RuntimeError('Unknown plot mode - "%s"' % mode)
-          fmt = self.getFormat(wb, self.formatForPlotModes[mode])
+            raise RuntimeError('Unknown plot mode - "%s"' % param.plotMode)
+          fmt = self.getFormat(wb, self.formatForPlotModes[param.plotMode])
           ws.write_formula(cellName(r2+r, cc+c), f, fmt)
 
-        if ylabel not in plotdata:
-          plotdata[ylabel] = []
-          ylabels.append(ylabel)
+        if param.name not in plotdata:
+          plotdata[param.name] = []
+          ylabels.append((param.name, self.formatForPlotModes[param.plotMode]))
 
-        plotdata[ylabel].append((cellName(r1, cc), rangeNameAbs(r2, cc+c, r3, cc+c)))
+        plotdata[param.name].append((cellName(r1, cc), rangeNameAbs(r2, cc+c, r3, cc+c)))
 
-      cc += len(func.plotParams)
+      cc += len(plotParams)
 
 
     r4 = r3+2
-    for i, ylabel in enumerate(ylabels):
+    for i, (ylabel, yfmt) in enumerate(ylabels):
       chart = wb.add_chart({'type': 'scatter', 'subtype': 'straight_with_markers'})
       chart.set_title({'none': True})
       chart.set_x_axis({
@@ -121,6 +122,7 @@ class FitXlsxWriter:
         'name': ylabel,
         'major_gridlines': {'visible': False},
         'major_tick_mark': 'inside',
+        'num_format': yfmt
       })
 
       for name, data in plotdata[ylabel]:

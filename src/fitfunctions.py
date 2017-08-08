@@ -162,9 +162,9 @@ class FitFuncGaussian(FitFunctionBase):
 
     r = view.viewRect()
     x1, x2, y1, y2 = r.left(), r.right(), r.top(), r.bottom()
-    self.addParam(FitParam('a', y2*0.6, plotMode='ratio'))
+    self.addParam(FitParam('a', y2*0.6))
     self.addParam(FitParam('b', (x1 + x2)/2, plotMode='diff'))
-    self.addParam(FitParam('c', (x2 - x1)*0.1, plotMode='ratio'))
+    self.addParam(FitParam('c', (x2 - x1)*0.1))
     self.addParam(self.eval('Area', 'sqrt(2*pi)*a*c', None, plotMode='ratio'))
     self.addParam(self.eval('HWHM', 'c*sqrt(2*log(2))', None, plotMode='ratio'))
 

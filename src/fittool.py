@@ -312,7 +312,7 @@ class FitTool(ToolBase):
       items = [self.lineCurveItems[self.lines.index(active)]]
     else:
       self.restorePeakFuncParams()
-      items = self.lineCurveItems
+      items = list(self.lineCurveItems)
     for item in items:
       item.setPenColor(colorpicker.next())
 

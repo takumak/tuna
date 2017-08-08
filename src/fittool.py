@@ -144,7 +144,7 @@ class FitTool(ToolBase):
       return self.peakFunctions
     raise RuntimeError('[Bug] Invalid plot mode')
 
-  def savePeakFuncParams(self):
+  def savePeakFuncParams(self, func):
     name = self.activeLineName
     if name:
       # logging.debug('Save func params: %s (%s)' % (name, func.name))
@@ -153,20 +153,30 @@ class FitTool(ToolBase):
       params = self.peakFuncParams[name]
       for func in self.peakFunctions:
         params[func.id] = func.getParams()
+    else:
+      for line in self.lines:
+        if line.name not in self.peakFuncParams:
+          self.peakFuncParams[line.name] = {}
+        self.peakFuncParams[line.name][func.id] = func.getParams()
 
   def restorePeakFuncParams(self):
-    if self.activeLineName and self.activeLineName in self.peakFuncParams:
+    if self.activeLineName:
+      name = self.activeLineName
+    elif len(self.lines) > 0:
+      name = self.lines[0].name
+    else:
+      return
+
+    if name in self.peakFuncParams:
       logging.debug('Restore func params')
-      params = self.peakFuncParams[self.activeLineName]
-      active = self.activeLineName
-      self.activeLineName = None # prevent saving old func params
+      params = self.peakFuncParams[name]
+      self.parameterChanged_peaks.block()
       for func in self.peakFunctions:
         if func.id in params:
           func.setParams(params[func.id])
         else:
           params[func.id] = func.getParams()
-      self.activeLineName = active
-      self.savePeakFuncParams()
+      self.parameterChanged_peaks.unblock()
 
   def createFunction(self, funcName):
     for cls in self.funcClasses:
@@ -207,7 +217,7 @@ class FitTool(ToolBase):
 
   @blockable
   def parameterChanged_peaks(self, func):
-    self.savePeakFuncParams()
+    self.savePeakFuncParams(func)
     self.updateSumCurve()
     self.updateDiffCurve()
 
@@ -301,6 +311,7 @@ class FitTool(ToolBase):
     if active:
       items = [self.lineCurveItems[self.lines.index(active)]]
     else:
+      self.restorePeakFuncParams()
       items = self.lineCurveItems
     for item in items:
       item.setPenColor(colorpicker.next())
@@ -365,14 +376,11 @@ class FitTool(ToolBase):
           log.warnException()
       self.setNormWindow(functions)
 
-    if 'peak_func_params' in state:
-      self.peakFuncParams = state['peak_func_params']
+    self.peakFuncParams = state.get('peak_func_params', {})
+    self.activeLineName = state.get('active_line')
 
-    if 'active_line' in state:
-      self.activeLineName = state['active_line']
-
+    functions = []
     if 'peak_functions' in state:
-      functions = []
       for name, id in state['peak_functions']:
         try:
           f = self.createFunction(name)
@@ -380,7 +388,7 @@ class FitTool(ToolBase):
           functions.append(f)
         except:
           log.warnException()
-      self.setPeakFunctions(functions)
+    self.setPeakFunctions(functions)
 
     if 'pressures' in state:
       for name, val in state['pressures'].items():

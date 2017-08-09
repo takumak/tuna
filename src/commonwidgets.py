@@ -269,7 +269,7 @@ class ComboBoxDescriptor(QFrame):
     self.setFrameShape(QFrame.StyledPanel)
 
   def addTitle(self, title):
-    label = QLabel('Title')
+    label = QLabel(title)
     label.setContentsMargins(16, 4, 16, 4)
 
     vbox = VBoxLayout()

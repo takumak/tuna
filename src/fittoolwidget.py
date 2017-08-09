@@ -27,7 +27,7 @@ class FunctionList(TableWidget):
     self.createFunc = createFunc
 
     self.horizontalHeader().setResizeMode(QHeaderView.ResizeToContents)
-    self.cellChanged.connect(self.parameterEdited)
+    self.itemChanged.connect(self.parameterEdited)
     self.itemSelectionChanged.connect(self.updateHighlight)
 
     vh = self.verticalHeader()
@@ -50,11 +50,13 @@ class FunctionList(TableWidget):
     self.focusOut.emit()
 
   @blockable
-  def parameterEdited(self, r, c):
-    item = self.item(r, c)
+  def parameterEdited(self, item):
     param = item.data(Qt.UserRole)
-    if isinstance(param, FitParam):
-      param.setValue(float(item.text()))
+    if not isinstance(param, FitParam): return
+
+    text = item.text()
+    if text != item.data(Qt.UserRole+1):
+      param.setValue(float(text))
 
   def setItemText(self, r, c, text, editable=True):
     item = super().item(r, c)
@@ -91,8 +93,10 @@ class FunctionList(TableWidget):
       for i, param in enumerate(params):
         c = 1 + i*2
         self.setItemText(row, c, param.name, editable=False)
-        val = self.setItemText(row, c+1, '%g' % param.value())
+        valtext = '%g' % param.value()
+        val = self.setItemText(row, c+1, valtext)
         val.setData(Qt.UserRole, param)
+        val.setData(Qt.UserRole+1, valtext)
 
         f = val.flags()
         if param.readOnly:

@@ -1,7 +1,6 @@
 import sys, os
 import logging
 import html
-import json
 from base64 import b64decode, b64encode
 import numpy as np
 from PyQt5.QtCore import Qt, QRectF
@@ -18,16 +17,18 @@ from sourceswidget import SourcesWidget
 from dialogs import *
 from iadtoolwidget import IADToolWidget
 from fittoolwidget import FitToolWidget
+from configfilemanager import ConfigFileManager
+from sessionfilemanager import SessionFileManager
 
 
 
 class MainWindow(QMainWindow):
   saveStateVersion = 1
 
-  def __init__(self, configFilename):
+  def __init__(self):
     super().__init__()
 
-    self.configFilename = configFilename
+    self.confman = ConfigFileManager()
 
 
     self.graphWidget = GraphWidget()
@@ -250,7 +251,7 @@ class MainWindow(QMainWindow):
 
     filename = os.path.realpath(dlg.selectedFiles()[0])
     try:
-      self.loadSession(json.load(open(filename)), filename)
+      self.loadSession(SessionFileManager().load(filename), filename)
     except:
       log.warnException()
       return
@@ -265,10 +266,9 @@ class MainWindow(QMainWindow):
         return
       self.sessionFilename = os.path.realpath(dlg.selectedFiles()[0])
 
-    obj = self.createSessionData()
-    json.dump(obj, open(self.sessionFilename, 'w'))
+    SessionFileManager().save(self.createSessionData(), self.sessionFilename)
 
-  def loadSession(self, sess, filename):
+  def loadSession(self, sess, basefilename):
     logging.debug('Loading session')
 
     self.sourcesWidget.removeAllFiles()
@@ -280,7 +280,8 @@ class MainWindow(QMainWindow):
       from os.path import normpath, join, dirname
 
       for f in sess['files']:
-        filename = normpath(join(dirname(filename), f['filename']))
+        if basefilename:
+          filename = normpath(join(dirname(basefilename), f['filename']))
         sheets = []
 
         try:
@@ -332,6 +333,7 @@ class MainWindow(QMainWindow):
   def createSessionData(self, forceAbsPath=False):
     files = []
     relative = self.act_session_relative.isChecked()
+
     for f in self.sourcesWidget.files():
       if not forceAbsPath and relative:
         f['filename'] = os.path.relpath(
@@ -361,11 +363,10 @@ class MainWindow(QMainWindow):
     return obj
 
   def loadConfig(self):
-    if not os.path.exists(self.configFilename):
-      return
-
     logging.debug('Loading config file')
-    obj = json.load(open(self.configFilename))
+    obj = self.confman.load()
+    if obj is None:
+      return
 
     if 'mainwindow' in obj:
       mw = obj['mainwindow']
@@ -385,7 +386,7 @@ class MainWindow(QMainWindow):
       if 'states' in fd: FileDialog.states.update(fd['states'])
 
     if 'session' in obj:
-      self.loadSession(obj['session'], self.configFilename)
+      self.loadSession(obj['session'], self.confman.filename)
 
     self.update()
     self.sourcesDockWidget.raise_()
@@ -404,4 +405,4 @@ class MainWindow(QMainWindow):
         'states': FileDialog.states
       }
     }
-    json.dump(obj, open(self.configFilename, 'w'))
+    self.confman.save(obj)

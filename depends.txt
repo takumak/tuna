@@ -9,3 +9,5 @@ pyexcel-xls
 pyexcel-odsr
 xlsxwriter
 sympy
+u-msgpack-python
+appdirs

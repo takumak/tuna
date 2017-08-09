@@ -6,23 +6,20 @@ import log
 
 
 class Tsuna(QApplication):
-  def __init__(self, exedir):
+  def __init__(self):
     super().__init__(sys.argv)
-    self.exedir = exedir
     from mainwindow import MainWindow
-    self.window = MainWindow(os.path.join(exedir, 'tuna.conf.json'))
+    self.window = MainWindow()
     self.window.show()
 
 
 if __name__ == '__main__':
-  exedir = os.path.dirname(os.path.realpath(sys.argv[0]))
-
   import logging, log
   logging.basicConfig(level=logging.DEBUG)
   log.setup()
 
   pg.setConfigOptions(antialias=True)
 
-  app = Tsuna(exedir)
+  app = Tsuna()
   log.setApp(app)
   sys.exit(app.exec_())

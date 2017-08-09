@@ -2,11 +2,11 @@ import sys
 import re
 import logging
 import html
-from PyQt5.QtCore import Qt, QPoint, QRect, QSize, QEvent
-from PyQt5.QtGui import QKeySequence, QValidator, QPainter, QPen, QBrush, QColor
+from PyQt5.QtCore import Qt, QPoint, QRect, QSize, QEvent, QCoreApplication
+from PyQt5.QtGui import QKeySequence, QValidator, QPainter, QPen, QBrush, QColor, QPixmap
 from PyQt5.QtWidgets import QApplication, QTableWidget, QMenu, \
   QFrame, QVBoxLayout, QHBoxLayout, QWidget, QLabel, QLineEdit, QLayout, \
-  QComboBox
+  QComboBox, QGridLayout
 
 import log
 
@@ -14,7 +14,7 @@ import log
 
 __all__ = ['TableWidget', 'HSeparator', 'HBoxLayout', 'VBoxLayout',
            'ErrorBaloon', 'ErrorCheckEdit', 'FlowLayout',
-           'ComboBoxWithDescriptor']
+           'ComboBoxDescriptor', 'ComboBoxWithDescriptor']
 
 
 
@@ -257,25 +257,72 @@ class FlowLayout(QLayout):
 
 
 
+class ComboBoxDescriptor(QFrame):
+  def __init__(self):
+    super().__init__()
+
+    vbox = VBoxLayout()
+    vbox.setContentsMargins(4, 4, 4, 4)
+    self.setLayout(vbox)
+    self.vbox = vbox
+
+    self.setFrameShape(QFrame.StyledPanel)
+
+  def addTitle(self, title):
+    label = QLabel('Title')
+    label.setContentsMargins(16, 4, 16, 4)
+
+    vbox = VBoxLayout()
+    vbox.addWidget(label)
+
+    frame = QFrame()
+    frame.setFrameShape(QFrame.StyledPanel)
+    frame.setContentsMargins(4, 4, 4, 4)
+    frame.setLayout(vbox)
+    self.vbox.addWidget(frame)
+
+  def addSection(self, title):
+    self.vbox.addWidget(QLabel(title))
+
+  def addImage(self, image):
+    imglabel = QLabel()
+    imglabel.setContentsMargins(16, 4, 16, 4)
+    imglabel.setPixmap(QPixmap.fromImage(image))
+    self.vbox.addWidget(imglabel)
+
+  def addGrid(self):
+    grid = QGridLayout()
+    grid.setContentsMargins(16, 4, 4, 16)
+    grid.setColumnStretch(1, 1)
+    grid.setHorizontalSpacing(16)
+    self.vbox.addLayout(grid)
+    return grid
+
+
+
 class ComboBoxWithDescriptor(QComboBox):
   def __init__(self):
     super().__init__()
-    view = self.view()
-    view.entered.connect(self.showDescriptor)
-    view.installEventFilter(self)
-    self.curwidget = None
+
+    self.currDescriptor = None
+    self.preventHide = False
+
+    self.view().entered.connect(self.showDescriptor)
+    self.view().window().installEventFilter(self)
+
+  def closeDescriptor(self):
+    if self.currDescriptor:
+      self.currDescriptor.close()
+      self.currDescriptor = None
 
   def showDescriptor(self, index):
-    if self.curwidget:
-      self.curwidget.close()
-      self.curwidget = None
+    self.closeDescriptor()
 
     widget = index.data(Qt.UserRole+1)
     if not isinstance(widget, QWidget):
       return
 
-    widget.setWindowFlag(Qt.ToolTip, True)
-    widget.setAttribute(Qt.WA_ShowWithoutActivating, True)
+    widget.setWindowFlags(Qt.ToolTip)
 
     view = self.view()
     pos = view.mapToGlobal(QPoint(view.width(), view.visualRect(index).y()))
@@ -283,14 +330,21 @@ class ComboBoxWithDescriptor(QComboBox):
     widget.move(pos)
     widget.show()
 
-    self.curwidget = widget
+    self.currDescriptor = widget
 
-  def eventFilter(self, watched, event):
-    if watched != self.view(): return
-
-    if event.type() in (QEvent.Close, QEvent.Hide):
-      if self.curwidget:
-        self.curwidget.close()
-        self.curwidget = None
+  def eventFilter(self, obj, event):
+    if obj == self.view().window():
+      if event.type() in (QEvent.MouseButtonPress, QEvent.MouseButtonRelease):
+        d = self.currDescriptor
+        if d and d.geometry().contains(event.globalPos()):
+          self.preventHide = True
 
     return False
+
+  def hidePopup(self):
+    if self.preventHide:
+      self.preventHide = False
+      return
+
+    super().hidePopup()
+    self.closeDescriptor()

@@ -136,12 +136,13 @@ class FunctionList(TableWidget):
         return combo
 
     self.setRowCount(n + 1)
-    combo = QComboBox()
+    combo = ComboBoxWithDescriptor()
     combo.addItem('Select', None)
     combo.currentIndexChanged.connect(
       lambda idx: self.functionSelected(n, combo, idx))
     for fc in self.funcClasses:
       combo.addItem(fc.label, fc.name)
+      combo.setItemData(combo.count()-1, fc.getDescriptorWidget(), Qt.UserRole+1)
     self.setCellWidget(n, 0, combo)
     return combo
 

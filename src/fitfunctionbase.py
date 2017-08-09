@@ -4,6 +4,7 @@ from PyQt5.QtCore import QObject, pyqtSignal
 from functions import blockable
 from fitparameters import *
 from fitgraphitems import *
+from fitfuncdescriptor import FitFuncDescriptor
 
 
 
@@ -136,3 +137,9 @@ class FitFunctionBase(QObject):
       expr = expr.subs([(s, Symbol('%%(%s)s' % s.name)) for s in expr.free_symbols])
       cls.expr_excel = str(expr)
     return cls.expr_excel
+
+  @classmethod
+  def getDescriptorWidget(cls):
+    if not hasattr(cls, 'descriptorWidget'):
+      cls.descriptorWidget = FitFuncDescriptor(cls)
+    return cls.descriptorWidget

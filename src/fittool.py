@@ -6,7 +6,7 @@ import pyqtgraph as pg
 import log
 from line import Line
 from toolbase import ToolBase
-from fitfunctions import *
+import fitfunctions
 from fitgraphitems import *
 from settingitems import *
 from functions import blockable
@@ -17,12 +17,7 @@ class FitTool(ToolBase):
   name = 'fit'
   label = 'Fit'
 
-  funcClasses = [
-    FitFuncGaussian, FitFuncPseudoVoigt,
-    FitFuncBoltzmann2,
-    FitFuncConstant, FitFuncHeaviside,
-    FitFuncRectangularWindow
-  ]
+  funcClasses = [getattr(fitfunctions, name) for name in fitfunctions.__all__]
 
   optimizeMethods = [
     'Nelder-Mead',

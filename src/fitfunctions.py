@@ -17,7 +17,12 @@ class FitFuncGaussian(FitFunctionBase):
   label = 'Gaussian'
   expr = 'a*exp(-(x-b)**2/(2*c**2))'
   expr_excel = '%(a)s*exp(-((%(x)s-%(b)s)^2)/(2*(%(c)s^2)))'
-  expr_latex = r'a\exp\left(-\frac{(x-b)^2}{2c^2}\right)'
+  expr_latex = r'y=a\exp\left[-\frac{(x-b)^2}{2c^2}\right]'
+  parameters = [
+    ('a', 'Max height (at x=b)'),
+    ('b', 'Center'),
+    ('c', 'Standard deviation')
+  ]
 
   def __init__(self, view):
     super().__init__(view)
@@ -41,7 +46,13 @@ class FitFuncPseudoVoigt(FitFunctionBase):
   label = 'PseudoVoigt'
   expr = 'a*(m*(w**2)/((x-x0)**2+w**2) + (1-m)*exp(-ln(2)/(w**2)*(x-x0)**2))'
   expr_excel = '%(a)s*(%(m)s*(%(w)s^2)/((%(x)s-%(x0)s)^2+w^2) + (1-%(m)s)*exp(-ln(2)/(%(w)s^2)*((%(x)s-%(x0)s)^2)))'
-  expr_latex = r'a\left[ m\frac{w^2}{(x-x_0)^2 + w^2} + (1-m)\exp\left(-\frac{\ln(2)}{w^2}(x-x_0)^2\right) \right]'
+  expr_latex = r'y=a\left\{ m\frac{w^2}{(x-x_0)^2 + w^2} + (1-m)\exp\left[-\frac{\ln2}{w^2}(x-x_0)^2\right] \right\}'
+  parameters = [
+    ('a', 'Max height (at x=x0)'),
+    ('x0', 'Center'),
+    ('w', 'HWHM'),
+    ('m', 'Mix ratio')
+  ]
 
   def __init__(self, view):
     super().__init__(view)
@@ -64,7 +75,15 @@ class FitFuncBoltzmann2(FitFunctionBase):
   name = 'boltzmann2'
   label = 'Boltzmann 2'
   expr = '(a1*x+b1)/(1+exp((x-x0)/dx)) + (a2*x+b2)*(1-1/(1+exp((x-x0)/dx)))'
-  expr_latex = r'(a_1x+b_1)\frac{1}{1+\exp[(x-x_0)/dx]} + (a_2x+b_2)\left\{1 - \frac{1}{1+\exp[(x-x_0)/dx]}\right\}'
+  expr_latex = r'y=(a_1x+b_1)\frac{1}{1+\exp[(x-x_0)/dx]} + (a_2x+b_2)\left\{1 - \frac{1}{1+\exp[(x-x_0)/dx]}\right\}'
+  parameters = [
+    ('a1', 'Slope of line 1'),
+    ('b1', 'Y-intercept of line 1'),
+    ('a2', 'Slope of line 2'),
+    ('b2', 'Y-intercept of line 2'),
+    ('x0', 'Center'),
+    ('dx', 'Transition factor')
+  ]
 
   def __init__(self, view):
     super().__init__(view)
@@ -124,7 +143,8 @@ class FitFuncConstant(FitFunctionBase):
   name = 'constant'
   label = 'Constant'
   expr = 'y0'
-  expr_latex = r'y_0'
+  expr_latex = r'y=y_0'
+  parameters = [('y0', '')]
 
   def __init__(self, view):
     super().__init__(view)
@@ -141,11 +161,15 @@ class FitFuncHeaviside(FitFunctionBase):
   label = 'Heaviside'
   expr = 'a*heaviside(x-x0, 1)'
   expr_latex = r'''
-a\cdot\begin{cases}
-  0 & (x-x_0 < 0) \\
-  1 & (0 \le x-x_0)
+y=a\cdot\begin{cases}
+  0 & (x < x_0) \\
+  1 & (x_0 \le x)
 \end{cases}
 '''
+  parameters = [
+    ('a', None),
+    ('x0', None)
+  ]
 
   def __init__(self, view):
     super().__init__(view)
@@ -164,12 +188,17 @@ class FitFuncRectangularWindow(FitFunctionBase):
   label = 'Rectangular window'
   expr = 'a*heaviside(x-x0, 1)*heaviside(-(x-x1), 1)'
   expr_latex = r'''
-a\cdot\begin{cases}
+y=a\cdot\begin{cases}
   0 & (x < x_0) \\
   1 & (x_0 \le x \le x_1) \\
   0 & (x_0 < x)
 \end{cases}
 '''
+  parameters = [
+    ('a', None),
+    ('x0', None),
+    ('x1', None)
+  ]
 
   def __init__(self, view):
     super().__init__(view)

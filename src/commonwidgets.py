@@ -2,17 +2,19 @@ import sys
 import re
 import logging
 import html
-from PyQt5.QtCore import Qt, QPoint, QRect, QSize
+from PyQt5.QtCore import Qt, QPoint, QRect, QSize, QEvent
 from PyQt5.QtGui import QKeySequence, QValidator, QPainter, QPen, QBrush, QColor
 from PyQt5.QtWidgets import QApplication, QTableWidget, QMenu, \
-  QFrame, QVBoxLayout, QHBoxLayout, QWidget, QLabel, QLineEdit, QLayout
+  QFrame, QVBoxLayout, QHBoxLayout, QWidget, QLabel, QLineEdit, QLayout, \
+  QComboBox
 
 import log
 
 
 
 __all__ = ['TableWidget', 'HSeparator', 'HBoxLayout', 'VBoxLayout',
-           'ErrorBaloon', 'ErrorCheckEdit', 'FlowLayout']
+           'ErrorBaloon', 'ErrorCheckEdit', 'FlowLayout',
+           'ComboBoxWithDescriptor']
 
 
 
@@ -252,3 +254,43 @@ class FlowLayout(QLayout):
       width = max(width, x-4)
 
     return y-t+rh
+
+
+
+class ComboBoxWithDescriptor(QComboBox):
+  def __init__(self):
+    super().__init__()
+    view = self.view()
+    view.entered.connect(self.showDescriptor)
+    view.installEventFilter(self)
+    self.curwidget = None
+
+  def showDescriptor(self, index):
+    if self.curwidget:
+      self.curwidget.close()
+      self.curwidget = None
+
+    widget = index.data(Qt.UserRole+1)
+    if not isinstance(widget, QWidget):
+      return
+
+    widget.setWindowFlag(Qt.ToolTip, True)
+    widget.setAttribute(Qt.WA_ShowWithoutActivating, True)
+
+    view = self.view()
+    pos = view.mapToGlobal(QPoint(view.width(), view.visualRect(index).y()))
+
+    widget.move(pos)
+    widget.show()
+
+    self.curwidget = widget
+
+  def eventFilter(self, watched, event):
+    if watched != self.view(): return
+
+    if event.type() in (QEvent.Close, QEvent.Hide):
+      if self.curwidget:
+        self.curwidget.close()
+        self.curwidget = None
+
+    return False

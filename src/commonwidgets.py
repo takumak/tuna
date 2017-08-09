@@ -14,7 +14,7 @@ import log
 
 __all__ = ['TableWidget', 'HSeparator', 'HBoxLayout', 'VBoxLayout',
            'ErrorBaloon', 'ErrorCheckEdit', 'FlowLayout',
-           'ComboBoxDescriptor', 'ComboBoxWithDescriptor']
+           'DescriptionWidget', 'ComboBoxWithDescriptor']
 
 
 
@@ -257,7 +257,7 @@ class FlowLayout(QLayout):
 
 
 
-class ComboBoxDescriptor(QFrame):
+class DescriptionWidget(QFrame):
   def __init__(self):
     super().__init__()
 
@@ -281,8 +281,13 @@ class ComboBoxDescriptor(QFrame):
     frame.setLayout(vbox)
     self.vbox.addWidget(frame)
 
-  def addSection(self, title):
-    self.vbox.addWidget(QLabel(title))
+  def addLabel(self, text, **kwargs):
+    label = QLabel(text)
+    if kwargs.get('richtext'):
+      label.setTextFormat(Qt.RichText)
+      label.setTextInteractionFlags(Qt.TextBrowserInteraction)
+      label.setOpenExternalLinks(True)
+    self.vbox.addWidget(label)
 
   def addImage(self, image):
     imglabel = QLabel()

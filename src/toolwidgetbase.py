@@ -1,5 +1,5 @@
-from PyQt5.QtCore import pyqtSignal
-from PyQt5.QtWidgets import QWidget, QComboBox, QLabel
+from PyQt5.QtCore import pyqtSignal, Qt
+from PyQt5.QtWidgets import QWidget, QLabel
 
 from toolbase import ToolBase
 from settingobj import SettingObj
@@ -80,7 +80,8 @@ class MethodSelectorBase(QWidget):
     self.label = label
     self.items = items
 
-    self.combo = QComboBox()
+    self.combo = ComboBoxWithDescriptor()
+    self.descriptors = {}
 
     vbox = VBoxLayout()
     self.setLayout(vbox)
@@ -88,12 +89,18 @@ class MethodSelectorBase(QWidget):
     hbox = HBoxLayout()
     hbox.addWidget(QLabel(label))
     hbox.addWidget(self.combo)
-    vbox.addLayout(hbox)
+    hbox2 = HBoxLayout()
+    hbox2.addLayout(hbox)
+    hbox2.addStretch(1)
+    vbox.addLayout(hbox2)
     self.comboHBox = hbox
 
     optl = VBoxLayout()
     optl.setContentsMargins(40, 0, 0, 0)
-    vbox.addLayout(optl)
+    hbox = HBoxLayout()
+    hbox.addLayout(optl)
+    hbox.addStretch(1)
+    vbox.addLayout(hbox)
     self.setup(optl, items)
 
 
@@ -112,8 +119,22 @@ class MethodSelectorBase(QWidget):
     for item in items:
       opt = item.getSettingWidget()
       self.combo.addItem(item.label, [item, opt])
+
+      desc = None
+      func = getattr(item, 'descriptionWidget', None)
+      if callable(func):
+        desc = func()
+      elif hasattr(item, 'desc'):
+        desc = DescriptionWidget()
+        desc.addLabel(item.desc)
+
+      if desc:
+        self.descriptors[item] = desc
+        self.combo.setItemData(self.combo.count()-1, desc, Qt.UserRole+1)
+
       if opt:
         optlayout.addWidget(opt)
+
     self.combo.setCurrentIndex(0)
     selected(self.combo.currentIndex())
     self.combo.currentIndexChanged.connect(selected)

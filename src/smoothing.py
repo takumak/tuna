@@ -3,6 +3,7 @@ from PyQt5.QtGui import QValidator
 
 from settingobj import SettingObj
 from settingitems import *
+from commonwidgets import *
 
 
 
@@ -56,3 +57,11 @@ class SmoothSavGol(SmoothBase):
   def smooth(self, x, y):
     from scipy.signal import savgol_filter
     return savgol_filter(y, self.windowLength.value(), self.polyorder.value())
+
+  def descriptionWidget(self):
+    w = DescriptionWidget()
+    w.addTitle('Savitzky-Golay filter')
+    w.addLabel('This uses <code>scipy.signal.savgol_filter()</code>.', richtext=True)
+    url = 'https://docs.scipy.org/doc/scipy/reference/generated/scipy.signal.savgol_filter.html'
+    w.addLabel('For more details, see <a href="%s">scipy document</a>.' % url, richtext=True)
+    return w

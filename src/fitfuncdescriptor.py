@@ -6,7 +6,7 @@ from commonwidgets import *
 
 
 
-class FitFuncDescriptor(ComboBoxDescriptor):
+class FitFuncDescriptor(DescriptionWidget):
   def __init__(self, funcClass):
     super().__init__()
     self.funcClass = funcClass
@@ -16,10 +16,10 @@ class FitFuncDescriptor(ComboBoxDescriptor):
     import lateximgs
     img = QImage()
     img.loadFromData(getattr(lateximgs, 'fitfunc_%s' % funcClass.name))
-    self.addSection('Definition:')
+    self.addLabel('Definition:')
     self.addImage(img)
 
-    self.addSection('Parameters:')
+    self.addLabel('Parameters:')
     grid = self.addGrid()
     for r, (name, desc) in enumerate(funcClass.parameters):
       grid.addWidget(QLabel(name), r, 0)

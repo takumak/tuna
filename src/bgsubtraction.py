@@ -53,6 +53,7 @@ class BGSubEdgeBase(BGSubBase):
 class BGSubLeftEdge(BGSubEdgeBase):
   name = 'leftedge'
   label = 'Left edge'
+  desc = 'Use mean Y value of X in range [min(X), min(X)+deltaX]'
 
   def range(self, x):
     x1 = min(x)
@@ -63,6 +64,7 @@ class BGSubLeftEdge(BGSubEdgeBase):
 class BGSubRightEdge(BGSubEdgeBase):
   name = 'rightedge'
   label = 'Right edge'
+  desc = 'Use mean Y value of X in range [max(X)-deltaX, max(X)]'
 
   def range(self, x):
     x2 = max(x)

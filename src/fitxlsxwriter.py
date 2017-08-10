@@ -1,4 +1,8 @@
-from xlsxwriter.utility import xl_rowcol_to_cell as cellName, xl_range_abs as rangeNameAbs
+import numpy as np
+from xlsxwriter.utility import \
+  xl_rowcol_to_cell as cellName, \
+  xl_range as rangeName, \
+  xl_range_abs as rangeNameAbs
 
 
 
@@ -12,10 +16,11 @@ class FitXlsxWriter:
   def write(self, wb):
     self.prepare()
     self.writeParameters(wb, wb.add_worksheet('Parameters'), 0, 0)
+    cells = self.writeNormalizeSheet(wb, wb.add_worksheet('Normalize'), 0, 0)
     for line in self.lines:
       ws = wb.add_worksheet(line.name)
       ws.write(0, 0, self.recalcMsg)
-      self.writeFitSheet(wb, ws, 0, 1, line)
+      self.writeFitSheet(wb, ws, 0, 1, line.name, cells[line.name])
 
   def prepare(self):
     lines = []
@@ -135,49 +140,123 @@ class FitXlsxWriter:
 
       ws.insert_chart(cellName(r4, c0+(i*8)), chart)
 
+  def writeNormalizeSheet(self, wb, ws, c0, r0):
+    maxy = max(self.lines[0].y)/sum(self.lines[0].y)
 
-  def writeFitSheet(self, wb, ws, c0, r0, line):
+    x = self.lines[0].x
+    if len(self.tool.normWindow) == 0:
+      win = np.ones(len(x))
+    else:
+      win = np.sum([f.y(x) for f in self.tool.normWindow], axis=0)
+      win = win/max(win)*maxy*0.8
+    cols = [('x', x), ('window', win)] + [(l.name, l.y) for l in self.lines]
+
+    for c, (name, vals) in enumerate(cols):
+      ws.write(r0, c0+c, name)
+      for r, val in enumerate(vals):
+        ws.write(r0+1+r, c0+c, val)
+
+    r1 = r0+1
+    r2 = r1+len(x)-1
+    c1 = c0 + len(cols) + 1
+    c2 = c1 + len(self.lines) + 1
+
+    chart = wb.add_chart({'type': 'scatter', 'subtype': 'straight'})
+    chart.set_title({'none': True})
+    chart.set_x_axis({
+      'name': 'Energy (eV)',
+      'major_gridlines': {'visible': False},
+      'major_tick_mark': 'inside'
+    })
+    chart.set_y_axis({
+      'name': 'Intensity (a.u.)',
+      'major_gridlines': {'visible': False},
+      'major_tick_mark': 'inside'
+    })
+
+    range_x = rangeNameAbs(r1, c0+0, r2, c0+0)
+    range_w = rangeNameAbs(r1, c0+1, r2, c0+1)
+    range_l0w = rangeNameAbs(r1, c1, r2, c1)
+    for c, l in enumerate(self.lines):
+      ws.write(r0, c1+c, l.name)
+      ws.write(r0, c2+c, l.name)
+
+      range_l = rangeName(r1, c0+2+c, r2, c0+2+c)
+      range_r = rangeName(r1, c2+c, r2, c2+c)
+
+      for r in range(len(x)):
+        cell_l = cellName(r1+r, c0+2+c)
+        cell_w = cellName(r1+r, c1+c)
+        formula = '=%s/sumproduct(%s,%s)' % (cell_l, range_l, range_w)
+        ws.write(cell_w, formula)
+
+        formula = '=%s/sum(%s)' % (cell_w, range_l0w)
+        ws.write(cellName(r1+r, c2+c), formula)
+
+      chart.add_series({
+        'name':       "='%s'!%s" % (ws.name, cellName(r0, c2+c)),
+        'categories': "='%s'!%s" % (ws.name, range_x),
+        'values':     "='%s'!%s" % (ws.name, range_r),
+        'line':       {'width': 1}
+      })
+
+    # window
+    chart.add_series({
+      'name':       "='%s'!%s" % (ws.name, cellName(r0, c0+1)),
+      'categories': "='%s'!%s" % (ws.name, range_x),
+      'values':     "='%s'!%s" % (ws.name, range_w),
+      'line':       {'width': 1}
+    })
+
+    ws.insert_chart(cellName(0, 0), chart)
+    return dict([(l.name, (ws.name, (r1, r2), c0, c2+c)) for c, l in enumerate(self.lines)])
+
+  def writeFitSheet(self, wb, ws, c0, r0, lname, cells):
     from sympy.parsing.sympy_parser import parse_expr
     from sympy import Symbol
 
     r1 = r0+1
 
+    data_sheetname, (data_r1, data_r2), data_c_x, data_c_y = cells
+    datalen = data_r2 - data_r1 + 1
     ws.write(r0, c0+0, 'x')
     ws.write(r0, c0+1, 'y')
-    cols = [line.x, line.y]
+    for r in range(datalen):
+      fx = "='%s'!%s" % (data_sheetname, cellName(data_r1+r, data_c_x))
+      fy = "='%s'!%s" % (data_sheetname, cellName(data_r1+r, data_c_y))
+      ws.write(cellName(r1+r, c0+0), fx)
+      ws.write(cellName(r1+r, c0+1), fy)
+
+    c1 = c0+2
 
     for c, func in enumerate(self.funcs):
-      ws.write(r0, c0+2+c, 'F%d' % c)
+      ws.write(r0, c1+c, 'F%d' % c)
       expr = func.excelExpr()
 
       subs = []
       for p in func.params:
         if p.hidden: continue
-        cell = self.paramCells[(line.name, func.id, p.name)]
+        cell = self.paramCells[(lname, func.id, p.name)]
         subs.append((p.name, cell))
       subs = dict(subs)
 
-      y = []
-      for r in range(len(line.x)):
+      for r in range(datalen):
         subs['x'] = cellName(r1+r, c0)
-        y.append('=%s' % (expr % subs))
-      cols.append(y)
+        f = '=%s' % (expr % subs)
+        ws.write(cellName(r1+r, c1+c), f)
 
-    for r, vals in enumerate(zip(*cols)):
-      for c, v in enumerate(vals):
-        ws.write(cellName(r1+r, c0+c), v)
+    c2 = c1+len(self.funcs)
 
-
-    ws.write(r0, c0+len(cols), 'fit')
-    ws.write(r0, c0+len(cols)+1, 'diff')
-    for r in range(len(line.x)):
+    ws.write(r0, c2+0, 'fit')
+    ws.write(r0, c2+1, 'diff')
+    for r in range(datalen):
       n1 = cellName(r1+r, c0+2)
-      n2 = cellName(r1+r, c0+len(cols)-1)
-      ws.write(r1+r, c0+len(cols), '=sum(%s:%s)' % (n1, n2))
+      n2 = cellName(r1+r, c2-1)
+      ws.write(r1+r, c2, '=sum(%s:%s)' % (n1, n2))
 
       y = cellName(r1+r, c0+1)
-      fit = cellName(r1+r, c0+len(cols))
-      ws.write(r1+r, c0+len(cols)+1, '=%s-%s' % (y, fit))
+      fit = cellName(r1+r, c2)
+      ws.write(r1+r, c2+1, '=%s-%s' % (y, fit))
 
 
 
@@ -194,7 +273,7 @@ class FitXlsxWriter:
       'major_tick_mark': 'inside'
     })
 
-    r2 = r1+len(line.x)-1
+    r2 = r1+datalen-1
     for c in range(len(self.funcs)+3):
       chart.add_series({
         'name':       "='%s'!%s" % (ws.name, cellName(r0, c0+1+c, True, True)),

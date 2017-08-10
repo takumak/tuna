@@ -257,15 +257,6 @@ class FitToolWidget(ToolWidgetBase):
     vbox.setContentsMargins(4, 4, 4, 4)
     self.setLayout(vbox)
 
-    self.normWindow = FunctionList(self.tool.funcClasses, self.tool.createFunction)
-    self.normWindow.functionChanged.connect(self.toolSetNormWindow)
-    self.normWindow.focusIn.connect(lambda: self.setPlotMode('normwin'))
-    self.toolSetNormWindow()
-    vbox.addWidget(QLabel('Normalize window'))
-    vbox.addWidget(self.normWindow)
-
-    vbox.addWidget(HSeparator())
-
     self.bgsub = MethodSelectorBGSub()
     self.bgsub.selectionChanged.connect(
       lambda: self.tool.setBGSub(self.bgsub.currentItem()))
@@ -274,9 +265,20 @@ class FitToolWidget(ToolWidgetBase):
 
     vbox.addWidget(HSeparator())
 
+    vbox.addWidget(QLabel('Normalize window'))
+
+    self.normWindow = FunctionList(self.tool.funcClasses, self.tool.createFunction)
+    self.normWindow.functionChanged.connect(self.toolSetNormWindow)
+    self.normWindow.focusIn.connect(lambda: self.setPlotMode('normwin'))
+    self.toolSetNormWindow()
+    vbox.addWidget(self.normWindow)
+
+    vbox.addWidget(HSeparator())
+
+    vbox.addWidget(QLabel('Fit target'))
+
     self.lineSelector = LineSelector()
     self.lineSelector.selectionChanged.connect(self.lineSelectionChanged)
-    vbox.addWidget(QLabel('Peaks'))
     vbox.addWidget(self.lineSelector)
 
     self.pressureBox = HBoxLayout()
@@ -284,7 +286,12 @@ class FitToolWidget(ToolWidgetBase):
     hbox = HBoxLayout()
     hbox.addWidget(QLabel('Pressure'))
     hbox.addLayout(self.pressureBox)
+    hbox.addStretch(1)
     vbox.addLayout(hbox)
+
+    vbox.addWidget(HSeparator())
+
+    vbox.addWidget(QLabel('Fit functions'))
 
     self.peakFunctions = FunctionList(self.tool.funcClasses, self.tool.createFunction)
     self.peakFunctions.functionChanged.connect(self.toolSetPeakFunctions)

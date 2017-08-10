@@ -7,6 +7,7 @@ from PyQt5.QtGui import QKeySequence, QValidator, QPainter, QPen, QBrush, QColor
 from PyQt5.QtWidgets import QApplication, QTableWidget, QMenu, \
   QFrame, QVBoxLayout, QHBoxLayout, QWidget, QLabel, QLineEdit, QLayout, \
   QComboBox, QGridLayout
+import numpy as np
 
 import log
 
@@ -48,25 +49,36 @@ class TableWidget(QTableWidget):
     self.menu.exec_(ev.globalPos())
 
   def copySelected(self):
-    rows = []
-    row = None
-    curRow = None
-    for cell in self.selectedIndexes():
-      if cell.row() != curRow:
-        row = []
-        rows.append(row)
-        curRow = cell.row()
-      row.append(str(cell.data()).strip())
-    QApplication.clipboard().setText('\n'.join(['\t'.join(r) for r in rows]))
+    # rows = []
+    # row = None
+    # curRow = None
+
+    col, row, val = [], [], []
+    for index in self.selectedIndexes():
+      col.append(self.visualColumn(index.column()))
+      row.append(self.visualRow(index.row()))
+      val.append(str(index.data()).strip())
+
+    col = np.array(col) - min(col)
+    row = np.array(row) - min(row)
+
+    data = dict(zip(zip(row, col), val))
+    tbl = [[data[(r, c)] for c in range(max(col)+1)] for r in range(max(row)+1)]
+
+    QApplication.clipboard().setText('\n'.join(['\t'.join(r) for r in tbl]))
 
   def paste(self):
     text = QApplication.clipboard().text()
     rows = [[c.strip() for c in l.split('\t')] for l in re.split(r'\r?\n', text)]
 
-    r0, c0 = self.currentRow(), self.currentColumn()
-    for r, row in enumerate(rows):
-      for c, text in enumerate(row):
-        item = self.item(r0+r, c0+c)
+    v2l_r = dict([(self.visualRow(r), r)    for r in range(self.rowCount())])
+    v2l_c = dict([(self.visualColumn(c), c) for c in range(self.columnCount())])
+
+    r0 = self.visualRow(self.currentRow())
+    c0 = self.visualColumn(self.currentColumn())
+    for r, vals in enumerate(rows):
+      for c, text in enumerate(vals):
+        item = self.item(v2l_r[r0+r], v2l_c[c0+c])
         if item and item.flags() & Qt.ItemIsEditable:
           item.setText(text)
           self.cellChanged.emit(item.row(), item.column())

@@ -173,6 +173,9 @@ class FitTool(ToolBase):
           params[func.id] = func.getParams()
       self.parameterChanged_peaks.unblock()
 
+      if self.activeLineName:
+        self.savePeakFuncParams(None)
+
   def createFunction(self, funcName):
     for cls in self.funcClasses:
       if cls.name == funcName:

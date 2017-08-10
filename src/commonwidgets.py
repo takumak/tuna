@@ -48,40 +48,65 @@ class TableWidget(QTableWidget):
   def contextMenuEvent(self, ev):
     self.menu.exec_(ev.globalPos())
 
-  def copySelected(self):
-    # rows = []
-    # row = None
-    # curRow = None
-
+  def getSelectedItemTable(self):
     col, row, val = [], [], []
     for index in self.selectedIndexes():
       col.append(self.visualColumn(index.column()))
       row.append(self.visualRow(index.row()))
-      val.append(str(index.data()).strip())
+      val.append(self.item(index.row(), index.column()))
 
     col = np.array(col) - min(col)
     row = np.array(row) - min(row)
 
     data = dict(zip(zip(row, col), val))
     tbl = [[data[(r, c)] for c in range(max(col)+1)] for r in range(max(row)+1)]
+    return tbl
 
-    QApplication.clipboard().setText('\n'.join(['\t'.join(r) for r in tbl]))
+  def copySelected(self):
+    tbl = self.getSelectedItemTable()
+    QApplication.clipboard().setText('\n'.join([
+      '\t'.join([item.text().strip() for item in r]) for r in tbl]))
 
   def paste(self):
     text = QApplication.clipboard().text()
-    rows = [[c.strip() for c in l.split('\t')] for l in re.split(r'\r?\n', text)]
+    data = [[c.strip() for c in l.split('\t')] for l in re.split(r'\r?\n', text)]
 
-    v2l_r = dict([(self.visualRow(r), r)    for r in range(self.rowCount())])
-    v2l_c = dict([(self.visualColumn(c), c) for c in range(self.columnCount())])
+    sel = self.getSelectedItemTable()
 
-    r0 = self.visualRow(self.currentRow())
-    c0 = self.visualColumn(self.currentColumn())
-    for r, vals in enumerate(rows):
-      for c, text in enumerate(vals):
-        item = self.item(v2l_r[r0+r], v2l_c[c0+c])
-        if item and item.flags() & Qt.ItemIsEditable:
-          item.setText(text)
-          self.cellChanged.emit(item.row(), item.column())
+    if len(sel) == 0:
+      return
+    elif len(sel) == 1 and len(sel[0]) == 1:
+      r0 = self.visualRow(sel[0][0].row())
+      c0 = self.visualColumn(sel[0][0].column())
+      v2l_r = dict([(self.visualRow(r), r)    for r in range(self.rowCount())])
+      v2l_c = dict([(self.visualColumn(c), c) for c in range(self.columnCount())])
+      for r, vals in enumerate(data):
+        for c, text in enumerate(vals):
+          item = self.item(v2l_r[r0+r], v2l_c[c0+c])
+          if item and item.flags() & Qt.ItemIsEditable:
+            item.setText(text)
+            self.cellChanged.emit(item.row(), item.column())
+      return
+
+
+    selerr_msg = 'The shapes of table selection and paste data are different'
+    if len(sel) != len(data):
+      logging.error(selerr_msg)
+      return
+
+    for items, values in zip(sel, data):
+      if len(items) != len(values):
+        logging.error(selerr_msg)
+        return
+      for item, val in zip(items, values):
+        if val and not item:
+          logging.error(selerr_msg)
+          return
+
+    for items, values in zip(sel, data):
+      for item, val in zip(items, values):
+        if item:
+          item.setText(val)
 
 
 

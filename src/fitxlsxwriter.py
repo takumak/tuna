@@ -15,12 +15,17 @@ class FitXlsxWriter:
 
   def write(self, wb):
     self.prepare()
-    self.writeParameters(wb, wb.add_worksheet('Parameters'), 0, 0)
-    cells = self.writeNormalizeSheet(wb, wb.add_worksheet('Normalize'), 0, 0)
+
+    self.writeParameters(wb, self.addSheet(wb, 'Parameters'), 0, 1)
+    cells = self.writeNormalizeSheet(wb, self.addSheet(wb, 'Normalize'), 0, 1)
+
     for line in self.lines:
-      ws = wb.add_worksheet(line.name)
-      ws.write(0, 0, self.recalcMsg)
-      self.writeFitSheet(wb, ws, 0, 1, line.name, cells[line.name])
+      self.writeFitSheet(wb, self.addSheet(wb, line.name), 0, 1, line.name, cells[line.name])
+
+  def addSheet(self, wb, name):
+    ws = wb.add_worksheet(name)
+    ws.write(0, 0, self.recalcMsg)
+    return ws
 
   def prepare(self):
     lines = []
@@ -58,7 +63,7 @@ class FitXlsxWriter:
     cc = c0+1
     for i, func in enumerate(self.funcs):
       fparams = [p for p in func.params if not p.hidden]
-      ws.merge_range(r0, cc, r0, cc+len(fparams)-1, 'F%d' % i)
+      ws.merge_range(r0, cc, r0, cc+len(fparams)-1, 'P%d' % i)
       for j, param in enumerate(fparams):
         ws.write(r0+1, cc+j, param.label)
         for k, line in enumerate(self.lines):
@@ -86,9 +91,9 @@ class FitXlsxWriter:
       if N == 0:
         continue
       elif N == 1:
-        ws.write(r1, cc, 'F%d' % i)
+        ws.write(r1, cc, 'P%d' % i)
       else:
-        ws.merge_range(r1, cc, r1, cc+N-1, 'F%d' % i)
+        ws.merge_range(r1, cc, r1, cc+N-1, 'P%d' % i)
 
       for c, param in enumerate(plotParams):
         ws.write(r1+1, cc+c, param.label)
@@ -148,7 +153,7 @@ class FitXlsxWriter:
       win = np.ones(len(x))
     else:
       win = np.sum([f.y(x) for f in self.tool.normWindow], axis=0)
-      win = win/max(win)*maxy*0.8
+    win = win/max(win)*maxy*0.8
     cols = [('x', x), ('window', win)] + [(l.name, l.y) for l in self.lines]
 
     for c, (name, vals) in enumerate(cols):
@@ -208,7 +213,7 @@ class FitXlsxWriter:
       'line':       {'width': 1}
     })
 
-    ws.insert_chart(cellName(0, 0), chart)
+    ws.insert_chart(cellName(r0+10, c0), chart)
     return dict([(l.name, (ws.name, (r1, r2), c0, c2+c)) for c, l in enumerate(self.lines)])
 
   def writeFitSheet(self, wb, ws, c0, r0, lname, cells):
@@ -230,7 +235,7 @@ class FitXlsxWriter:
     c1 = c0+2
 
     for c, func in enumerate(self.funcs):
-      ws.write(r0, c1+c, 'F%d' % c)
+      ws.write(r0, c1+c, 'P%d' % c)
       expr = func.excelExpr()
 
       subs = []

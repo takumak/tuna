@@ -19,9 +19,10 @@ class FitParam(QObject):
     ('ratio', 'Differences in ratio')
   ]
 
-  def __init__(self, name, default, hidden=False, plotMode=None):
+  def __init__(self, name, default, label=None, hidden=False, plotMode=None):
     super().__init__()
     self.name = name
+    self.label = name if label is None else label
     self.value_ = default
     self.hidden = hidden
     self.plotMode = plotMode

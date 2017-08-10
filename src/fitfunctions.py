@@ -33,7 +33,7 @@ class FitFuncGaussian(FitFunctionBase):
     self.addParam(FitParam('b', (x1 + x2)/2, plotMode='diff'))
     self.addParam(FitParam('c', (x2 - x1)*0.1))
     self.addParam(self.eval('Area', 'sqrt(2*pi)*a*c', None, plotMode='ratio'))
-    self.addParam(self.eval('a_c', 'a/c', None, plotMode='ratio'))
+    self.addParam(self.eval('a_c', 'a/c', None, label='a/c', plotMode='ratio'))
 
     half = self.eval('half', 'a/2', None)
     x1 = self.eval('x1', 'b+c*sqrt(2*log(2))', self.c)

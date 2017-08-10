@@ -92,7 +92,7 @@ class FunctionList(TableWidget):
 
       for i, param in enumerate(params):
         c = 1 + i*2
-        self.setItemText(row, c, param.name, editable=False)
+        self.setItemText(row, c, param.label, editable=False)
         valtext = '%g' % param.value()
         val = self.setItemText(row, c+1, valtext)
         val.setData(Qt.UserRole, param)

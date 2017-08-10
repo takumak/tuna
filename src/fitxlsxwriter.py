@@ -60,7 +60,7 @@ class FitXlsxWriter:
       fparams = [p for p in func.params if not p.hidden]
       ws.merge_range(r0, cc, r0, cc+len(fparams)-1, 'F%d' % i)
       for j, param in enumerate(fparams):
-        ws.write(r0+1, cc+j, param.name)
+        ws.write(r0+1, cc+j, param.label)
         for k, line in enumerate(self.lines):
           v = self.params[line.name][func.id][param.name]
           ws.write(r0+2+k, cc+j, v)
@@ -91,7 +91,7 @@ class FitXlsxWriter:
         ws.merge_range(r1, cc, r1, cc+N-1, 'F%d' % i)
 
       for c, param in enumerate(plotParams):
-        ws.write(r1+1, cc+c, param.name)
+        ws.write(r1+1, cc+c, param.label)
 
         for r, line in enumerate(self.lines):
           cell0 = self.paramCells[(self.lines[0].name, func.id, param.name)]
@@ -105,11 +105,11 @@ class FitXlsxWriter:
           fmt = self.getFormat(wb, self.formatForPlotModes[param.plotMode])
           ws.write_formula(cellName(r2+r, cc+c), f, fmt)
 
-        if param.name not in plotdata:
-          plotdata[param.name] = []
-          ylabels.append((param.name, self.formatForPlotModes[param.plotMode]))
+        if param.label not in plotdata:
+          plotdata[param.label] = []
+          ylabels.append((param.label, self.formatForPlotModes[param.plotMode]))
 
-        plotdata[param.name].append((cellName(r1, cc), rangeNameAbs(r2, cc+c, r3, cc+c)))
+        plotdata[param.label].append((cellName(r1, cc), rangeNameAbs(r2, cc+c, r3, cc+c)))
 
       cc += len(plotParams)
 

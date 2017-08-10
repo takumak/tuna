@@ -61,7 +61,9 @@ class SmoothSavGol(SmoothBase):
   def descriptionWidget(self):
     w = DescriptionWidget()
     w.addTitle('Savitzky-Golay filter')
-    w.addLabel('This uses <code>scipy.signal.savgol_filter()</code>.', richtext=True)
     url = 'https://docs.scipy.org/doc/scipy/reference/generated/scipy.signal.savgol_filter.html'
-    w.addLabel('For more details, see <a href="%s">scipy document</a>.' % url, richtext=True)
+    w.addLabel('''
+This uses <code>scipy.signal.savgol_filter()</code>.<br>
+<a href="{0}">{0}</a>
+'''.format(url).strip(), richtext=True)
     return w

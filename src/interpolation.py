@@ -29,9 +29,11 @@ class InterpLinear(InterpBase):
   def descriptionWidget(self):
     w = DescriptionWidget()
     w.addTitle(self.label)
-    w.addLabel('This runs <code>scipy.interpolate.interp1d(x, y, "linear")</code>.', richtext=True)
     url = 'https://docs.scipy.org/doc/scipy/reference/generated/scipy.interpolate.interp1d.html'
-    w.addLabel('For more details, see <a href="%s">scipy document</a>.' % url, richtext=True)
+    w.addLabel('''
+This runs <code>scipy.interpolate.interp1d(x, y, "linear")</code>.<br>
+<a href="{0}">{0}</a>
+'''.format(url).strip(), richtext=True)
     return w
 
 
@@ -60,9 +62,11 @@ class InterpScipy(InterpBase):
     modname = 'scipy.interpolate.%s' % self.clsname
     w = DescriptionWidget()
     w.addTitle(self.label)
-    w.addLabel('This uses <code>%s</code>.' % modname, richtext=True)
     url = 'https://docs.scipy.org/doc/scipy/reference/generated/%s.html' % modname
-    w.addLabel('For more details, see <a href="%s">scipy document</a>.' % url, richtext=True)
+    w.addLabel('''
+This uses <code>{0}</code>.<br>
+<a href="{1}">{1}</a>
+'''.format(modname, url).strip(), richtext=True)
     return w
 
 class InterpCubicSpline(InterpScipy):

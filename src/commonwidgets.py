@@ -2,9 +2,10 @@ import sys
 import re
 import logging
 import html
-from PyQt5.QtCore import Qt, QPoint, QRect, QSize, QEvent, QCoreApplication
-from PyQt5.QtGui import QKeySequence, QValidator, QPainter, QPen, QBrush, QColor, QPixmap
-from PyQt5.QtWidgets import QApplication, QTableWidget, QMenu, \
+from PyQt5.QtCore import Qt, pyqtSignal, QObject, QPoint, QRect, QSize, QEvent, QCoreApplication
+from PyQt5.QtGui import QKeySequence, QValidator, QPainter, \
+  QPen, QBrush, QColor, QPixmap, QMouseEvent
+from PyQt5.QtWidgets import QApplication, QWidget, QTableWidget, QMenu, \
   QFrame, QVBoxLayout, QHBoxLayout, QWidget, QLabel, QLineEdit, QLayout, \
   QComboBox, QGridLayout
 import numpy as np
@@ -295,6 +296,8 @@ class FlowLayout(QLayout):
 
 
 class DescriptionWidget(QFrame):
+  closed = pyqtSignal(QObject)
+
   def __init__(self):
     super().__init__()
 
@@ -340,9 +343,20 @@ class DescriptionWidget(QFrame):
     self.vbox.addLayout(grid)
     return grid
 
+  def closeEvent(self, event):
+    super().closeEvent(event)
+    self.closed.emit(self)
+
 
 
 class ComboBoxWithDescriptor(QComboBox):
+  mouseEvents = (
+    QEvent.MouseButtonPress,
+    QEvent.MouseButtonRelease,
+    QEvent.MouseMove,
+    QEvent.MouseButtonDblClick
+  )
+
   def __init__(self):
     super().__init__()
 
@@ -350,12 +364,15 @@ class ComboBoxWithDescriptor(QComboBox):
     self.preventHide = False
 
     self.view().entered.connect(self.showDescriptor)
-    self.view().window().installEventFilter(self)
 
   def closeDescriptor(self):
     if self.currDescriptor:
       self.currDescriptor.close()
       self.currDescriptor = None
+
+  def descriptorClosed(self, desc):
+    QApplication.instance().removeEventFilter(self)
+    desc.closed.disconnect(self.descriptorClosed)
 
   def showDescriptor(self, index):
     self.closeDescriptor()
@@ -364,22 +381,44 @@ class ComboBoxWithDescriptor(QComboBox):
     if not isinstance(widget, QWidget):
       return
 
-    widget.setWindowFlags(Qt.ToolTip)
-
     view = self.view()
     pos = view.mapToGlobal(QPoint(view.width(), view.visualRect(index).y()))
 
+    widget.setWindowFlags(Qt.ToolTip)
     widget.move(pos)
     widget.show()
 
+    widget.closed.connect(self.descriptorClosed)
+    QApplication.instance().installEventFilter(self)
+
     self.currDescriptor = widget
 
+  @classmethod
+  def isDescendant(self, widget, ancestor):
+    while isinstance(widget, QWidget):
+      if widget == ancestor:
+        return True
+      widget = widget.parentWidget()
+    return False
+
   def eventFilter(self, obj, event):
-    if obj == self.view().window():
-      if event.type() in (QEvent.MouseButtonPress, QEvent.MouseButtonRelease):
-        d = self.currDescriptor
-        if d and d.geometry().contains(event.globalPos()):
-          self.preventHide = True
+    if event.type() in self.mouseEvents and self.isDescendant(obj, self.view().window()):
+      w = QApplication.widgetAt(event.globalPos())
+      if self.isDescendant(w, self.currDescriptor):
+        localpos = w.mapFromGlobal(event.globalPos())
+        newev = QMouseEvent(
+          event.type(),
+          localpos,
+          event.screenPos(),
+          event.button(),
+          event.buttons(),
+          event.modifiers()
+        )
+        QApplication.sendEvent(w, newev)
+        self.preventHide = True
+
+    if event.type() in (QEvent.Close, QEvent.Hide) and obj == self.view().window():
+      self.closeDescriptor()
 
     return False
 
@@ -387,6 +426,4 @@ class ComboBoxWithDescriptor(QComboBox):
     if self.preventHide:
       self.preventHide = False
       return
-
     super().hidePopup()
-    self.closeDescriptor()

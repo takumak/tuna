@@ -8,6 +8,11 @@ import log
 class Tsuna(QApplication):
   def __init__(self):
     super().__init__(sys.argv)
+
+    from icon import TunaIcon
+    self.icon = TunaIcon.get()
+    self.setWindowIcon(self.icon)
+
     from mainwindow import MainWindow
     self.window = MainWindow()
     self.window.show()

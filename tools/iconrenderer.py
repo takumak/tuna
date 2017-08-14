@@ -11,11 +11,14 @@ icondir = os.path.join(rootdir, 'icon')
 app = QGuiApplication(sys.argv)
 
 icons = []
+svg_extrasmall = QSvgRenderer(os.path.join(icondir, 'tuna_extrasmall.svg'))
 svg_small = QSvgRenderer(os.path.join(icondir, 'tuna_small.svg'))
 svg_big = QSvgRenderer(os.path.join(icondir, 'tunacan.svg'))
-for size in (16, 24, 32, 48, 128, 1024):
+for size in (16, 24, 32, 48, 64, 128, 1024):
   print('generate: %d' % size)
-  if size <= 48:
+  if size <= 24:
+    renderer = svg_extrasmall
+  elif size <= 64:
     renderer = svg_small
   else:
     renderer = svg_big

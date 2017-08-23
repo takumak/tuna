@@ -6,7 +6,7 @@ from fithandles import *
 
 __all__ = [
   'FitFuncGaussian', 'FitFuncPseudoVoigt', 'FitFuncBoltzmann2',
-  'FitFuncConstant', 'FitFuncHeaviside',
+  'FitFuncConstant', 'FitFuncLine', 'FitFuncHeaviside',
   'FitFuncRectangularWindow'
 ]
 
@@ -154,6 +154,44 @@ class FitFuncConstant(FitFunctionBase):
     self.addParam(FitParam('y0', y2*0.8))
     self.addParam(FitParam('x0', x1, hidden=True))
     self.addHandle(FitHandlePosition(view, self.x0, self.y0))
+
+
+
+class FitFuncLine(FitFunctionBase):
+  name = 'line'
+  label = 'Line'
+  expr = 'a*x+b'
+  expr_latex = r'ax+b'
+  parameters = [
+    ('a', None),
+    ('b', None)
+  ]
+
+  def __init__(self, view):
+    super().__init__(view)
+
+    r = view.viewRect()
+    x1, x2, y1, y2 = r.left(), r.right(), r.top(), r.bottom()
+    self.addParam(FitParam('a', (y2-y1)/(x2-x1)))
+    self.addParam(FitParam('b', y1-self.a.value()*x1))
+
+
+    cx = (x1+x2)/2
+    cy = self.a.value()*cx+self.b.value()
+    self.addParam(FitParam('cx', cx, hidden=True))
+    self.addParam(FitParam('cy', cy, hidden=True))
+    self.a.valueChanged.connect(self.setB)
+    self.b.valueChanged.connect(self.setcy)
+    self.cx.valueChanged.connect(self.setB)
+    self.cy.valueChanged.connect(self.setB)
+    self.addHandle(FitHandleGradient(view, self.cx, self.cy, self.a, 50))
+    self.addHandle(FitHandlePosition(view, self.cx, self.cy))
+
+  def setB(self):
+    self.b.setValue(self.cy.value() - self.a.value()*self.cx.value())
+
+  def setcy(self):
+    self.cy.setValue(self.a.value()*self.cx.value()+self.b.value())
 
 
 

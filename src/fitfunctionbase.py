@@ -1,5 +1,6 @@
 import uuid
 from PyQt5.QtCore import QObject, pyqtSignal
+import numpy as np
 
 from functions import blockable
 from fitparameters import *
@@ -110,13 +111,21 @@ class FitFunctionBase(QObject):
 
     return lambda x, *vals: func(x, *(list(vals) + [self.paramsNameMap[n].value() for n in fixed]))
 
+  @classmethod
+  def samedim(cls, y, x):
+    try:
+      i = iter(y)
+    except TypeError:
+      return np.full(len(x), y)
+    return y
+
   def y(self, x):
     from sympy import Symbol, lambdify
     expr = self.parse_expr(self.expr)
     args = [Symbol('x')]+[Symbol(p.name) for p in self.params]
     func = lambdify(args, expr, 'numpy')
 
-    y = lambda x: func(x, *[p.value() for p in self.params])
+    y = lambda x: self.samedim(func(x, *[p.value() for p in self.params]), x)
     self.y = y
     return y(x)
 

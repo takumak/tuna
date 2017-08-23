@@ -313,8 +313,10 @@ class FitToolWidget(ToolWidgetBase):
     hbox.addWidget(self.optimizeCombo)
     hbox.addWidget(QLabel('Tolerance'))
     hbox.addWidget(self.tool.optimize_tol.getWidget())
-    hbox.addWidget(QLabel('Curr diff square sum'))
+    hbox.addWidget(QLabel('Diff sq sum'))
     hbox.addWidget(self.tool.diffSquareSum.getWidget())
+    hbox.addWidget(QLabel('R^2'))
+    hbox.addWidget(self.tool.R2.getWidget())
     hbox.addStretch(1)
     vbox.addLayout(hbox)
 

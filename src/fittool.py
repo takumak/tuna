@@ -55,6 +55,8 @@ class FitTool(ToolBase):
       min_=0, emptyIsNone=True))
     self.diffSquareSum = SettingItemFloat(
       'diffsqsum', 'Result', '0')
+    self.R2 = SettingItemFloat(
+      'R2', 'R^2', '0')
 
   def setBGSub(self, bgsub):
     if self.bgsub:
@@ -256,8 +258,12 @@ class FitTool(ToolBase):
       return
 
     x = active.x
-    y = np.sum([f.y(x) for f in self.functions()], axis=0) - active.y
-    self.diffSquareSum.setStrValue('%.3e' % np.sum(y**2))
+    y = active.y
+    diff = np.sum([f.y(x) for f in self.functions()], axis=0) - y
+    diffsqsum = np.sum(diff**2)
+    R2 = 1 - diffsqsum/np.sum((y - sum(y)/len(y))**2)
+    self.diffSquareSum.setStrValue('%.3e' % diffsqsum)
+    self.R2.setStrValue('%.4f' % R2)
     self.diffCurveItem.setXY(x, y)
 
   def activeLine(self):

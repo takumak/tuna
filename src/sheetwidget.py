@@ -11,7 +11,7 @@ from functions import getTableColumnLabel
 
 
 class SheetWidget(QWidget):
-  copyFormulaRequested = pyqtSignal(str)
+  copyInputRequested = pyqtSignal(str, bool)
 
   def __init__(self, sheet):
     super().__init__()
@@ -20,27 +20,33 @@ class SheetWidget(QWidget):
     vbox = VBoxLayout()
     self.setLayout(vbox)
 
-    self.formulaMenu = QMenu()
-    self.formulaMenu.addAction(
+    self.inputMenu = QMenu()
+    self.inputMenu.addAction(
       'Copy to sibling sheets',
-      lambda: self.copyFormulaRequested.emit(self.formulaMenu.xy))
+      lambda: self.copyInputRequested.emit(self.inputMenu.target, False))
+    self.inputMenu.addAction(
+      'Copy to ALL sheets',
+      lambda: self.copyInputRequested.emit(self.inputMenu.target, True))
 
-    self.xMenuButton = QPushButton('\u2630')
-    self.xMenuButton.setStyleSheet('padding:3')
-    self.xMenuButton.clicked.connect(lambda *a: self.showFormulaMenu('x'))
-    self.yMenuButton = QPushButton('\u2630')
-    self.yMenuButton.setStyleSheet('padding:3')
-    self.yMenuButton.clicked.connect(lambda *a: self.showFormulaMenu('y'))
 
     grid = QGridLayout()
     grid.addWidget(QLabel('X'), 0, 0)
     grid.addWidget(sheet.xFormula.getWidget(), 0, 1)
-    grid.addWidget(self.xMenuButton, 0, 2)
     grid.addWidget(QLabel('Y'), 1, 0)
     grid.addWidget(sheet.yFormula.getWidget(), 1, 1)
-    grid.addWidget(self.yMenuButton, 1, 2)
+    grid.addWidget(QLabel('X range'), 2, 0)
+    grid.addWidget(sheet.xRange.getWidget(), 2, 1)
+
+    for i, name in enumerate(('x', 'y', 'xrange')):
+      btn = QPushButton('\u2630')
+      btn.setStyleSheet('padding:3')
+      f = (lambda btn, n: (lambda *a: self.showInputMenu(btn, n)))(btn, name)
+      btn.clicked.connect(f)
+      grid.addWidget(btn, i, 2)
+
     grid.setColumnStretch(1, 1)
     vbox.addLayout(grid)
+
 
     self.table = TableWidget()
     self.table.setColumnCount(sheet.colCount())
@@ -52,7 +58,6 @@ class SheetWidget(QWidget):
       for r in range(sheet.rowCount()):
         self.table.setItem(r, c, QTableWidgetItem(str(self.sheet.getValue(r, c))))
 
-  def showFormulaMenu(self, xy):
-    btn = getattr(self, '%sMenuButton' % xy)
-    self.formulaMenu.xy = xy
-    self.formulaMenu.exec_(btn.mapToGlobal(QPoint(0, btn.rect().height())))
+  def showInputMenu(self, btn, target):
+    self.inputMenu.target = target
+    self.inputMenu.exec_(btn.mapToGlobal(QPoint(0, btn.rect().height())))

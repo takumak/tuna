@@ -99,16 +99,31 @@ class SourcesWidget(QSplitter):
       self.addSheet(fitem, sheet, checked)
 
   def addSheet(self, fitem, sheet, checked):
-    def copyFormula(xy):
-      key = '%sFormula' % xy
-      for j in range(fitem.childCount()):
-        sitem = fitem.child(j)
-        sw_ = sitem.data(0, Qt.UserRole)[0]
-        if sw_ != sw:
-          getattr(sw_.sheet, key).setStrValue(getattr(sw.sheet, key).strValue())
+    def copyInput(target, toall):
+      key = {
+        'x': 'xFormula',
+        'y': 'yFormula',
+        'xrange': 'xRange'
+      }[target]
+
+      val = getattr(sw.sheet, key).strValue()
+
+      if toall:
+        fitems = []
+        for i in range(self.tree.topLevelItemCount()):
+          fitems.append(self.tree.topLevelItem(i))
+      else:
+        fitems = [fitem]
+
+      for fitem in fitems:
+        for j in range(fitem.childCount()):
+          sitem = fitem.child(j)
+          sw_ = sitem.data(0, Qt.UserRole)[0]
+          if sw_ != sw:
+            getattr(sw_.sheet, key).setStrValue(val)
 
     sw = SheetWidget(sheet)
-    sw.copyFormulaRequested.connect(copyFormula)
+    sw.copyInputRequested.connect(copyInput)
 
     item = QTreeWidgetItem([sheet.name])
     item.setFlags(item.flags() | Qt.ItemIsUserCheckable)

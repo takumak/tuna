@@ -6,7 +6,7 @@ from commonwidgets import *
 
 
 
-__all__ = ['SettingItemStr', 'SettingItemInt', 'SettingItemFloat']
+__all__ = ['SettingItemStr', 'SettingItemInt', 'SettingItemFloat', 'SettingItemRange']
 
 
 
@@ -127,3 +127,32 @@ class SettingItemFloat(SettingItemNumber):
     super().__init__(name, label, default, float,
                      min_=min_, max_=max_, validator=validator,
                      emptyIsNone=emptyIsNone)
+
+
+
+class SettingItemRange(SettingItemBase):
+  def __init__(self, name, label, default, validator=None):
+    super().__init__(name, label, default, validator)
+
+  def inRange(self, val):
+    v1, v2 = self.value()
+    return v1 <= val <= v2
+
+  def value(self):
+    return tuple(map(float, self.strValue().split(':', 1)))
+
+  def validate(self, text):
+    if ':' not in text:
+      return QValidator.Invalid, 'Value must be in format of "{number}:{number}"'
+
+    v1, v2 = text.split(':', 1)
+    for val in (v1, v2):
+      try:
+        val = float(val)
+      except:
+        return QValidator.Invalid, 'Each value must be a number, but got "%s"' % val
+
+    if v1 > v2:
+      return QValidator.Invalid, 'The first value must be smaller than the second value'
+
+    return super().validate((v1, v2))

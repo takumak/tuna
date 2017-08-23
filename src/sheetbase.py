@@ -22,6 +22,7 @@ class SheetBase:
     self.name = name
     self.xFormula = SettingItemStr('xformula', 'X', 'A', self.validate)
     self.yFormula = SettingItemStr('yformula', 'Y', 'B', self.validate)
+    self.xRange = SettingItemRange('xrange', 'X range', '-inf:inf')
 
     from functions import getTableColumnLabel
     self.errors = ['sqrt(%s)' % getTableColumnLabel(c) for c in range(self.colCount())]
@@ -59,7 +60,8 @@ class SheetBase:
     raise NotImplementedError()
 
   def xValues(self):
-    return self.evalFormula(self.xFormula.value())
+    cols = self.evalFormula(self.xFormula.value())
+    return np.array([[(v if self.xRange.inRange(v) else None) for v in vals] for vals in cols])
 
   def yValues(self):
     return self.evalFormula(self.yFormula.value())

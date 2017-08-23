@@ -135,7 +135,7 @@ class VBoxLayout(QVBoxLayout):
 
 
 
-class ErrorBaloon(QWidget):
+class ErrorBaloon(QFrame):
   def __init__(self):
     super().__init__()
 
@@ -146,31 +146,19 @@ class ErrorBaloon(QWidget):
     vbox.addWidget(self.label)
     self.setLayout(vbox)
 
-  def paintEvent(self, ev):
-    rect = self.rect()
-    rect = QRect(rect.x(), rect.y(), rect.width()-1, rect.height()-1)
-
-    painter = QPainter(self)
-    painter.setRenderHint(painter.Antialiasing)
-    painter.setBrush(QBrush(QColor(0xf8, 0xf8, 0xf8)))
-    painter.setPen  (  QPen(QColor(0x80, 0x80, 0x80)))
-    painter.drawRoundedRect(rect, 3, 3)
-    painter.end()
+    self.setFrameShape(QFrame.StyledPanel)
+    self.setWindowFlags(Qt.ToolTip)
 
   def setMessage(self, text):
     self.label.setText('<span style="font-weight:bold; color:#800">%s</span>' % html.escape(text))
 
   def updatePosition(self, widget):
-    self.setParent(widget.window())
     self.adjustSize()
-
-    parent = widget.parentWidget()
-    pt = widget.mapTo(parent, QPoint(0, 0))
-    while(parent != self.parentWidget()):
-      pt = parent.mapTo(parent.parentWidget(), pt)
-      parent = parent.parentWidget()
-
-    self.move(pt.x(), pt.y() - self.rect().height())
+    r = self.rect()
+    tl = widget.mapToGlobal(QPoint(0, 0))
+    tr = tl + QPoint(widget.size().width(), 0)
+    x = (tl.x() + tr.x())/2 - r.width()/2
+    self.move(x, tl.y() - r.height())
 
 
 
@@ -198,7 +186,6 @@ class ErrorCheckEdit(QLineEdit):
 
   def showBaloon(self):
     self.baloon.updatePosition(self)
-    self.baloon.update()
     self.baloon.show()
     self.setStyleSheet('');
 

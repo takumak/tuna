@@ -16,11 +16,16 @@ class FitXlsxWriter:
   def write(self, wb):
     self.prepare()
 
-    self.writeParameters(wb, self.addSheet(wb, 'Parameters'), 0, 1)
+    ws_params = self.addSheet(wb, 'Parameters')
+    cells_R2 = self.writeParameters(wb, ws_params, 0, 1)
     cells = self.writeNormalizeSheet(wb, self.addSheet(wb, 'Normalize'), 0, 1)
 
     for line in self.lines:
-      self.writeFitSheet(wb, self.addSheet(wb, line.name), 0, 1, line.name, cells[line.name])
+      ws = self.addSheet(wb, line.name)
+      R2 = self.writeFitSheet(wb, ws, 0, 1, line.name, cells[line.name])
+      f = "='%s'!%s" % (ws.name, R2)
+      ws_params.write(cells_R2[line.name], f)
+    ws_params.write(cells_R2[0], 'R^2')
 
   def addSheet(self, wb, name):
     ws = wb.add_worksheet(name)
@@ -36,14 +41,14 @@ class FitXlsxWriter:
     for line in self.tool.lines:
       if line.name not in params: continue
       p = self.tool.getPressure(line.name).value()
-      if p is None: continue
+      # if p is None: continue
       pressures[line.name] = p
       for func in funcs:
         if func.id not in params[line.name]: break
       else:
         lines.append(line)
 
-    self.lines = lines
+    self.lines = list(self.tool.lines)
     self.params = params
     self.funcs = funcs
     self.pressures = pressures
@@ -60,7 +65,7 @@ class FitXlsxWriter:
 
     self.paramCells = {}
 
-    cc = c0+1
+    cc = c0+2
     for i, func in enumerate(self.funcs):
       fparams = [p for p in func.params if not p.hidden]
       ws.merge_range(r0, cc, r0, cc+len(fparams)-1, 'P%d' % i)
@@ -78,7 +83,7 @@ class FitXlsxWriter:
     r1 = 2+len(self.lines)+2
     r2 = r1+2
     r3 = r2+len(self.lines)-1
-    cc = c0+1
+    cc = c0+2
 
     for i, line in enumerate(self.lines):
       ws.write(r2+i, c0, self.pressures[line.name])
@@ -144,6 +149,11 @@ class FitXlsxWriter:
         })
 
       ws.insert_chart(cellName(r4, c0+(i*8)), chart)
+
+    cells_R2 = dict([(l.name, cellName(r0+2+i, c0+1))
+                     for i, l in enumerate(self.lines)])
+    cells_R2[0] = cellName(r0+1, c0+1)
+    return cells_R2
 
   def writeNormalizeSheet(self, wb, ws, c0, r0):
     maxy = max(self.lines[0].y)/sum(self.lines[0].y)
@@ -220,19 +230,24 @@ class FitXlsxWriter:
     from sympy.parsing.sympy_parser import parse_expr
     from sympy import Symbol
 
-    r1 = r0+1
-
     data_sheetname, (data_r1, data_r2), data_c_x, data_c_y = cells
     datalen = data_r2 - data_r1 + 1
+
+    r1 = r0+1
+    r2 = r1+datalen-1
+
     ws.write(r0, c0+0, 'x')
     ws.write(r0, c0+1, 'y')
+    ws.write(r0, c0+2, 'y-avg(y)')
     for r in range(datalen):
       fx = "='%s'!%s" % (data_sheetname, cellName(data_r1+r, data_c_x))
       fy = "='%s'!%s" % (data_sheetname, cellName(data_r1+r, data_c_y))
+      fd = '=%s - AVERAGE(%s)' % (cellName(r1+r, c0+1), rangeName(r1, c0+1, r2, c0+1))
       ws.write(cellName(r1+r, c0+0), fx)
       ws.write(cellName(r1+r, c0+1), fy)
+      ws.write(cellName(r1+r, c0+2), fd)
 
-    c1 = c0+2
+    c1 = c0+3
 
     for c, func in enumerate(self.funcs):
       ws.write(r0, c1+c, 'P%d' % c)
@@ -255,7 +270,7 @@ class FitXlsxWriter:
     ws.write(r0, c2+0, 'fit')
     ws.write(r0, c2+1, 'diff')
     for r in range(datalen):
-      n1 = cellName(r1+r, c0+2)
+      n1 = cellName(r1+r, c0+3)
       n2 = cellName(r1+r, c2-1)
       ws.write(r1+r, c2, '=sum(%s:%s)' % (n1, n2))
 
@@ -263,6 +278,13 @@ class FitXlsxWriter:
       fit = cellName(r1+r, c2)
       ws.write(r1+r, c2+1, '=%s-%s' % (y, fit))
 
+
+    c3 = c2+len(self.funcs)
+    f = '=1 - sumsq(%s)/sumsq(%s)' % (
+      rangeName(r1, c2+1, r2, c2+1),
+      rangeName(r1, c0+1, r2, c0+1))
+    ws.write(cellName(r0, c3), 'R^2')
+    ws.write(cellName(r1, c3), f)
 
 
     chart = wb.add_chart({'type': 'scatter', 'subtype': 'straight'})
@@ -278,8 +300,8 @@ class FitXlsxWriter:
       'major_tick_mark': 'inside'
     })
 
-    r2 = r1+datalen-1
-    for c in range(len(self.funcs)+3):
+    for c in range(len(self.funcs)+4):
+      if c == 1: continue
       chart.add_series({
         'name':       "='%s'!%s" % (ws.name, cellName(r0, c0+1+c, True, True)),
         'categories': "='%s'!%s" % (ws.name, rangeNameAbs(r1, c0, r2, c0)),
@@ -287,4 +309,6 @@ class FitXlsxWriter:
         'line':       {'width': 1}
       })
 
-    ws.insert_chart(cellName(r0, c0+len(self.funcs)+5), chart)
+    ws.insert_chart(cellName(r0, c3+2), chart)
+
+    return cellName(r1, c3)

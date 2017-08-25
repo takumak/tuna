@@ -264,7 +264,7 @@ class FitTool(ToolBase):
     R2 = 1 - diffsqsum/np.sum((y - sum(y)/len(y))**2)
     self.diffSquareSum.setStrValue('%.3e' % diffsqsum)
     self.R2.setStrValue('%.4f' % R2)
-    self.diffCurveItem.setXY(x, y)
+    self.diffCurveItem.setXY(x, diff)
 
   def activeLine(self):
     if self.activeLineName and self.activeLineName in self.lineNameMap:

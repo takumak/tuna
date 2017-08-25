@@ -142,15 +142,10 @@ class SettingItemRange(SettingItemBase):
     return tuple(map(float, self.strValue().split(':', 1)))
 
   def validate(self, text):
-    if ':' not in text:
+    try:
+      v1, v2 = map(float, text.split(':', 1))
+    except:
       return QValidator.Invalid, 'Value must be in format of "{number}:{number}"'
-
-    v1, v2 = text.split(':', 1)
-    for val in (v1, v2):
-      try:
-        val = float(val)
-      except:
-        return QValidator.Invalid, 'Each value must be a number, but got "%s"' % val
 
     if v1 > v2:
       return QValidator.Invalid, 'The first value must be smaller than the second value'

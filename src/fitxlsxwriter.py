@@ -1,3 +1,4 @@
+import logging
 import numpy as np
 from xlsxwriter.utility import \
   xl_rowcol_to_cell as cellName, \
@@ -72,7 +73,12 @@ class FitXlsxWriter:
       for j, param in enumerate(fparams):
         ws.write(r0+1, cc+j, param.label)
         for k, line in enumerate(self.lines):
-          v = self.params[line.name][func.id][param.name]
+          try:
+            v = self.params[line.name][func.id][param.name]
+          except KeyError:
+            logging.debug('KeyError: line=%s, func=%s, param=%s'
+                          % (line.name, func.label, param.name))
+            raise
           ws.write(r0+2+k, cc+j, v)
           cellname = "'%s'!%s" % (ws.name, cellName(r0+2+k, cc+j, True, True))
           self.paramCells[(line.name, func.id, param.name)] = cellname
@@ -292,7 +298,9 @@ class FitXlsxWriter:
     chart.set_x_axis({
       'name': 'Energy (eV)',
       'major_gridlines': {'visible': False},
-      'major_tick_mark': 'inside'
+      'major_tick_mark': 'inside',
+      'min': min([min(l.x) for l in self.lines]),
+      'max': max([max(l.x) for l in self.lines])
     })
     chart.set_y_axis({
       'name': 'Intensity (a.u.)',

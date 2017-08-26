@@ -50,11 +50,6 @@ class FitTool(ToolBase):
     self.plotParams = None
 
     self.optimizeMethod = self.optimizeMethods[0]
-    self.addSettingItem(SettingItemFloat(
-      'optimize_tol', 'Tolerance', '',
-      min_=0, emptyIsNone=True))
-    self.diffSquareSum = SettingItemFloat(
-      'diffsqsum', 'Result', '0')
     self.R2 = SettingItemFloat(
       'R2', 'R^2', '0')
 
@@ -120,11 +115,7 @@ class FitTool(ToolBase):
     func = lambda a: np.sum((np.sum([f(a) for f in funcs], axis=0) - line.y)**2)
     a0 = np.array([p.value() for p in params])
 
-    res = minimize(
-      func, a0,
-      method=self.optimizeMethod,
-      tol=self.optimize_tol.value()
-    )
+    res = minimize(func, a0, method=self.optimizeMethod)
     logging.debug('Optimize done: %s' % ','.join(map(str, res.x)))
 
     self.parameterChanged_peaks.block()
@@ -260,9 +251,7 @@ class FitTool(ToolBase):
     x = active.x
     y = active.y
     diff = np.sum([f.y(x) for f in self.functions()], axis=0) - y
-    diffsqsum = np.sum(diff**2)
-    R2 = 1 - diffsqsum/np.sum((y - sum(y)/len(y))**2)
-    self.diffSquareSum.setStrValue('%.3e' % diffsqsum)
+    R2 = 1 - np.sum(diff**2)/np.sum((y - sum(y)/len(y))**2)
     self.R2.setStrValue('%.4f' % R2)
     self.diffCurveItem.setXY(x, diff)
 

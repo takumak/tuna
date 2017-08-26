@@ -247,6 +247,50 @@ class LineSelector(QWidget):
 
 
 
+class PlotLabelsTable(TableWidget):
+  def __init__(self):
+    super().__init__()
+    self.setSizeAdjustPolicy(self.AdjustToContents)
+    self.setColumnCount(2)
+    self.setRowCount(2)
+    self.setHorizontalHeaderLabels(['X label', 'Y label'])
+    self.setVerticalHeaderLabels(['Source', 'Parameter'])
+
+    self.sourceX = QTableWidgetItem('Energy (eV)')
+    self.sourceY = QTableWidgetItem('Intensity (a.u.)')
+    self.paramX = QTableWidgetItem('Pressure (GPa)')
+    self.paramY = QTableWidgetItem('')
+
+    self.setItem(0, 0, self.sourceX)
+    self.setItem(0, 1, self.sourceY)
+    self.setItem(1, 0, self.paramX)
+    self.setItem(1, 1, self.paramY)
+
+    self.setParam(None)
+
+    self.itemChanged.connect(self.edited)
+
+  def setParam(self, param):
+    self.param = param
+
+    self.edited.block()
+    flags = self.paramY.flags()
+    if param is None:
+      flags &= ~Qt.ItemIsEnabled
+      self.paramY.setText('')
+    else:
+      flags |= Qt.ItemIsEnabled
+      self.paramY.setText(param.plotLabel or '')
+    self.paramY.setFlags(flags)
+    self.edited.unblock()
+
+  @blockable
+  def edited(self, item):
+    if item == self.paramY and self.param:
+      self.param.plotLabel = self.paramY.text()
+
+
+
 class FitToolWidget(ToolWidgetBase):
   toolClass = FitTool
 
@@ -265,13 +309,11 @@ class FitToolWidget(ToolWidgetBase):
 
     vbox.addWidget(HSeparator())
 
-    vbox.addWidget(QLabel('Normalize window'))
-
     self.normWindow = FunctionList(self.tool.funcClasses, self.tool.createFunction)
     self.normWindow.functionChanged.connect(self.toolSetNormWindow)
     self.normWindow.focusIn.connect(lambda: self.setPlotMode('normwin'))
     self.toolSetNormWindow()
-    vbox.addWidget(self.normWindow)
+    vbox.addWidget(ExpanderWidget('Normalize window', self.normWindow))
 
     vbox.addWidget(HSeparator())
 
@@ -296,7 +338,7 @@ class FitToolWidget(ToolWidgetBase):
     self.peakFunctions = FunctionList(self.tool.funcClasses, self.tool.createFunction)
     self.peakFunctions.functionChanged.connect(self.toolSetPeakFunctions)
     self.peakFunctions.focusIn.connect(lambda: self.setPlotMode('peaks'))
-    self.peakFunctions.itemSelectionChanged.connect(self.toolSetPlotParams)
+    self.peakFunctions.itemSelectionChanged.connect(self.paramsSelected)
     self.peakFunctions.addAction(
       '&Optimize selected parameters',
       self.optimize, QKeySequence('Ctrl+Enter,Ctrl+Return'))
@@ -320,13 +362,35 @@ class FitToolWidget(ToolWidgetBase):
     self.plotParams.toggled.connect(self.toolSetPlotParams)
     vbox.addWidget(self.plotParams)
 
-    vbox.addStretch(1)
+    vbox.addWidget(HSeparator())
+
+    vbox2 = VBoxLayout()
+
+    self.plotModeCombo = QComboBox()
+    self.plotModeCombo.currentIndexChanged.connect(self.plotModeSelected)
+    self.plotModeCombo.addItem('Select...', None)
+    for value, label in FitParam.plotModes:
+      self.plotModeCombo.addItem(label, value)
+    hbox = HBoxLayout()
+    hbox.addWidget(QLabel('Plot Pressure vs Selected parameters'))
+    hbox.addWidget(self.plotModeCombo)
+    vbox2.addLayout(hbox)
+
+    self.plotLabelsTable = PlotLabelsTable()
+    vbox2.addWidget(self.plotLabelsTable)
 
     hbox = HBoxLayout()
     btn = QPushButton('Export xlsx')
     btn.clicked.connect(self.exportXlsx)
     hbox.addWidget(btn)
-    vbox.addLayout(hbox)
+    vbox2.addLayout(hbox)
+
+    expander = ExpanderWidget('Export xlsx', vbox2)
+    vbox.addWidget(expander)
+
+    vbox.addStretch(1)
+
+    self.paramsSelected()
 
   def setOptimizeMethod(self):
     self.tool.optimizeMethod = self.optimizeCombo.currentText()
@@ -359,17 +423,59 @@ class FitToolWidget(ToolWidgetBase):
       self.tool.mode = mode
       self.plotRequested.emit(self.tool, False)
 
-  def toolSetPlotParams(self, *args):
+  def selectedParams(self):
     params = []
-    if self.plotParams.isChecked():
-      for item in self.peakFunctions.selectedItems():
-        p = item.data(Qt.UserRole)
-        if p:
-          params.append(p)
+    for item in self.peakFunctions.selectedItems():
+      p = item.data(Qt.UserRole)
+      if p:
+        params.append(p)
+    return params
 
-    if len(params) == 0: params = None
+  def toolSetPlotParams(self, *args):
+    params = None
+    if self.plotParams.isChecked():
+      params = self.selectedParams()
+      if len(params) == 0:
+        params = None
+
     if params != self.tool.plotParams:
       self.tool.plotParams = params
+      self.plotRequested.emit(self.tool, True)
+
+  def paramsSelected(self, *args):
+    self.toolSetPlotParams()
+
+    params = self.selectedParams()
+    if len(params) == 0:
+      self.plotModeCombo.setEnabled(False)
+      return
+    else:
+      self.plotModeCombo.setEnabled(True)
+
+    if len(params) == 1:
+      self.plotLabelsTable.setParam(params[0])
+    else:
+      self.plotLabelsTable.setParam(None)
+
+    modes = list(set([p.plotMode for p in params]))
+    self.plotModeSelected.block()
+    try:
+      if len(modes) == 1:
+        for i in range(1, self.plotModeCombo.count()):
+          mode = self.plotModeCombo.itemData(i)
+          if mode == modes[0]:
+            self.plotModeCombo.setCurrentIndex(i)
+            return
+      self.plotModeCombo.setCurrentIndex(0)
+    finally:
+      self.plotModeSelected.unblock()
+
+  @blockable
+  def plotModeSelected(self, *args):
+    mode = self.plotModeCombo.currentData()
+    for p in self.selectedParams():
+      p.plotMode = mode
+    if self.plotParams.isChecked():
       self.plotRequested.emit(self.tool, True)
 
   def lineSelectionChanged(self):
@@ -389,17 +495,39 @@ class FitToolWidget(ToolWidgetBase):
       return
     self.tool.optimize(params)
 
-  def restoreState(self, state):
-    super().restoreState(state)
-    self.normWindow.setFunctions(self.tool.normWindow)
-    self.peakFunctions.setFunctions(self.tool.peakFunctions)
-
   def writeXlsx(self, wb):
     from fitxlsxexporter import FitXlsxExporter
-    FitXlsxExporter(self.tool).write(wb)
+    exporter = FitXlsxExporter(self.tool)
+    exporter.setXlabel('source', self.plotLabelsTable.sourceX.text())
+    exporter.setYlabel('source', self.plotLabelsTable.sourceY.text())
+    exporter.setXlabel('param', self.plotLabelsTable.paramX.text())
+    exporter.write(wb)
 
   def newSession(self):
     super().newSession()
     self.normWindow.clear()
     self.peakFunctions.clear()
     self.bgsub.combo.setCurrentIndex(0)
+
+  def saveState(self):
+    state = super().saveState()
+    state['plot_labels'] = {
+      'source': (self.plotLabelsTable.sourceX.text(), self.plotLabelsTable.sourceY.text()),
+      'paramX': self.plotLabelsTable.paramX.text()
+    }
+    return state
+
+  def restoreState(self, state):
+    super().restoreState(state)
+
+    self.normWindow.setFunctions(self.tool.normWindow)
+    self.peakFunctions.setFunctions(self.tool.peakFunctions)
+
+    if 'plot_labels' in state:
+      labels = state['plot_labels']
+      if 'source' in labels:
+        x, y = labels['source']
+        self.plotLabelsTable.sourceX.setText(x)
+        self.plotLabelsTable.sourceY.setText(y)
+      if 'paramX' in labels:
+        self.plotLabelsTable.paramX.setText(labels['paramX'])

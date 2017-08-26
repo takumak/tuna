@@ -24,40 +24,50 @@ class XlsxChart:
       'line':       {'width': 1}
     })
 
-  def complete(self, row=3, col=0):
-    self.range.sheet.insert_chart(self.range[row,col].cellName(), self.chart)
+  def complete(self, xoff=None, yoff=None):
+    opts = {}
+    if xoff is not None: opts['x_offset'] = xoff
+    if yoff is not None: opts['y_offset'] = yoff
+    self.range.sheet.insert_chart(self.range.cellName(), self.chart, opts)
 
 
 
 
 class XlsxRange:
-  def __init__(self, book, sheet, rows, cols):
-    self.book = book
+  chartBorderColor = '#aaaaaa'
+
+  def __init__(self, exporter, sheet, rows, cols):
+    self.exporter = exporter
+    self.book = exporter.book
     self.sheet = sheet
     self.rows = rows
     self.cols = cols
-    self.xLabels = {'source': 'Energy (eV)'}
-    self.yLabels = {'source': 'Intensity (a.u.)'}
 
-  def setXlabel(self, name, label):
-    self.xLabels[name] = label
-
-  def setYlabel(self, name, label):
-    self.yLabels[name] = label
-
-  def addChart(self, name, row=3, col=0):
+  def addChart(self, name, title=None, xlabel=None, ylabel=None,
+               width=None, height=None):
     chart = self.book.add_chart({'type': 'scatter', 'subtype': 'straight'})
-    chart.set_title({'none': True})
+    if title is None:
+      chart.set_title({'none': True})
+    else:
+      chart.set_title({'name': title})
     chart.set_x_axis({
-      'name': self.xLabels.get(name),
+      'name': xlabel or self.exporter.xLabel(name),
       'major_gridlines': {'visible': False},
-      'major_tick_mark': 'inside'
+      'major_tick_mark': 'inside',
+      'line': {'color': self.chartBorderColor}
     })
     chart.set_y_axis({
-      'name': self.yLabels.get(name),
+      'name': ylabel or self.exporter.yLabel(name),
       'major_gridlines': {'visible': False},
-      'major_tick_mark': 'inside'
+      'major_tick_mark': 'inside',
+      'line': {'color': self.chartBorderColor}
     })
+    chart.set_plotarea({
+      'border': {'color': self.chartBorderColor}
+    })
+    chart.set_legend({'none': True})
+    if width is not None or height is not None:
+      chart.set_size({'width': width, 'height': height})
     return XlsxChart(self, chart)
 
   def width(self):
@@ -69,6 +79,12 @@ class XlsxRange:
     if self.rows.stop is None:
       return math.inf
     return self.rows.stop - self.rows.start
+
+  def setWidth(self, width):
+    self.cols = slice(self.cols.start, self.cols.start + width)
+
+  def setHeight(self, height):
+    self.rows = slice(self.rows.start, self.rows.start + width)
 
   @classmethod
   def resolveRelativeSlice(self, rel_slice, curr_slice):
@@ -107,43 +123,51 @@ class XlsxRange:
     rows = self.resolveRelativeSlice(rows, self.rows)
     cols = self.resolveRelativeSlice(cols, self.cols)
 
-    return XlsxRange(self.book, self.sheet, rows, cols)
+    return XlsxRange(self.exporter, self.sheet, rows, cols)
 
-  def write(self, val):
+  def write(self, val, fmt=None):
     if self.isList(val):
-      self.writeVertical(val)
+      self.writeVertical(val, fmt)
     else:
-      self.writeConst(val)
+      self.writeConst(val, fmt)
 
-  def writeConst(self, val):
+  def writeConst(self, val, fmt):
     for r in range(self.rows.start, self.rows.stop):
       for c in range(self.cols.start, self.cols.stop):
-        self.sheet.write(xl_rowcol_to_cell(r, c), val)
+        self.sheet.write(r, c, val, fmt)
 
-  def writeVertical(self, vals):
+  def writeVertical(self, vals, fmt):
     for r, val in enumerate(vals):
-      self[r,:].writeHorizontal(val)
+      self[r,:].writeHorizontal(val, fmt)
 
-  def writeHorizontal(self, vals):
+  def writeHorizontal(self, vals, fmt):
     if not self.isList(vals):
       vals = [vals]
       if self.cols.stop is not None:
         vals = vals*self.width()
     for c, val in enumerate(vals):
-      self.sheet.write(xl_rowcol_to_cell(self.rows.start, self.cols.start+c), val)
+      self.sheet.write(self.rows.start, self.cols.start+c, val, fmt)
 
   def merge(self, val):
+    if self.width() == 1 and self.height() == 1:
+      self.write(val)
+      return
+
     r1, r2 = self.rows.start, self.rows.stop - 1
     c1, c2 = self.cols.start, self.cols.stop - 1
     self.sheet.merge_range(r1, c1, r2, c2, val)
 
   def below(self):
-    return XlsxRange(self.book, self.sheet,
+    if self.rows.stop is None:
+      raise RuntimeError('Right side must be specified')
+    return XlsxRange(self.exporter, self.sheet,
                      slice(self.rows.stop, None),
                      slice(self.cols.start, self.cols.stop))
 
   def right(self):
-    return XlsxRange(self.book, self.sheet,
+    if self.cols.stop is None:
+      raise RuntimeError('Right side must be specified')
+    return XlsxRange(self.exporter, self.sheet,
                      slice(self.rows.start, self.rows.stop),
                      slice(self.cols.stop, None))
 
@@ -197,16 +221,34 @@ class XlsxRange:
 class XlsxExporter:
   recalcMsg = 'Press F9 (for Excel) or Ctrl+Shift+F9 (for LibreOffice) to re-calculate cell formulae'
 
+  def __init__(self):
+    self.xLabels = {'source': 'Energy (eV)'}
+    self.yLabels = {'source': 'Intensity (a.u.)'}
+    self.formatCache = {}
+
+  def xLabel(self, name, default=None):
+    return self.xLabels.get(name, default)
+
+  def yLabel(self, name, default=None):
+    return self.yLabels.get(name, default)
+
+  def setXlabel(self, name, label):
+    self.xLabels[name] = label
+
+  def setYlabel(self, name, label):
+    self.yLabels[name] = label
+
   def write(self, book):
     self.book = book
     self.sheets = {}
 
   def addSheet(self, name):
     sheet = self.book.add_worksheet(name)
-    sheet = XlsxRange(self.book, sheet, slice(0, None), slice(0, None))
+    sheet = XlsxRange(self, sheet, slice(0, None), slice(0, None))
     sheet[0,0].write(self.recalcMsg)
     sheet = sheet[1:,:]
     self.sheets[name] = sheet
+    setattr(self, name, sheet)
     return sheet
 
   def __getitem__(self, name):
@@ -214,5 +256,10 @@ class XlsxExporter:
       raise KeyError('Invalid sheet name: %s' % repr(name))
     return self.sheets[name]
 
-  def __getattr__(self, name):
-    return self[name]
+  def getFormat(self, fmt):
+    if fmt in self.formatCache:
+      return self.formatCache[fmt]
+
+    fmt_ = self.book.add_format({'num_format': fmt})
+    self.formatCache[fmt] = fmt_
+    return fmt_

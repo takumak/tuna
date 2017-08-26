@@ -350,6 +350,8 @@ class FitTool(ToolBase):
     state['norm_window'] = [(f.name, f.getParams()) for f in self.normWindow]
     state['peak_functions'] = [(f.name, f.id) for f in self.peakFunctions]
     state['peak_func_params'] = self.peakFuncParams
+    state['plot_modes'] = dict([(f.id, dict([(p.name, (p.plotMode, p.plotLabel)) for p in f.params]))
+                                for f in self.peakFunctions])
     state['pressures'] = dict([(n, p.strValue()) for n, p in self.pressures.items()])
     if self.activeLineName:
       state['active_line'] = self.activeLineName
@@ -372,12 +374,18 @@ class FitTool(ToolBase):
     self.peakFuncParams = state.get('peak_func_params', {})
     self.activeLineName = state.get('active_line')
 
+    plotModes = state.get('plot_modes', {})
     functions = []
     if 'peak_functions' in state:
       for name, id in state['peak_functions']:
         try:
           f = self.createFunction(name)
           f.id = id
+          if f.id in plotModes:
+            modes = plotModes[f.id]
+            for p in f.params:
+              if p.name in modes:
+                p.plotMode, p.plotLabel = modes[p.name]
           functions.append(f)
         except:
           log.warnException()

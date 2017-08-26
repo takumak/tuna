@@ -14,18 +14,20 @@ __all__ = ['FitParam', 'FitParamConst', 'FitParamFunc', 'FitParamFormula']
 class FitParam(QObject):
   valueChanged = pyqtSignal()
   plotModes = [
+    (None, 'Do not plot'),
     ('absolute', 'Absolute values'),
     ('diff', 'Differences'),
     ('ratio', 'Differences in ratio')
   ]
 
-  def __init__(self, name, default, label=None, hidden=False, plotMode=None):
+  def __init__(self, name, default, label=None, hidden=False):
     super().__init__()
     self.name = name
     self.label = name if label is None else label
     self.value_ = default
     self.hidden = hidden
-    self.plotMode = plotMode
+    self.plotMode = None
+    self.plotLabel = None
 
     self.min_ = None
     self.max_ = None

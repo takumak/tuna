@@ -5,23 +5,26 @@ from xlsxexporter import XlsxExporter
 
 
 class FitXlsxExporter(XlsxExporter):
-  formatForPlotModes = {'diff': '+0.00;-0.00', 'ratio': '+0.00%;-0.00%'}
+  formatForPlotModes = {'absolute': None, 'diff': '+0.00;-0.00', 'ratio': '+0.00%;-0.00%'}
 
   def __init__(self, tool):
+    super().__init__()
     self.tool = tool
+
+  def getFormatForPlotMode(self, mode):
+    fmt = self.formatForPlotModes[mode]
+    if fmt is None:
+      return None
+    else:
+      return self.getFormat(fmt)
 
   def write(self, book):
     super().write(book)
     self.prepare()
-
     self.writeParameters()
     self.writeNormalizeSheet()
-
     for line in self.lines:
       self.writeFitSheet(line)
-    #   f = "='%s'!%s" % (ws.name, R2)
-    #   ws_params.write(cells_R2[line.name], f)
-    # ws_params.write(cells_R2[0], 'R^2')
 
   def prepare(self):
     lines = []
@@ -42,12 +45,6 @@ class FitXlsxExporter(XlsxExporter):
     self.params = params
     self.funcs = funcs
     self.pressures = pressures
-    self.formats = {}
-
-  def getFormat(self, wb, fmt):
-    if fmt not in self.formats:
-      self.formats[fmt] = wb.add_format({'num_format': fmt})
-    return self.formats[fmt]
 
 
 
@@ -55,115 +52,84 @@ class FitXlsxExporter(XlsxExporter):
   def writeParameters(self):
     self.addSheet('Parameters')
 
-    self.Parameters[2:,0].write(
-      [self.pressures[l.name] for l in self.lines])
-
-    self.Parameters[1,1].write('R^2')
-    R2 = self.Parameters[2:,1]
-    self.Parameters.R2 = dict([(l.name, R2[i,0]) for i, l in enumerate(self.lines)])
-
-    params = self.Parameters[:2+len(self.lines),2:]
-    changes = params.below()[2:,:]
+    params = self.Parameters[:2+len(self.lines),:]
+    params[1,0].write(self.xLabel('param'))
+    params[2:,0].write([self.pressures[l.name] for l in self.lines])
+    params[1,1].write('R^2')
+    self.Parameters.R2 = dict([(l.name, params[2+i,1]) for i, l in enumerate(self.lines)])
 
     self.paramCells = {}
-
+    param = params[:,2:]
     for i, func in enumerate(self.funcs):
       fparams = [p for p in func.params if not p.hidden]
-      params[0,:len(fparams)].merge('P%d' % i)
+      param.setWidth(len(fparams))
+      param[0,:].merge('P%d' % i)
 
-      for j, param in enumerate(fparams):
-        params[1,j].write(param.label)
+      for j, p in enumerate(fparams):
+        param[1,j].write(p.label)
 
         for k, line in enumerate(self.lines):
           try:
-            v = self.params[line.name][func.id][param.name]
+            v = self.params[line.name][func.id][p.name]
           except KeyError:
             logging.debug('KeyError: line=%s, func=%s, param=%s'
-                          % (line.name, func.label, param.name))
+                          % (line.name, func.label, p.name))
             raise
 
-          p = params[2+k,j]
-          p.write(v)
-          self.paramCells[(line.name, func.id, param.name)] = p
+          pv = param[2+k,j]
+          pv.write(v)
+          self.paramCells[(line.name, func.id, p.name)] = pv
 
-      params = params[:,len(fparams):]
-
-
-
-  #   r1 = 2+len(self.lines)+2
-  #   r2 = r1+2
-  #   r3 = r2+len(self.lines)-1
-  #   cc = c0+2
-
-  #   for i, line in enumerate(self.lines):
-  #     ws.write(r2+i, c0, self.pressures[line.name])
-
-  #   plotdata = {}
-  #   ylabels = []
-  #   for i, func in enumerate(self.funcs):
-  #     plotParams = [p for p in func.params if p.plotMode]
-  #     N = len(plotParams)
-  #     if N == 0:
-  #       continue
-  #     elif N == 1:
-  #       ws.write(r1, cc, 'P%d' % i)
-  #     else:
-  #       ws.merge_range(r1, cc, r1, cc+N-1, 'P%d' % i)
-
-  #     for c, param in enumerate(plotParams):
-  #       ws.write(r1+1, cc+c, param.label)
-
-  #       for r, line in enumerate(self.lines):
-  #         cell0 = self.paramCells[(self.lines[0].name, func.id, param.name)]
-  #         celli = self.paramCells[(line.name, func.id, param.name)]
-  #         if param.plotMode == 'diff':
-  #           f = '=%s-%s' % (celli, cell0)
-  #         elif param.plotMode == 'ratio':
-  #           f = '=({1}-{0})/{0}'.format(cell0, celli)
-  #         else:
-  #           raise RuntimeError('Unknown plot mode - "%s"' % param.plotMode)
-  #         fmt = self.getFormat(wb, self.formatForPlotModes[param.plotMode])
-  #         ws.write_formula(cellName(r2+r, cc+c), f, fmt)
-
-  #       if param.label not in plotdata:
-  #         plotdata[param.label] = []
-  #         ylabels.append((param.label, self.formatForPlotModes[param.plotMode]))
-
-  #       plotdata[param.label].append((cellName(r1, cc), rangeNameAbs(r2, cc+c, r3, cc+c)))
-
-  #     cc += len(plotParams)
+      param = param.right()
 
 
-  #   r4 = r3+2
-  #   for i, (ylabel, yfmt) in enumerate(ylabels):
-  #     chart = wb.add_chart({'type': 'scatter', 'subtype': 'straight_with_markers'})
-  #     chart.set_title({'none': True})
-  #     chart.set_x_axis({
-  #       'name': 'Pressure (GPa)',
-  #       'major_gridlines': {'visible': False},
-  #       'major_tick_mark': 'inside'
-  #     })
-  #     chart.set_y_axis({
-  #       'name': ylabel,
-  #       'major_gridlines': {'visible': False},
-  #       'major_tick_mark': 'inside',
-  #       'num_format': yfmt
-  #     })
 
-  #     for name, data in plotdata[ylabel]:
-  #       chart.add_series({
-  #         'name':       "='%s'!%s" % (ws.name, name),
-  #         'categories': "='%s'!%s" % (ws.name, rangeNameAbs(r2, c0, r3, c0)),
-  #         'values':     "='%s'!%s" % (ws.name, data),
-  #         'line':       {'width': 1}
-  #       })
+    changes = params.below()[2:4+len(self.lines),:]
+    changes[1,0].write(self.xLabel('param'))
+    changes_x = changes[1:,0]
+    changes_x[1:,:].write([self.pressures[l.name] for l in self.lines])
 
-  #     ws.insert_chart(cellName(r4, c0+(i*8)), chart)
+    charts = changes.below()[2:,:]
 
-  #   cells_R2 = dict([(l.name, cellName(r0+2+i, c0+1))
-  #                    for i, l in enumerate(self.lines)])
-  #   cells_R2[0] = cellName(r0+1, c0+1)
-  #   return cells_R2
+    param = changes[:,1:]
+    cid = 0
+    for i, func in enumerate(self.funcs):
+      plotParams = [p for p in func.params if p.plotMode]
+      if len(plotParams) == 0: continue
+
+      funcname = 'P%d' % i
+      param.setWidth(len(plotParams))
+      param[0,:].merge(funcname)
+
+      for c, p in enumerate(plotParams):
+        param[1,c].write(p.plotLabel or p.label)
+
+        def pcell(l):
+          return self.paramCells[(l.name, func.id, p.name)].cellName()
+
+        c0 = pcell(self.lines[0])
+        if p.plotMode == 'absolute':
+          fmt = '=%s'
+        elif p.plotMode == 'diff':
+          fmt = '=%s-{}'.format(c0)
+        elif p.plotMode == 'ratio':
+          fmt = '=(%s-{0})/{0}'.format(c0)
+        else:
+          raise RuntimeError('Unknown plot mode - "%s"' % p.plotMode)
+
+        y = param[1:,c]
+        y[1:,:].write([fmt % pcell(l) for l in self.lines],
+                      self.getFormatForPlotMode(p.plotMode))
+
+        chart = charts.addChart(
+          'param',
+          title=('%s:%s' % (funcname, p.plotLabel)),
+          ylabel=p.plotLabel,
+          width=400, height=400
+        )
+        chart.add(changes_x, y)
+        chart.complete(xoff=410*(cid%2), yoff=400*(cid//2))
+        cid += 1
 
 
 
@@ -206,7 +172,7 @@ class FitXlsxExporter(XlsxExporter):
       self.Normalize.lines[l.name] = norm2[:,c]
 
 
-    chart = self.Normalize.addChart('source')
+    chart = self.Normalize[3,0].addChart('source')
     chart.add(x, win)
     chart.add(x, norm2)
     chart.complete()
@@ -260,7 +226,7 @@ class FitXlsxExporter(XlsxExporter):
     self.Parameters.R2[line.name].write('=%s' % R2[1,0].cellName(True))
 
 
-    chart = R2.below().addChart('source')
+    chart = R2.below()[1,0].addChart('source')
     chart.add(x, y)
     chart.add(x, funcs)
     chart.add(x, fit)

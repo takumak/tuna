@@ -222,7 +222,7 @@ class FlowLayout(QLayout):
 
   def setGeometry(self, rect):
     super().setGeometry(rect)
-    self.doLayout(rect)
+    self.doLayout(rect, False)
 
   def sizeHint(self):
     if self.count() == 0:
@@ -240,7 +240,7 @@ class FlowLayout(QLayout):
     return True
 
   def heightForWidth(self, width):
-    return self.doLayout(QRect(0, 0, width, 0))
+    return self.doLayout(QRect(0, 0, width, 0), True)
 
   def itemAt(self, idx):
     try:
@@ -257,7 +257,7 @@ class FlowLayout(QLayout):
     except IndexError:
       return None
 
-  def doLayout(self, rect):
+  def doLayout(self, rect, test):
     l, t = rect.x(), rect.y()
     r, b = l+rect.width(), t+rect.height()
 
@@ -272,7 +272,8 @@ class FlowLayout(QLayout):
         y += rh + 4
         col, rh = 0, 0
 
-      item.setGeometry(QRect(x, y, s.width(), s.height()))
+      if not test:
+        item.setGeometry(QRect(x, y, s.width(), s.height()))
       col += 1
       rh = max([rh, s.height()])
       x += s.width()+4

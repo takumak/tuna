@@ -399,8 +399,8 @@ class FitToolWidget(ToolWidgetBase):
     self.peakFunctions.setFunctions(self.tool.peakFunctions)
 
   def writeXlsx(self, wb):
-    from fitxlsxwriter import FitXlsxWriter
-    FitXlsxWriter(self.tool).write(wb)
+    from fitxlsxexporter import FitXlsxExporter
+    FitXlsxExporter(self.tool).write(wb)
 
   def newSession(self):
     super().newSession()

@@ -7,16 +7,19 @@ from PyQt5.QtGui import QKeySequence, QValidator, QPainter, \
   QPen, QBrush, QColor, QPixmap, QMouseEvent
 from PyQt5.QtWidgets import QApplication, QWidget, QTableWidget, QMenu, \
   QFrame, QVBoxLayout, QHBoxLayout, QWidget, QLabel, QLineEdit, QLayout, \
-  QComboBox, QGridLayout
+  QComboBox, QGridLayout, QPushButton
 import numpy as np
 
 import log
 
 
 
-__all__ = ['TableWidget', 'HSeparator', 'HBoxLayout', 'VBoxLayout',
-           'ErrorBaloon', 'ErrorCheckEdit', 'FlowLayout',
-           'DescriptionWidget', 'ComboBoxWithDescriptor']
+__all__ = [
+  'TableWidget', 'HSeparator', 'HBoxLayout', 'VBoxLayout',
+  'ErrorBaloon', 'ErrorCheckEdit', 'FlowLayout',
+  'DescriptionWidget', 'ComboBoxWithDescriptor',
+  'ExpanderWidget'
+]
 
 
 
@@ -415,3 +418,28 @@ class ComboBoxWithDescriptor(QComboBox):
       self.preventHide = False
       return
     super().hidePopup()
+
+
+
+class ExpanderWidget(QWidget):
+  def __init__(self, label, widget):
+    super().__init__()
+
+    if isinstance(widget, QLayout):
+      layout = widget
+      widget = QWidget()
+      widget.setLayout(layout)
+
+    self.button = QPushButton(label)
+    self.button.setCheckable(True)
+    self.button.toggled.connect(self.buttonToggled)
+    self.widget = widget
+    self.buttonToggled()
+
+    vbox = VBoxLayout()
+    vbox.addWidget(self.button)
+    vbox.addWidget(self.widget)
+    self.setLayout(vbox)
+
+  def buttonToggled(self, *args):
+    self.widget.setVisible(self.button.isChecked())

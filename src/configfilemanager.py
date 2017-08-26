@@ -6,6 +6,8 @@ import umsgpack
 
 
 class ConfigFileManagerBase:
+  version = 1
+
   def load(self, filename):
     if not os.path.exists(filename):
       return None
@@ -21,7 +23,7 @@ class ConfigFileManagerBase:
       obj = func(f)
       if 'version' not in obj:
         obj['version'] = 1
-      return self.convertVersion(obj)
+      return self.convertVersion(obj, obj['version'])
 
   def save(self, obj, filename):
     if filename.endswith('.json'):
@@ -42,8 +44,6 @@ class ConfigFileManagerBase:
 
 
 class ConfigFileManager(ConfigFileManagerBase):
-  version = 1
-
   def __init__(self):
     self.configdir = appdirs.user_config_dir('tuna')
     self.filename  = os.path.join(self.configdir, 'tuna.conf.msgpack')
@@ -55,8 +55,8 @@ class ConfigFileManager(ConfigFileManagerBase):
     super().save(obj, self.filename)
 
   @classmethod
-  def convertVersion(cls, obj):
+  def convertVersion(cls, obj, version):
     from sessionfilemanager import SessionFileManager
     if 'session' in obj:
-      obj['session'] = SessionFileManager.convertVersion(obj['session'])
+      obj['session'] = SessionFileManager.convertVersion(obj['session'], version)
     return obj

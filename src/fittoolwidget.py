@@ -250,7 +250,10 @@ class LineSelector(QWidget):
 class PlotLabelsTable(TableWidget):
   def __init__(self):
     super().__init__()
+
+    self.horizontalHeader().setResizeMode(QHeaderView.ResizeToContents)
     self.setSizeAdjustPolicy(self.AdjustToContents)
+
     self.setColumnCount(2)
     self.setRowCount(2)
     self.setHorizontalHeaderLabels(['X label', 'Y label'])
@@ -266,28 +269,31 @@ class PlotLabelsTable(TableWidget):
     self.setItem(1, 0, self.paramX)
     self.setItem(1, 1, self.paramY)
 
-    self.setParam(None)
+    self.setParams([])
 
     self.itemChanged.connect(self.edited)
 
-  def setParam(self, param):
-    self.param = param
+  def setParams(self, params):
+    self.params = params
 
     self.edited.block()
     flags = self.paramY.flags()
-    if param is None:
+    if len(params) == 0:
       flags &= ~Qt.ItemIsEnabled
       self.paramY.setText('')
     else:
       flags |= Qt.ItemIsEnabled
-      self.paramY.setText(param.plotLabel or '')
+      labels = list(set([p.plotLabel for p in self.params]))
+      label = labels[0] if len(labels) == 1 else None
+      self.paramY.setText(label or '')
     self.paramY.setFlags(flags)
     self.edited.unblock()
 
   @blockable
   def edited(self, item):
-    if item == self.paramY and self.param:
-      self.param.plotLabel = self.paramY.text()
+    if item == self.paramY and len(self.params) > 0:
+      for p in self.params:
+        p.plotLabel = self.paramY.text()
 
 
 
@@ -446,16 +452,12 @@ class FitToolWidget(ToolWidgetBase):
     self.toolSetPlotParams()
 
     params = self.selectedParams()
+    self.plotLabelsTable.setParams(params)
     if len(params) == 0:
       self.plotModeCombo.setEnabled(False)
       return
     else:
       self.plotModeCombo.setEnabled(True)
-
-    if len(params) == 1:
-      self.plotLabelsTable.setParam(params[0])
-    else:
-      self.plotLabelsTable.setParam(None)
 
     modes = list(set([p.plotMode for p in params]))
     self.plotModeSelected.block()

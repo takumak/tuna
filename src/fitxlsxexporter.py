@@ -11,13 +11,6 @@ class FitXlsxExporter(XlsxExporter):
     super().__init__()
     self.tool = tool
 
-  def getFormatForPlotMode(self, mode):
-    fmt = self.formatForPlotModes[mode]
-    if fmt is None:
-      return None
-    else:
-      return self.getFormat(fmt)
-
   def write(self, book):
     super().write(book)
     self.prepare()
@@ -83,6 +76,38 @@ class FitXlsxExporter(XlsxExporter):
       param = param.right()
 
 
+    from collections import OrderedDict
+    plot_data = OrderedDict()
+
+    for i, func in enumerate(self.funcs):
+      plotParams = [p for p in func.params if p.plotMode]
+      if len(plotParams) == 0: continue
+
+      for p in plotParams:
+
+        def pcell(l):
+          return self.paramCells[(l.name, func.id, p.name)].cellName()
+
+        c0 = pcell(self.lines[0])
+        if p.plotMode == 'absolute':
+          formula = '=%s'
+        elif p.plotMode == 'diff':
+          formula = '=%s-{}'.format(c0)
+        elif p.plotMode == 'ratio':
+          formula = '=(%s-{0})/{0}'.format(c0)
+        else:
+          raise RuntimeError('Unknown plot mode - "%s"' % p.plotMode)
+
+        key = p.plotLabel, p.plotMode
+        if key in plot_data:
+          data = plot_data[key]
+        else:
+          data = []
+          plot_data[key] = data
+
+        vals = [formula % pcell(l) for l in self.lines]
+        data.append(('P%d' % i, vals))
+
 
     changes = params.below()[2:4+len(self.lines),:]
     changes[1,0].write(self.xLabel('param'))
@@ -90,46 +115,24 @@ class FitXlsxExporter(XlsxExporter):
     changes_x[1:,:].write([self.pressures[l.name] for l in self.lines])
 
     charts = changes.below()[2:,:]
-
     param = changes[:,1:]
-    cid = 0
-    for i, func in enumerate(self.funcs):
-      plotParams = [p for p in func.params if p.plotMode]
-      if len(plotParams) == 0: continue
+    for i, ((ylabel, plotMode), cols) in enumerate(plot_data.items()):
+      param.setWidth(len(cols))
+      param[0,:].merge(ylabel)
+      fmt = self.formatForPlotModes[plotMode]
 
-      funcname = 'P%d' % i
-      param.setWidth(len(plotParams))
-      param[0,:].merge(funcname)
+      for c, (fname, vals) in enumerate(cols):
+        param[1,c].write(fname)
+        param[2:,c].write(vals, self.getFormat(fmt))
 
-      for c, p in enumerate(plotParams):
-        param[1,c].write(p.plotLabel or p.label)
+      chart = charts.addChart('param',
+                              ylabel=ylabel, yformat=fmt,
+                              width=400, height=400,
+                              legend=True, markers=True)
+      chart.add(changes_x, param[1:,:])
+      chart.complete(xoff=410*(i%2), yoff=410*(i//2))
 
-        def pcell(l):
-          return self.paramCells[(l.name, func.id, p.name)].cellName()
-
-        c0 = pcell(self.lines[0])
-        if p.plotMode == 'absolute':
-          fmt = '=%s'
-        elif p.plotMode == 'diff':
-          fmt = '=%s-{}'.format(c0)
-        elif p.plotMode == 'ratio':
-          fmt = '=(%s-{0})/{0}'.format(c0)
-        else:
-          raise RuntimeError('Unknown plot mode - "%s"' % p.plotMode)
-
-        y = param[1:,c]
-        y[1:,:].write([fmt % pcell(l) for l in self.lines],
-                      self.getFormatForPlotMode(p.plotMode))
-
-        chart = charts.addChart(
-          'param',
-          title=('%s:%s' % (funcname, p.plotLabel)),
-          ylabel=p.plotLabel,
-          width=400, height=400
-        )
-        chart.add(changes_x, y)
-        chart.complete(xoff=410*(cid%2), yoff=400*(cid//2))
-        cid += 1
+      param = param.right()
 
 
 
@@ -226,7 +229,7 @@ class FitXlsxExporter(XlsxExporter):
     self.Parameters.R2[line.name].write('=%s' % R2[1,0].cellName(True))
 
 
-    chart = R2.below()[1,0].addChart('source')
+    chart = R2.below()[1,0].addChart('source', legend=True)
     chart.add(x, y)
     chart.add(x, funcs)
     chart.add(x, fit)

@@ -43,31 +43,49 @@ class XlsxRange:
     self.rows = rows
     self.cols = cols
 
-  def addChart(self, name, title=None, xlabel=None, ylabel=None,
-               width=None, height=None):
-    chart = self.book.add_chart({'type': 'scatter', 'subtype': 'straight'})
+  def addChart(self, name, title=None,
+               xlabel=None, ylabel=None,
+               xformat=None, yformat=None,
+               width=None, height=None, legend=False,
+               markers=False):
+
+    if markers:
+      subtype = 'straight_with_markers'
+    else:
+      subtype = 'straight'
+
+    chart = self.book.add_chart({'type': 'scatter', 'subtype': subtype})
     if title is None:
       chart.set_title({'none': True})
     else:
       chart.set_title({'name': title})
+
     chart.set_x_axis({
       'name': xlabel or self.exporter.xLabel(name),
       'major_gridlines': {'visible': False},
       'major_tick_mark': 'inside',
-      'line': {'color': self.chartBorderColor}
+      'line': {'color': self.chartBorderColor},
+      'num_format': xformat
     })
+
     chart.set_y_axis({
       'name': ylabel or self.exporter.yLabel(name),
       'major_gridlines': {'visible': False},
       'major_tick_mark': 'inside',
-      'line': {'color': self.chartBorderColor}
+      'line': {'color': self.chartBorderColor},
+      'num_format': yformat
     })
+
     chart.set_plotarea({
       'border': {'color': self.chartBorderColor}
     })
-    chart.set_legend({'none': True})
+
+    if not legend:
+      chart.set_legend({'none': True})
+
     if width is not None or height is not None:
       chart.set_size({'width': width, 'height': height})
+
     return XlsxChart(self, chart)
 
   def width(self):
@@ -248,7 +266,7 @@ class XlsxExporter:
     sheet[0,0].write(self.recalcMsg)
     sheet = sheet[1:,:]
     self.sheets[name] = sheet
-    setattr(self, name, sheet)
+    setattr(self, name.replace(' ', '_'), sheet)
     return sheet
 
   def __getitem__(self, name):

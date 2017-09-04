@@ -43,6 +43,14 @@ class XlsxRange:
     self.rows = rows
     self.cols = cols
 
+  @classmethod
+  def createChartOptions(self, default, **kwargs):
+    opts = dict(default)
+    for key, val in kwargs.items():
+      if val is not None:
+        opts[key] = val
+    return opts
+
   def addChart(self, name, title=None,
                xlabel=None, ylabel=None,
                xformat=None, yformat=None,
@@ -60,21 +68,25 @@ class XlsxRange:
     else:
       chart.set_title({'name': title})
 
-    chart.set_x_axis({
-      'name': xlabel or self.exporter.xLabel(name),
-      'major_gridlines': {'visible': False},
-      'major_tick_mark': 'inside',
-      'line': {'color': self.chartBorderColor},
-      'num_format': xformat
-    })
+    chart.set_x_axis(self.createChartOptions(
+      {
+        'name': xlabel or self.exporter.xLabel(name),
+        'major_gridlines': {'visible': False},
+        'major_tick_mark': 'inside',
+        'line': {'color': self.chartBorderColor}
+      },
+      num_format=xformat
+    ))
 
-    chart.set_y_axis({
-      'name': ylabel or self.exporter.yLabel(name),
-      'major_gridlines': {'visible': False},
-      'major_tick_mark': 'inside',
-      'line': {'color': self.chartBorderColor},
-      'num_format': yformat
-    })
+    chart.set_y_axis(self.createChartOptions(
+      {
+        'name': ylabel or self.exporter.yLabel(name),
+        'major_gridlines': {'visible': False},
+        'major_tick_mark': 'inside',
+        'line': {'color': self.chartBorderColor}
+      },
+      num_format=yformat
+    ))
 
     chart.set_plotarea({
       'border': {'color': self.chartBorderColor}
@@ -275,6 +287,9 @@ class XlsxExporter:
     return self.sheets[name]
 
   def getFormat(self, fmt):
+    if fmt is None:
+      return None
+
     if fmt in self.formatCache:
       return self.formatCache[fmt]
 

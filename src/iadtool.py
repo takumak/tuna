@@ -140,7 +140,7 @@ class IADTool(ToolBase):
     y_ = []
     lnorm = [l.normalize() for l in self.lines]
     for l in lnorm:
-      y_.append(np.sqrt(np.sum(l.y_**2 + lnorm[self.base].y_**2)))
+      y_.append(np.sqrt(np.sum(l.y_**2) + np.sum(lnorm[self.base].y_**2)))
 
 
     self.iadY = y

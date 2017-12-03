@@ -99,7 +99,7 @@ class SourcesWidget(QSplitter):
       self.addSheet(fitem, sheet, checked)
 
   def addSheet(self, fitem, sheet, checked):
-    def copyInput(target, toall):
+    def copyInput(fitem, target, toall):
       key = {
         'x': 'xFormula',
         'y': 'yFormula',
@@ -123,7 +123,7 @@ class SourcesWidget(QSplitter):
             getattr(sw_.sheet, key).setStrValue(val)
 
     sw = SheetWidget(sheet)
-    sw.copyInputRequested.connect(copyInput)
+    sw.copyInputRequested.connect(lambda *a: copyInput(fitem, *a))
 
     item = QTreeWidgetItem([sheet.name])
     item.setFlags(item.flags() | Qt.ItemIsUserCheckable)

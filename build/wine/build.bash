@@ -4,8 +4,8 @@ ROOT=$(dirname $(realpath $0))/../..
 SPEC=$ROOT/build/tuna.spec
 OUTDIR=$ROOT/dist
 
-NUMPY=numpy-1.13.0+mkl-cp35-cp35m-win_amd64.whl
-SCIPY=scipy-0.19.1-cp35-cp35m-win_amd64.whl
+NUMPY=${NUMPY:-numpy-1.13.0+mkl-cp35-cp35m-win_amd64.whl}
+SCIPY=${NUMPY:-scipy-0.19.1-cp35-cp35m-win_amd64.whl}
 
 if test ! \( -f $NUMPY -a -f $SCIPY \); then
   cat<<EOF
@@ -31,7 +31,7 @@ test ! -f winetricks && curl -LO $WINETRICKS_URL
 bash winetricks win8
 
 
-PYTHON_EXE_URL=https://www.python.org/ftp/python/3.5.3/python-3.5.3-amd64-webinstall.exe
+PYTHON_EXE_URL=${PYTHON_EXE_URL:-https://www.python.org/ftp/python/3.5.3/python-3.5.3-amd64-webinstall.exe}
 PYTHON_EXE=${PYTHON_EXE_URL##*/}
 test ! -f $PYTHON_EXE && curl -LO $PYTHON_EXE_URL
 
@@ -49,4 +49,4 @@ wine $PYTHON -m pip install $(cat ../../depends.txt) pyinstaller
 
 wine wine/drive_c/python/Scripts/pyinstaller.exe $SPEC
 mkdir -p $OUTDIR
-cp dist/Tuna.exe $OUTDIR
+cp dist/Tuna.exe $OUTDIR/${OUTNAME:-Tuna-64.exe}

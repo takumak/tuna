@@ -1,8 +1,14 @@
-import sys, os, re
+import sys, os, platform, re
+
+x64 = platform.architecture()[0] == '64bit'
 
 if not os.path.exists('venv'):
-  np = 'numpy-1.13.0+mkl-cp35-cp35m-win_amd64.whl'
-  sp = 'scipy-0.19.1-cp35-cp35m-win_amd64.whl'
+  if x64:
+    np = 'numpy-1.13.3+mkl-cp35-cp35m-win_amd64.whl'
+    sp = 'scipy-1.0.0-cp35-cp35m-win_amd64.whl'
+  else:
+    np = 'numpy-1.13.3+mkl-cp35-cp35m-win32.whl'
+    sp = 'scipy-1.0.0-cp35-cp35m-win32.whl'
 
   depends = re.split(r'[\s]+', open('../../depends.txt').read().strip())
 

@@ -356,11 +356,14 @@ class FitToolWidget(ToolWidgetBase):
     self.optimizeCombo.currentIndexChanged.connect(self.setOptimizeMethod)
     self.optimizeCombo.setCurrentIndex(0)
     self.setOptimizeMethod()
+    self.optimize10btn = QPushButton('Do 10 times')
+    self.optimize10btn.pressed.connect(self.optimize10)
     hbox = HBoxLayout()
     hbox.addWidget(QLabel('Optimize'))
     hbox.addWidget(self.optimizeCombo)
     hbox.addWidget(QLabel('R^2'))
     hbox.addWidget(self.tool.R2.getWidget())
+    hbox.addWidget(self.optimize10btn)
     hbox.addStretch(1)
     vbox.addLayout(hbox)
 
@@ -496,6 +499,14 @@ class FitToolWidget(ToolWidgetBase):
       logging.error('Select parameters to optimize')
       return
     self.tool.optimize(params)
+
+  def optimize10(self):
+    self.optimize10btn.setEnabled(False)
+    for i in range(10, 0, -1):
+      self.optimize10btn.setText(str(i))
+      self.optimize()
+    self.optimize10btn.setText('Do 10 times')
+    self.optimize10btn.setEnabled(True)
 
   def writeXlsx(self, wb):
     from fitxlsxexporter import FitXlsxExporter

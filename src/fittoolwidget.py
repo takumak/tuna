@@ -367,6 +367,11 @@ class FitToolWidget(ToolWidgetBase):
     hbox.addStretch(1)
     vbox.addLayout(hbox)
 
+    hbox = HBoxLayout()
+    hbox.addWidget(QLabel('Fit range'))
+    hbox.addWidget(self.tool.fitRange.getWidget())
+    vbox.addLayout(hbox)
+
     self.plotParams = QCheckBox('Plot Pressure vs Parameters')
     self.plotParams.toggled.connect(self.toolSetPlotParams)
     vbox.addWidget(self.plotParams)

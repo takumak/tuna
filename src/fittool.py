@@ -52,6 +52,7 @@ class FitTool(ToolBase):
     self.optimizeMethod = self.optimizeMethods[0]
     self.R2 = SettingItemFloat(
       'R2', 'R^2', '0')
+    self.fitRange = SettingItemRange('fit_range', 'Fit range', '-inf:inf')
 
   def setBGSub(self, bgsub):
     if self.bgsub:
@@ -98,8 +99,11 @@ class FitTool(ToolBase):
     logging.debug('Optimize: %s using %s' % (
       ','.join(['%s' % p.name for p in params]), self.optimizeMethod))
 
+    xy = [(x, y) for x, y in zip(line.x, line.y) if self.fitRange.inRange(x)]
+    x, y = tuple(map(np.array, zip(*xy)))
+
     def wrap(func, args_i):
-      return lambda a: func(line.x, *[a[i] for i in args_i])
+      return lambda a: func(x, *[a[i] for i in args_i])
 
     srcfuncs = []
     funcs = []
@@ -112,7 +116,7 @@ class FitTool(ToolBase):
       funcs.append(wrap(func.lambdify(args), args_i))
 
     from scipy.optimize import minimize
-    func = lambda a: np.sum((np.sum([f(a) for f in funcs], axis=0) - line.y)**2)
+    func = lambda a: np.sum((np.sum([f(a) for f in funcs], axis=0) - y)**2)
     a0 = np.array([p.value() for p in params])
 
     res = minimize(func, a0, method=self.optimizeMethod)
@@ -355,6 +359,8 @@ class FitTool(ToolBase):
     state['pressures'] = dict([(n, p.strValue()) for n, p in self.pressures.items()])
     if self.activeLineName:
       state['active_line'] = self.activeLineName
+
+    state['fit_range'] = self.fitRange.strValue()
     return state
 
   def restoreState(self, state):
@@ -394,6 +400,9 @@ class FitTool(ToolBase):
     if 'pressures' in state:
       for name, val in state['pressures'].items():
         self.getPressure(name).setStrValue(str(val))
+
+    if 'fit_range' in state:
+      self.fitRange.setStrValue(state['fit_range'])
 
   def newSession(self):
     super().newSession()

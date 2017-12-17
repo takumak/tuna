@@ -62,11 +62,17 @@ class FunctionList(TableWidget):
     item = super().item(r, c)
     if item is None:
       item = QTableWidgetItem(text)
-      if not editable:
-        item.setFlags(item.flags() & ~Qt.ItemIsEditable)
       self.setItem(r, c, item)
     else:
       item.setText(text)
+
+    f = item.flags()
+    if editable:
+      f |= Qt.ItemIsEditable
+    else:
+      f &= ~Qt.ItemIsEditable
+    item.setFlags(f)
+
     return item
 
   def getFuncRow(self, func):
@@ -106,9 +112,8 @@ class FunctionList(TableWidget):
         val.setFlags(f)
 
     for i in range(c+2, self.columnCount()):
-      item = self.setItemText(row, i, '')
+      item = self.setItemText(row, i, '', editable=False)
       item.setData(Qt.UserRole, None)
-      item.setFlags(item.flags() & ~Qt.ItemIsEditable)
 
     self.parameterEdited.unblock()
 
@@ -376,8 +381,28 @@ class FitToolWidget(ToolWidgetBase):
     self.plotParams.toggled.connect(self.toolSetPlotParams)
     vbox.addWidget(self.plotParams)
 
-    vbox.addWidget(HSeparator())
 
+    #### intersection
+
+    vbox.addWidget(HSeparator())
+    vbox2 = VBoxLayout()
+
+    hbox = HBoxLayout()
+    hbox.addWidget(QLabel('f(x)='))
+    hbox.addWidget(self.tool.isecFunc.getWidget())
+    vbox2.addLayout(hbox)
+    vbox2.addWidget(self.tool.isecPoints.getWidget())
+    calcbtn = QPushButton('Calc')
+    calcbtn.clicked.connect(self.tool.calcIntersections)
+    vbox2.addWidget(calcbtn)
+
+    isec = ExpanderWidget('Intersections', vbox2)
+    vbox.addWidget(isec)
+
+
+    #### xlsx exporter
+
+    vbox.addWidget(HSeparator())
     vbox2 = VBoxLayout()
 
     self.plotModeCombo = QComboBox()

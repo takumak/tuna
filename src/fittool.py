@@ -54,6 +54,9 @@ class FitTool(ToolBase):
       'R2', 'R^2', '0')
     self.fitRange = SettingItemRange('fit_range', 'Fit range', '-inf:inf')
 
+    self.isecFunc = SettingItemStr('isec_func', 'Function', '1')
+    self.isecPoints = SettingItemStr('isec_pts', 'Points', '')
+
   def setBGSub(self, bgsub):
     if self.bgsub:
       self.bgsub.disconnectAllValueChanged(self.bgsubParameterChanged)
@@ -128,6 +131,8 @@ class FitTool(ToolBase):
     self.parameterChanged_peaks.unblock()
     for f in srcfuncs:
       self.parameterChanged_peaks(f)
+
+    self.calcIntersections()
 
   def functions(self):
     if self.mode == 'normwin':
@@ -348,6 +353,63 @@ class FitTool(ToolBase):
   def setActiveLineName(self, name):
     self.activeLineName = name
     self.restorePeakFuncParams()
+    self.calcIntersections()
+
+  def calcIntersections(self):
+    line = self.activeLine()
+    if line is None or self.isecFunc.strValue() == '':
+      self.isecPoints.setStrValue('')
+      return
+
+    from sympy import Symbol
+    from sympy.parsing.sympy_parser import parse_expr
+    expr = parse_expr(self.isecFunc.strValue())
+    if isinstance(expr, tuple): expr = expr[0]
+
+    usex = False
+    subs = []
+    for sym in expr.free_symbols:
+      if sym.name == 'x':
+        usex = True
+        continue
+
+      m = re.match(r'F(\d+)_(.*)', sym.name)
+      if m:
+        pn = int(m.group(1))
+        if pn <= 0 or pn > len(self.peakFunctions):
+          logging.error('Function index out of range (%s)' % sym.name)
+          return
+        f = self.peakFunctions[pn - 1]
+        name = m.group(2)
+        if name not in f.paramsNameMap:
+          logging.error('Invalid argument name "%s" (%s)' % (name, sym.name))
+          return
+        subs.append((sym, f.paramsNameMap[name].value()))
+      else:
+        logging.error('Invalid symbol: %s; Symbol name must be "x" or "F1_name"' % (sym.name))
+        return
+
+    expr = expr.subs(subs)
+    if usex:
+      func = lambdify([Symbol('x')], expr, 'numpy')
+    else:
+      cval = expr.evalf()
+      func = lambda x: cval
+
+    xx = zip(line.x[:-1], line.x[1:])
+    yy = zip(line.y[:-1], line.y[1:])
+    pts = []
+    for (x1, x2), (y1, y2) in zip(xx, yy):
+      Y1 = y1 - func(x1)
+      Y2 = y2 - func(x2)
+      if Y1*Y2 > 0: continue
+
+      r = abs(Y1)/(abs(Y1)+abs(Y2))
+      x0 = (x2 - x1)*r + x1
+      y0 = (y2 - y1)*r + y1
+      pts.append((x0, y0))
+
+    self.isecPoints.setStrValue(','.join(['(%g, %g)' % p for p in pts]))
 
   def saveState(self):
     state = super().saveState()
@@ -361,6 +423,8 @@ class FitTool(ToolBase):
       state['active_line'] = self.activeLineName
 
     state['fit_range'] = self.fitRange.strValue()
+
+    state['isec_func'] = self.isecFunc.strValue()
     return state
 
   def restoreState(self, state):
@@ -403,6 +467,9 @@ class FitTool(ToolBase):
 
     if 'fit_range' in state:
       self.fitRange.setStrValue(state['fit_range'])
+
+    if 'isec_func' in state:
+      self.isecFunc.setStrValue(state['isec_func'])
 
   def newSession(self):
     super().newSession()

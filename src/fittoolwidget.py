@@ -353,6 +353,7 @@ class FitToolWidget(ToolWidgetBase):
     self.peakFunctions.addAction(
       '&Optimize selected parameters',
       self.optimize, QKeySequence('Ctrl+Enter,Ctrl+Return'))
+    self.peakFunctions.addAction('Copy in &JSON', self.copyJSON, QKeySequence.UnknownKey)
     vbox.addWidget(self.peakFunctions)
 
     self.optimizeCombo = QComboBox()
@@ -537,6 +538,17 @@ class FitToolWidget(ToolWidgetBase):
       self.optimize()
     self.optimize10btn.setText('Do 10 times')
     self.optimize10btn.setEnabled(True)
+
+  def copyJSON(self):
+    params = self.peakFunctions.selectedParameters()
+    funcs = self.peakFunctions.getFunctions()
+    obj = []
+    for i, func in enumerate(funcs):
+      obj.append((i+1, dict([(p.name, p.value()) for p in params if p in func.params])))
+
+    import json
+    from PyQt5.QtWidgets import QApplication
+    QApplication.clipboard().setText(json.dumps(obj))
 
   def writeXlsx(self, wb):
     from fitxlsxexporter import FitXlsxExporter

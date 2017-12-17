@@ -412,10 +412,14 @@ class FitTool(ToolBase):
     self.isecPoints.setStrValue(','.join(['(%g, %g)' % p for p in pts]))
 
   def saveState(self):
+    linenames = [l.name for l in self.lines]
+    funcids = [f.id for f in self.peakFunctions]
+
     state = super().saveState()
     state['norm_window'] = [(f.name, f.getParams()) for f in self.normWindow]
     state['peak_functions'] = [(f.name, f.id) for f in self.peakFunctions]
-    state['peak_func_params'] = self.peakFuncParams
+    state['peak_func_params'] = dict([(k, dict([(fid, fp) for fid, fp in p.items() if fid in funcids]))
+                                      for k, p in self.peakFuncParams.items() if k in linenames])
     state['plot_modes'] = dict([(f.id, dict([(p.name, (p.plotMode, p.plotLabel)) for p in f.params]))
                                 for f in self.peakFunctions])
     state['pressures'] = dict([(n, p.strValue()) for n, p in self.pressures.items()])

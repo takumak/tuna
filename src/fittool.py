@@ -38,6 +38,7 @@ class FitTool(ToolBase):
   def __init__(self, graphWidget):
     super().__init__(graphWidget)
     self.bgsub = None
+    self.smooth = None
     self.normWindow = []
     self.peakFunctions = []
     self.sumCurveItem = None
@@ -50,21 +51,20 @@ class FitTool(ToolBase):
     self.plotParams = None
 
     self.optimizeMethod = self.optimizeMethods[0]
-    self.R2 = SettingItemFloat(
-      'R2', 'R^2', '0')
-    self.fitRange = SettingItemRange('fit_range', 'Fit range', '-inf:inf')
+    self.addSettingItem(SettingItemFloat('R2', 'R^2', '0'))
+    self.addSettingItem(SettingItemRange('fitRange', 'Fit range', '-inf:inf'))
+    self.addSettingItem(SettingItemStr('isecFunc', 'Function', '1'))
+    self.isecPoints = SettingItemStr('isecPoints', 'Points', '')
 
-    self.isecFunc = SettingItemStr('isec_func', 'Function', '1')
-    self.isecPoints = SettingItemStr('isec_pts', 'Points', '')
+  def setMethod(self, name, method):
+    curr = getattr(self, name)
+    if curr:
+      curr.disconnectAllValueChanged(self.methodParameterChanged)
+    setattr(self, name, method)
+    self.methodParameterChanged()
+    method.connectAllValueChanged(self.methodParameterChanged)
 
-  def setBGSub(self, bgsub):
-    if self.bgsub:
-      self.bgsub.disconnectAllValueChanged(self.bgsubParameterChanged)
-    self.bgsub = bgsub
-    self.bgsubParameterChanged()
-    self.bgsub.connectAllValueChanged(self.bgsubParameterChanged)
-
-  def bgsubParameterChanged(self):
+  def methodParameterChanged(self):
     self.normalizeLines()
     self.updateDiffCurve()
 
@@ -102,7 +102,7 @@ class FitTool(ToolBase):
     logging.debug('Optimize: %s using %s' % (
       ','.join(['%s' % p.name for p in params]), self.optimizeMethod))
 
-    xy = [(x, y) for x, y in zip(line.x, line.y) if self.fitRange.inRange(x)]
+    xy = [(x, y) for x, y in zip(line.x, line.y2) if self.fitRange.inRange(x)]
     x, y = tuple(map(np.array, zip(*xy)))
 
     def wrap(func, args_i):
@@ -233,6 +233,7 @@ class FitTool(ToolBase):
     return y/(sum(y) if sumy == 0 else sumy)
 
   def normalizeLines(self):
+    logging.debug('Smooth: %s' % self.smooth.name)
     for i, (line, curve) in enumerate(zip(self.lines, self.lineCurveItems)):
       x, y = line.x, line.y
       if self.bgsub:
@@ -240,9 +241,13 @@ class FitTool(ToolBase):
         y = y - f(line.x)
       y = self.normalizeXY(x, y)
       if i == 0: S = sum(y)
-      line.y = y/S
+      y = y/S
+      line.y = y
       line.y_ = None
-      curve.setXY(line.x, line.y)
+      if self.smooth:
+        y = self.smooth.smooth(x, y)
+      line.y2 = y
+      curve.setXY(line.x, y)
 
   def updateSumCurve(self):
     if self.sumCurveItem is None:
@@ -397,7 +402,7 @@ class FitTool(ToolBase):
       func = lambda x: cval
 
     xx = zip(line.x[:-1], line.x[1:])
-    yy = zip(line.y[:-1], line.y[1:])
+    yy = zip(line.y2[:-1], line.y2[1:])
     pts = []
     for (x1, x2), (y1, y2) in zip(xx, yy):
       Y1 = y1 - func(x1)
@@ -425,10 +430,6 @@ class FitTool(ToolBase):
     state['pressures'] = dict([(n, p.strValue()) for n, p in self.pressures.items()])
     if self.activeLineName:
       state['active_line'] = self.activeLineName
-
-    state['fit_range'] = self.fitRange.strValue()
-
-    state['isec_func'] = self.isecFunc.strValue()
     return state
 
   def restoreState(self, state):
@@ -468,12 +469,6 @@ class FitTool(ToolBase):
     if 'pressures' in state:
       for name, val in state['pressures'].items():
         self.getPressure(name).setStrValue(str(val))
-
-    if 'fit_range' in state:
-      self.fitRange.setStrValue(state['fit_range'])
-
-    if 'isec_func' in state:
-      self.isecFunc.setStrValue(state['isec_func'])
 
   def newSession(self):
     super().newSession()

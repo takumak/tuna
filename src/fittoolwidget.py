@@ -312,11 +312,17 @@ class FitToolWidget(ToolWidgetBase):
     vbox.setContentsMargins(4, 4, 4, 4)
     self.setLayout(vbox)
 
-    self.bgsub = MethodSelectorBGSub()
-    self.bgsub.selectionChanged.connect(
-      lambda: self.tool.setBGSub(self.bgsub.currentItem()))
-    self.addMethodSelector(self.bgsub)
-    vbox.addWidget(self.bgsub)
+    for name in 'BGSub', 'Smooth':
+      sel = globals()['MethodSelector%s' % name]()
+      setattr(self, name.lower(), sel)
+      sel.selectionChanged.connect((
+        lambda n, s: (
+          lambda: self.tool.setMethod(n.lower(), s.currentItem())
+        )
+      )(name, sel))
+      self.addMethodSelector(sel)
+      vbox.addWidget(sel)
+      setattr(self.tool, name.lower(), sel.currentItem())
 
     vbox.addWidget(HSeparator())
 

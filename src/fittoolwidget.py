@@ -379,6 +379,8 @@ class FitToolWidget(ToolWidgetBase):
     hbox.addStretch(1)
     vbox.addLayout(hbox)
 
+    # self.constraint = 
+
     hbox = HBoxLayout()
     hbox.addWidget(QLabel('Fit range'))
     hbox.addWidget(self.tool.fitRange.getWidget())

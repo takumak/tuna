@@ -54,6 +54,7 @@ class FitTool(ToolBase):
     self.addSettingItem(SettingItemFloat('R2', 'R^2', '0'))
     self.addSettingItem(SettingItemRange('fitRange', 'Fit range', '-inf:inf'))
     self.addSettingItem(SettingItemStr('isecFunc', 'Function', '1'))
+    self.addSettingItem(SettingItemStr('constraint', 'Constraint', ''))
     self.isecPoints = SettingItemStr('isecPoints', 'Points', '')
 
   def setMethod(self, name, method):
@@ -107,6 +108,34 @@ class FitTool(ToolBase):
 
     def wrap(func, args_i):
       return lambda a: func(x, *[a[i] for i in args_i])
+
+
+    # def check
+
+    constraint = []
+    from sympy import Symbol
+    from sympy.parsing.sympy_parser import parse_expr
+    expr = self.constraint.strValue()
+    if expr:
+      expr = parse_expr(expr)
+      if not isinstance(expr, tuple):
+        raise RuntimeError('Constraint must contain tuple')
+      def parseconstraint(expr):
+        if isinstance(expr[0], tuple):
+          parseconstraint(expr[0])
+          if len(expr) >= 2:
+            parseconstraint(expr[1:])
+        elif len(expr) < 2 or isinstance(expr[1], tuple):
+          raise RuntimeError('Constraint must contain pair tuples only')
+        elif not isinstance(expr[0], Symbol):
+          raise RuntimeError('Constraint rhs must be a symbol')
+        else:
+          constraint.append(expr[0], expr[1])
+          if len(expr) >= 3:
+            parseconstraint(expr[2:])
+      parseconstraint(expr)
+
+
 
     srcfuncs = []
     funcs = []

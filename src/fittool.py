@@ -54,7 +54,7 @@ class FitTool(ToolBase):
     self.addSettingItem(SettingItemFloat('R2', 'R^2', '0'))
     self.addSettingItem(SettingItemRange('fitRange', 'Fit range', '-inf:inf'))
     self.addSettingItem(SettingItemStr('isecFunc', 'Function', '1'))
-    self.addSettingItem(SettingItemStr('constraint', 'Constraint', ''))
+    self.addSettingItem(SettingItemStr('constraints', 'Constraints', ''))
     self.isecPoints = SettingItemStr('isecPoints', 'Points', '')
 
   def setMethod(self, name, method):
@@ -94,68 +94,94 @@ class FitTool(ToolBase):
       self.pressures[name] = p
     return p
 
+  def parseConstraints(self):
+    from sympy import Symbol, sympify
+    exprs = self.constraints.strValue().strip()
+    if not exprs: return []
+
+    constraints = []
+    for pair in [l.strip().split('=') for l in re.split(r'[;,\n]', exprs)]:
+      if len(pair) != 2:
+        raise RuntimeError('"%s" is not valid equation' % '='.join(pair))
+      lhs, rhs = map(sympify, pair)
+      if not isinstance(lhs, Symbol):
+        raise RuntimeError('lhs must be a symbol: "%s"' % pair[0])
+
+      params = []
+      for sym in [lhs] + list(rhs.free_symbols):
+        m = re.match(r'F(\d+)_(.*)', sym.name)
+        if not m:
+          raise RuntimeError('Unknown symbol: %s' % sym.name)
+        i, p = int(m.group(1)), m.group(2)
+        if i > len(self.peakFunctions):
+          raise RuntimeError('Function id out of range: %s' % sym.name)
+        f = self.peakFunctions[i - 1]
+        if p not in f.paramsNameMap:
+          raise RuntimeError('"%s" does not have such a parameter: %s' % (f.label, sym.name))
+        params.append((sym.name, f.paramsNameMap[p]))
+
+      constraints.append((params[0][1], rhs, params[1:]))
+
+    return constraints
+
+  def wrapFuncWithConstraints(self, func, params, constraints):
+    cparams = [lhs for lhs, rhs, subs in constraints if lhs in func.params]
+    uparams = [p for p in params if p in func.params and p not in cparams]
+
+    func_ = func.lambdify(uparams + cparams)
+
+    pindices = [params.index(p) for p in uparams]
+    cindices = [i for i, (l, r, s) in enumerate(constraints) if l in cparams]
+    def wrap(x, values, cvalues):
+      args = [values[i] for i in pindices]
+      args += [cvalues[i] for i in cindices]
+      return func_(x, *args)
+    return wrap
+
   def optimize(self, params):
     line = self.activeLine()
     if not line:
       logging.warning('Line not selected')
       return
 
+    constraints = self.parseConstraints()
+    for lhs, rhs, subs in constraints:
+      if lhs in params:
+        params.remove(lhs)
+
     logging.debug('Optimize: %s using %s' % (
       ','.join(['%s' % p.name for p in params]), self.optimizeMethod))
-
-    xy = [(x, y) for x, y in zip(line.x, line.y2) if self.fitRange.inRange(x)]
-    x, y = tuple(map(np.array, zip(*xy)))
-
-    def wrap(func, args_i):
-      return lambda a: func(x, *[a[i] for i in args_i])
-
-
-    # def check
-
-    constraint = []
-    from sympy import Symbol
-    from sympy.parsing.sympy_parser import parse_expr
-    expr = self.constraint.strValue()
-    if expr:
-      expr = parse_expr(expr)
-      if not isinstance(expr, tuple):
-        raise RuntimeError('Constraint must contain tuple')
-      def parseconstraint(expr):
-        if isinstance(expr[0], tuple):
-          parseconstraint(expr[0])
-          if len(expr) >= 2:
-            parseconstraint(expr[1:])
-        elif len(expr) < 2 or isinstance(expr[1], tuple):
-          raise RuntimeError('Constraint must contain pair tuples only')
-        elif not isinstance(expr[0], Symbol):
-          raise RuntimeError('Constraint rhs must be a symbol')
-        else:
-          constraint.append(expr[0], expr[1])
-          if len(expr) >= 3:
-            parseconstraint(expr[2:])
-      parseconstraint(expr)
-
-
 
     srcfuncs = []
     funcs = []
     for func in self.peakFunctions:
-      args, args_i = [], []
-      p = list(zip(*[(p, i) for i, p in enumerate(params) if p in func.params]))
-      if len(p) > 0:
-        args, args_i = p
-        srcfuncs.append(func)
-      funcs.append(wrap(func.lambdify(args), args_i))
+      for p in params + [lhs for lhs, rhs, subs in constraints]:
+        if p in func.params:
+          srcfuncs.append(func)
+          break
+      funcs.append(self.wrapFuncWithConstraints(func, params, constraints))
+
+    def calcConstraintValues(pvalues):
+      pairs = []
+      for lhs, rhs, subs in constraints:
+        v = rhs.subs([(n, pvalues[params.index(p)] if p in params else p.value()) for n, p in subs])
+        pairs.append((lhs, float(v)))
+      return pairs
 
     from scipy.optimize import minimize
-    func = lambda a: np.sum((np.sum([f(a) for f in funcs], axis=0) - y)**2)
+    x, y = np.array([(x, y) for x, y in zip(line.x, line.y2) if self.fitRange.inRange(x)]).T
+    def R2(a):
+      cvals = [v for p, v in calcConstraintValues(a)]
+      return np.sum((np.sum([f(x, a, cvals) for f in funcs], axis=0) - y)**2)
     a0 = np.array([p.value() for p in params])
 
-    res = minimize(func, a0, method=self.optimizeMethod)
+    res = minimize(R2, a0, method=self.optimizeMethod)
     logging.debug('Optimize done: %s' % ','.join(map(str, res.x)))
 
     self.parameterChanged_peaks.block()
     for p, v in zip(params, res.x):
+      p.setValue(v)
+    for p, v in calcConstraintValues(res.x):
       p.setValue(v)
     self.parameterChanged_peaks.unblock()
     for f in srcfuncs:

@@ -1,3 +1,4 @@
+import sys
 import logging
 import re
 import numpy as np
@@ -21,6 +22,7 @@ class OptimizeThread(QThread):
     self.peakFunctions = list(tool.peakFunctions)
     self.constraints = tool.constraints.strValue().strip()
     self.prepare(tool.activeLine(), params, tool.optimizeMethod, tool.fitRange)
+    self.exc_info = None
 
   def parseConstraints(self, variables):
     from sympy import Symbol, sympify
@@ -112,8 +114,11 @@ class OptimizeThread(QThread):
     self.optimizeMethod = optimizeMethod
 
   def run(self):
-    from scipy.optimize import minimize
-    self.res = minimize(self.R2, self.a0, method=self.optimizeMethod)
+    try:
+      from scipy.optimize import minimize
+      self.res = minimize(self.R2, self.a0, method=self.optimizeMethod)
+    except:
+      self.exc_info = sys.exc_info()
 
 
 
@@ -215,6 +220,11 @@ class FitTool(ToolBase):
   def optimizeComplete(self):
     optimizer = self.optimizer
     self.optimizer = None
+
+    if optimizer.exc_info:
+      log.logException(*optimizer.exc_info)
+      return
+
     logging.debug('Optimize done: %s' % ','.join(map(str, optimizer.res.x)))
 
     self.parameterChanged_peaks.block()
@@ -230,7 +240,7 @@ class FitTool(ToolBase):
     self.calcIntersections()
 
     if optimizer.callback:
-      optimizer.callback()
+      optimizer.callback(optimizer.exc_info is None)
 
   def functions(self):
     if self.mode == 'normwin':

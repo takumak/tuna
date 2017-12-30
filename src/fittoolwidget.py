@@ -547,12 +547,9 @@ class FitToolWidget(ToolWidgetBase):
     self.optimize10btn.setEnabled(True)
 
   def optimize1(self):
-    params = [p for p in self.peakFunctions.selectedParameters() if not p.readOnly]
-    if len(params) == 0:
-      raise RuntimeError('Select parameters to optimize')
     self.optimize10btn.setEnabled(False)
     try:
-      self.tool.optimize(params, self.optimizeFinished)
+      self.optimize(lambda success: self.optimizeFinished())
     except:
       self.optimizeFinished()
       raise
@@ -560,7 +557,9 @@ class FitToolWidget(ToolWidgetBase):
   def optimize10(self):
     cnt = [11]
 
-    def callback():
+    def callback(success):
+      if not success: return
+
       cnt[0] = cnt[0] - 1
       self.optimize10btn.setText(str(cnt[0]))
       if cnt[0] == 0:
@@ -573,7 +572,7 @@ class FitToolWidget(ToolWidgetBase):
           self.optimizeFinished()
           raise
 
-    callback()
+    callback(True)
 
   def copyJSON(self):
     params = self.peakFunctions.selectedParameters()

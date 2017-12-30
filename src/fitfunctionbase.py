@@ -110,14 +110,14 @@ class FitFunctionBase(QObject):
     args = ['x'] + paramNames + fixed
     func = lambdify([Symbol(a) for a in args], expr, 'numpy')
 
-    return lambda x, *vals: func(x, *(list(vals) + fixedv))
+    return lambda x, *vals: self.samedim(func(x, *(list(vals) + fixedv)), x)
 
   @classmethod
   def samedim(cls, y, x):
     try:
       i = iter(y)
     except TypeError:
-      return np.full(len(x), y)
+      return np.full(x.shape, y)
     return y
 
   def y(self, x):

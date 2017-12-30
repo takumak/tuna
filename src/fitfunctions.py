@@ -51,7 +51,8 @@ class FitFuncPseudoVoigt(FitFunctionBase):
     ('a', 'Area'),
     ('x0', 'Center'),
     ('w', 'HWHM'),
-    ('m', 'Mix ratio')
+    ('m', 'Mix ratio'),
+    ('h', 'Max height at x=x0; h=a(2m/(PI*w)+(2*sqrt(ln2)*(1-m))/(sqrt(PI)*w))')
   ]
 
   def __init__(self, view):

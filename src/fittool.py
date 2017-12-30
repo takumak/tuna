@@ -32,7 +32,7 @@ class OptimizeThread(QThread):
     self.exc_info = None
 
   @classmethod
-  def parseConstraints(self, constraints, variables, tool):
+  def parseConstraints(cls, constraints, variables, tool):
     from sympy import Symbol, sympify
     exprs = constraints.strip()
     if not exprs: return []

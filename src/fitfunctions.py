@@ -44,11 +44,11 @@ class FitFuncGaussian(FitFunctionBase):
 class FitFuncPseudoVoigt(FitFunctionBase):
   name = 'pseudovoigt'
   label = 'PseudoVoigt'
-  expr = 'a*(m*(w**2)/(4*(x-x0)**2+w**2) + (1-m)*exp(-4*ln(2)/(w**2)*(x-x0)**2))'
-  expr_excel = '%(a)s*(%(m)s*(%(w)s^2)/(4*((%(x)s-%(x0)s)^2)+w^2) + (1-%(m)s)*exp(-4*ln(2)/(%(w)s^2)*((%(x)s-%(x0)s)^2)))'
-  expr_latex = r'y=a\left\{ m\frac{w^2}{4(x-x_0)^2 + w^2} + (1-m)\exp\left[-\frac{4\ln2}{w^2}(x-x_0)^2\right] \right\}'
+  expr = 'a*(m*2/pi*w/(4*(x-x0)**2+w**2) + (1-m)*2*sqrt(ln(2))/(sqrt(pi)*w)*exp(-4*ln(2)/(w**2)*(x-x0)**2))'
+  expr_excel = '%(a)s*(%(m)s*2/PI()*%(w)s/(4*((%(x)s-%(x0)s)^2)+w^2) + (1-%(m)s)*2*sqrt(ln(2))/(sqrt(PI())*%(w)s)*exp(-4*ln(2)/(%(w)s^2)*((%(x)s-%(x0)s)^2)))'
+  expr_latex = r'y=a\left\{ m\frac{2}{\pi}\frac{w}{4(x-x_0)^2 + w^2} + (1-m)\frac{2\sqrt{\ln2}}{\sqrt{\pi}w}\exp\left[-\frac{4\ln2}{w^2}(x-x_0)^2\right] \right\}'
   parameters = [
-    ('a', 'Max height (at x=x0)'),
+    ('a', 'Area'),
     ('x0', 'Center'),
     ('w', 'HWHM'),
     ('m', 'Mix ratio')
@@ -59,15 +59,18 @@ class FitFuncPseudoVoigt(FitFunctionBase):
 
     r = view.viewRect()
     x1, x2, y1, y2 = r.left(), r.right(), r.top(), r.bottom()
-    self.addParam(FitParam('a', y2*0.6))
+    self.addParam(FitParam('a', (x2-x1)*(y2-y1)*0.2))
     self.addParam(FitParam('x0', (x1 + x2)/2))
     self.addParam(FitParam('w', (x2 - x1)*0.1))
     self.addParam(FitParam('m', 0.1))
-    self.addParam(self.eval('Area', 'a*(pi*sqrt(ln(2))*m*w + sqrt(pi)*(1-m)*w)/(2*sqrt(ln(2)))', None))
+    self.addParam(self.eval('h', 'a*((2*m)/(pi*w)+(2*sqrt(ln(2))*(1-m))/(sqrt(pi)*w))', self.a))
 
-    half = self.eval('half', 'a/2', None)
-    x1 = self.eval('x1', 'x0+w/2', self.w)
-    self.addHandle(FitHandlePosition(view, self.x0, self.a))
+    self.addHandle(FitHandlePosition(view, self.x0, self.h))
+    half = self.eval('half', 'h/2', None)
+    x1 = self.eval2('x1', 'x0+w/2', '''
+      w = 2*(x1-x0)
+      a = pi*_h*w/2/( sqrt(pi*ln(2)) - (sqrt(pi*ln(2)) - 1)*m )
+    ''')
     self.addHandle(FitHandleLine(view, self.x0, half, x1, half))
 
 

@@ -1,3 +1,4 @@
+import re
 import operator
 from PyQt5.QtCore import QObject, pyqtSignal
 import numpy as np
@@ -7,7 +8,8 @@ from settingitems import *
 
 
 
-__all__ = ['FitParam', 'FitParamConst', 'FitParamFunc', 'FitParamFormula']
+__all__ = ['FitParam', 'FitParamConst', 'FitParamFunc',
+           'FitParamFormula', 'FitParamFormula2']
 
 
 
@@ -134,3 +136,55 @@ class FitParamFormula(FitParamFunc):
       set_ = None
 
     super().__init__(name, get_, set_, refargs, **kwargs)
+
+
+
+class FitParamFormula2(FitParam):
+  def __init__(self, name, formula, setEquations, refargs):
+    super().__init__(name, None)
+    self.value = self.lambdify(formula, refargs)
+    self.setEquations = self.parseEquations(setEquations, refargs)
+    self.refargs = refargs
+
+  @classmethod
+  def lambdify(cls, formula, refargs):
+    from sympy import sympify, lambdify
+    func = lambdify([a.name for a in refargs], sympify(formula), 'numpy')
+    def wrap():
+      return func(*[a.value() for a in refargs])
+    return wrap
+
+  @classmethod
+  def parseEquations(cls, eqs, refargs):
+    exprs = eqs.strip()
+    if not exprs: return []
+
+    refargmap = dict([(a.name, a) for a in refargs])
+
+    from sympy import Symbol, sympify, lambdify
+    equations = []
+    for pair in [l.strip().split('=') for l in re.split(r'[;,\n]', exprs)]:
+      if len(pair) != 2:
+        raise InvalidConstraints('"%s" is not valid equation (statement must contain "=")' % '='.join(pair))
+      lhs, rhs = map(sympify, pair)
+      if not isinstance(lhs, Symbol):
+        raise InvalidConstraints('lhs must be a symbol: "%s"' % pair[0])
+      args1 = [s.name for s in rhs.free_symbols if s.name in refargmap]
+      args2 = [s.name for s in rhs.free_symbols if s.name not in refargmap]
+      func = lambdify(args1+args2, rhs, 'numpy')
+      equations.append((lhs.name, func, [refargmap[n] for n in args1], args2))
+
+    return equations
+
+  def setValue(self, newval):
+    variables = dict([('_%s' % a.name, a.value()) for a in self.refargs])
+    variables['_%s' % self.name] = self.value()
+    variables[self.name] = newval
+    refargmap = dict([(a.name, a) for a in self.refargs])
+    for name, func, args1, args2 in self.setEquations:
+      args = [a.value() for a in args1] + [variables[n] for n in args2]
+      value = func(*args)
+      if name in refargmap:
+        refargmap[name].setValue(value)
+      else:
+        variables[name] = value

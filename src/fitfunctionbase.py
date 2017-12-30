@@ -92,6 +92,9 @@ class FitFunctionBase(QObject):
   def eval(self, name, formula, setArg, **kwargs):
     return FitParamFormula(name, formula, setArg, self.params, **kwargs)
 
+  def eval2(self, name, formula, setEquations):
+    return FitParamFormula2(name, formula, setEquations, self.params)
+
   def parse_expr(self, expr):
     from sympy.parsing.sympy_parser import parse_expr
     from sympy import Symbol

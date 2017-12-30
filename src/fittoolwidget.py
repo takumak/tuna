@@ -358,7 +358,7 @@ class FitToolWidget(ToolWidgetBase):
     self.peakFunctions.itemSelectionChanged.connect(self.paramsSelected)
     self.peakFunctions.addAction(
       '&Optimize selected parameters',
-      self.optimize, QKeySequence('Ctrl+Enter,Ctrl+Return'))
+      self.optimize1, QKeySequence('Ctrl+Enter,Ctrl+Return'))
     self.peakFunctions.addAction('Copy in &JSON', self.copyJSON, QKeySequence.UnknownKey)
     vbox.addWidget(self.peakFunctions)
 
@@ -368,8 +368,9 @@ class FitToolWidget(ToolWidgetBase):
     self.optimizeCombo.currentIndexChanged.connect(self.setOptimizeMethod)
     self.optimizeCombo.setCurrentIndex(0)
     self.setOptimizeMethod()
-    self.optimize10btn = QPushButton('Do 10 times')
+    self.optimize10btn = QPushButton()
     self.optimize10btn.pressed.connect(self.optimize10)
+    self.optimizeFinished()
     hbox = HBoxLayout()
     hbox.addWidget(QLabel('Optimize'))
     hbox.addWidget(self.optimizeCombo)
@@ -535,20 +536,44 @@ class FitToolWidget(ToolWidgetBase):
     self.setUpdatesEnabled(True)
     self.peakFunctions.setFocus()
 
-  def optimize(self):
+  def optimize(self, callback=None):
     params = [p for p in self.peakFunctions.selectedParameters() if not p.readOnly]
     if len(params) == 0:
-      logging.error('Select parameters to optimize')
-      return
-    self.tool.optimize(params)
+      raise RuntimeError('Select parameters to optimize')
+    self.tool.optimize(params, callback)
 
-  def optimize10(self):
-    self.optimize10btn.setEnabled(False)
-    for i in range(10, 0, -1):
-      self.optimize10btn.setText(str(i))
-      self.optimize()
+  def optimizeFinished(self):
     self.optimize10btn.setText('Do 10 times')
     self.optimize10btn.setEnabled(True)
+
+  def optimize1(self):
+    params = [p for p in self.peakFunctions.selectedParameters() if not p.readOnly]
+    if len(params) == 0:
+      raise RuntimeError('Select parameters to optimize')
+    self.optimize10btn.setEnabled(False)
+    try:
+      self.tool.optimize(params, self.optimizeFinished)
+    except:
+      self.optimizeFinished()
+      raise
+
+  def optimize10(self):
+    cnt = [11]
+
+    def callback():
+      cnt[0] = cnt[0] - 1
+      self.optimize10btn.setText(str(cnt[0]))
+      if cnt[0] == 0:
+        self.optimizeFinished()
+      else:
+        self.optimize10btn.setEnabled(False)
+        try:
+          self.optimize(callback)
+        except:
+          self.optimizeFinished()
+          raise
+
+    callback()
 
   def copyJSON(self):
     params = self.peakFunctions.selectedParameters()

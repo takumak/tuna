@@ -2,6 +2,7 @@ import logging
 import re
 import numpy as np
 import pyqtgraph as pg
+from PyQt5.QtCore import QThread
 
 import log
 from line import Line
@@ -10,6 +11,109 @@ import fitfunctions
 from fitgraphitems import *
 from settingitems import *
 from functions import blockable
+
+
+
+class OptimizeThread(QThread):
+  def __init__(self, tool, params):
+    super().__init__()
+    self.params = params
+    self.peakFunctions = list(tool.peakFunctions)
+    self.constraints = tool.constraints.strValue().strip()
+    self.prepare(tool.activeLine(), params, tool.optimizeMethod, tool.fitRange)
+
+  def parseConstraints(self, variables):
+    from sympy import Symbol, sympify
+    exprs = self.constraints
+    if not exprs: return []
+
+    constraints = []
+    for pair in [l.strip().split('=') for l in re.split(r'[;,\n]', exprs)]:
+      if len(pair) != 2:
+        raise RuntimeError('"%s" is not valid equation' % '='.join(pair))
+      lhs, rhs = map(sympify, pair)
+      if not isinstance(lhs, Symbol):
+        raise RuntimeError('lhs must be a symbol: "%s"' % pair[0])
+
+      params = []
+      subs = []
+      for sym in [lhs] + list(rhs.free_symbols):
+        m = re.match(r'F(\d+)_(.*)', sym.name)
+        if not m:
+          raise RuntimeError('Unknown symbol: %s' % sym.name)
+        i, pn = int(m.group(1)), m.group(2)
+        if i > len(self.peakFunctions):
+          raise RuntimeError('Function id out of range: %s' % sym.name)
+        f = self.peakFunctions[i - 1]
+        if pn not in f.paramsNameMap:
+          raise RuntimeError('"%s" does not have such a parameter: %s' % (f.label, sym.name))
+        p = f.paramsNameMap[pn]
+
+        if sym == lhs:
+          lhs = p
+        elif p in variables:
+          params.append((sym.name, variables.index(p)))
+        else:
+          subs.append((sym, p.value()))
+
+      constraints.append((lhs, rhs.subs(subs), params))
+
+    return constraints
+
+  def wrapFuncWithConstraints(self, func, params, constraints):
+    cparams = [lhs for lhs, rhs, subs in constraints if lhs in func.params]
+    uparams = [p for p in params if p in func.params and p not in cparams]
+
+    func_ = func.lambdify(uparams + cparams)
+
+    pindices = [params.index(p) for p in uparams]
+    cindices = [i for i, (l, r, s) in enumerate(constraints) if l in cparams]
+    def wrap(x, values, cvalues):
+      args = [values[i] for i in pindices]
+      args += [cvalues[i] for i in cindices]
+      return func_(x, *args)
+
+    return wrap
+
+  def calcConstraintValues(self, pvalues):
+    pairs = []
+    for lhs, rhs, subs in self.constraints:
+      v = rhs.subs([(n, pvalues[i]) for n, i in subs])
+      pairs.append((lhs, float(v)))
+    return pairs
+
+  def prepare(self, line, params, optimizeMethod, fitRange):
+    self.constraints = self.parseConstraints(params)
+    constraints = self.constraints
+    for lhs, rhs, subs in constraints:
+      if lhs in params:
+        params.remove(lhs)
+
+    logging.debug('Optimize: %s using %s' % (
+      ','.join(['%s' % p.name for p in params]), optimizeMethod))
+
+    self.srcfuncs = []
+    funcs = []
+    for func in self.peakFunctions:
+      for p in params + [lhs for lhs, rhs, subs in constraints]:
+        if p in func.params:
+          self.srcfuncs.append(func)
+          break
+      funcs.append(self.wrapFuncWithConstraints(func, params, constraints))
+
+    x, y = np.array([(x, y) for x, y in zip(line.x, line.y2) if fitRange.inRange(x)]).T
+    def R2(a):
+      cvals = [v for p, v in self.calcConstraintValues(a)]
+      return np.sum((np.sum([f(x, a, cvals) for f in funcs], axis=0) - y)**2)
+    a0 = np.array([p.value() for p in params])
+
+    self.R2 = R2
+    self.a0 = a0
+    self.optimizeMethod = optimizeMethod
+
+  def run(self):
+    from scipy.optimize import minimize
+    self.res = minimize(self.R2, self.a0, method=self.optimizeMethod)
 
 
 
@@ -49,6 +153,7 @@ class FitTool(ToolBase):
     self.pressures = {}
     self.mode = 'peaks'
     self.plotParams = None
+    self.optimizer = None
 
     self.optimizeMethod = self.optimizeMethods[0]
     self.addSettingItem(SettingItemFloat('R2', 'R^2', '0'))
@@ -94,100 +199,38 @@ class FitTool(ToolBase):
       self.pressures[name] = p
     return p
 
-  def parseConstraints(self):
-    from sympy import Symbol, sympify
-    exprs = self.constraints.strValue().strip()
-    if not exprs: return []
+  def optimize(self, params, callback=None):
+    if self.optimizer:
+      raise RuntimeError('Now an optimize job is running')
 
-    constraints = []
-    for pair in [l.strip().split('=') for l in re.split(r'[;,\n]', exprs)]:
-      if len(pair) != 2:
-        raise RuntimeError('"%s" is not valid equation' % '='.join(pair))
-      lhs, rhs = map(sympify, pair)
-      if not isinstance(lhs, Symbol):
-        raise RuntimeError('lhs must be a symbol: "%s"' % pair[0])
-
-      params = []
-      for sym in [lhs] + list(rhs.free_symbols):
-        m = re.match(r'F(\d+)_(.*)', sym.name)
-        if not m:
-          raise RuntimeError('Unknown symbol: %s' % sym.name)
-        i, p = int(m.group(1)), m.group(2)
-        if i > len(self.peakFunctions):
-          raise RuntimeError('Function id out of range: %s' % sym.name)
-        f = self.peakFunctions[i - 1]
-        if p not in f.paramsNameMap:
-          raise RuntimeError('"%s" does not have such a parameter: %s' % (f.label, sym.name))
-        params.append((sym.name, f.paramsNameMap[p]))
-
-      constraints.append((params[0][1], rhs, params[1:]))
-
-    return constraints
-
-  def wrapFuncWithConstraints(self, func, params, constraints):
-    cparams = [lhs for lhs, rhs, subs in constraints if lhs in func.params]
-    uparams = [p for p in params if p in func.params and p not in cparams]
-
-    func_ = func.lambdify(uparams + cparams)
-
-    pindices = [params.index(p) for p in uparams]
-    cindices = [i for i, (l, r, s) in enumerate(constraints) if l in cparams]
-    def wrap(x, values, cvalues):
-      args = [values[i] for i in pindices]
-      args += [cvalues[i] for i in cindices]
-      return func_(x, *args)
-    return wrap
-
-  def optimize(self, params):
     line = self.activeLine()
     if not line:
-      logging.warning('Line not selected')
-      return
+      raise RuntimeError('Line not selected')
 
-    constraints = self.parseConstraints()
-    for lhs, rhs, subs in constraints:
-      if lhs in params:
-        params.remove(lhs)
+    self.optimizer = OptimizeThread(self, params)
+    self.optimizer.callback = callback
+    self.optimizer.finished.connect(self.optimizeComplete)
+    self.optimizer.start()
 
-    logging.debug('Optimize: %s using %s' % (
-      ','.join(['%s' % p.name for p in params]), self.optimizeMethod))
-
-    srcfuncs = []
-    funcs = []
-    for func in self.peakFunctions:
-      for p in params + [lhs for lhs, rhs, subs in constraints]:
-        if p in func.params:
-          srcfuncs.append(func)
-          break
-      funcs.append(self.wrapFuncWithConstraints(func, params, constraints))
-
-    def calcConstraintValues(pvalues):
-      pairs = []
-      for lhs, rhs, subs in constraints:
-        v = rhs.subs([(n, pvalues[params.index(p)] if p in params else p.value()) for n, p in subs])
-        pairs.append((lhs, float(v)))
-      return pairs
-
-    from scipy.optimize import minimize
-    x, y = np.array([(x, y) for x, y in zip(line.x, line.y2) if self.fitRange.inRange(x)]).T
-    def R2(a):
-      cvals = [v for p, v in calcConstraintValues(a)]
-      return np.sum((np.sum([f(x, a, cvals) for f in funcs], axis=0) - y)**2)
-    a0 = np.array([p.value() for p in params])
-
-    res = minimize(R2, a0, method=self.optimizeMethod)
-    logging.debug('Optimize done: %s' % ','.join(map(str, res.x)))
+  def optimizeComplete(self):
+    optimizer = self.optimizer
+    self.optimizer = None
+    logging.debug('Optimize done: %s' % ','.join(map(str, optimizer.res.x)))
 
     self.parameterChanged_peaks.block()
-    for p, v in zip(params, res.x):
+    for p, v in zip(optimizer.params, optimizer.res.x):
       p.setValue(v)
-    for p, v in calcConstraintValues(res.x):
+    for p, v in optimizer.calcConstraintValues(optimizer.res.x):
       p.setValue(v)
     self.parameterChanged_peaks.unblock()
-    for f in srcfuncs:
+
+    for f in optimizer.srcfuncs:
       self.parameterChanged_peaks(f)
 
     self.calcIntersections()
+
+    if optimizer.callback:
+      optimizer.callback()
 
   def functions(self):
     if self.mode == 'normwin':

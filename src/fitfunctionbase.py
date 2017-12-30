@@ -106,10 +106,11 @@ class FitFunctionBase(QObject):
     from sympy import Symbol, lambdify
     expr = self.parse_expr(self.expr)
     fixed = [s.name for s in expr.free_symbols if s.name != 'x' and s.name not in paramNames]
+    fixedv = [self.paramsNameMap[n].value() for n in fixed]
     args = ['x'] + paramNames + fixed
     func = lambdify([Symbol(a) for a in args], expr, 'numpy')
 
-    return lambda x, *vals: func(x, *(list(vals) + [self.paramsNameMap[n].value() for n in fixed]))
+    return lambda x, *vals: func(x, *(list(vals) + fixedv))
 
   @classmethod
   def samedim(cls, y, x):

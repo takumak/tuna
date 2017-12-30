@@ -32,9 +32,7 @@ class FitFuncGaussian(FitFunctionBase):
     self.addParam(FitParam('a', y2*0.6))
     self.addParam(FitParam('b', (x1 + x2)/2))
     self.addParam(FitParam('c', (x2 - x1)*0.1))
-    self.addParam(self.eval('HWHM', 'sqrt(2*ln(2))*c', None))
     self.addParam(self.eval('Area', 'sqrt(2*pi)*a*c', None))
-    self.addParam(self.eval('a_c', 'a/c', None, label='a/c'))
 
     half = self.eval('half', 'a/2', None)
     x1 = self.eval('x1', 'b+c*sqrt(2*log(2))', self.c)
@@ -46,9 +44,9 @@ class FitFuncGaussian(FitFunctionBase):
 class FitFuncPseudoVoigt(FitFunctionBase):
   name = 'pseudovoigt'
   label = 'PseudoVoigt'
-  expr = 'a*(m*(w**2)/((x-x0)**2+w**2) + (1-m)*exp(-ln(2)/(w**2)*(x-x0)**2))'
-  expr_excel = '%(a)s*(%(m)s*(%(w)s^2)/((%(x)s-%(x0)s)^2+w^2) + (1-%(m)s)*exp(-ln(2)/(%(w)s^2)*((%(x)s-%(x0)s)^2)))'
-  expr_latex = r'y=a\left\{ m\frac{w^2}{(x-x_0)^2 + w^2} + (1-m)\exp\left[-\frac{\ln2}{w^2}(x-x_0)^2\right] \right\}'
+  expr = 'a*(m*(w**2)/(4*(x-x0)**2+w**2) + (1-m)*exp(-4*ln(2)/(w**2)*(x-x0)**2))'
+  expr_excel = '%(a)s*(%(m)s*(%(w)s^2)/(4*((%(x)s-%(x0)s)^2)+w^2) + (1-%(m)s)*exp(-4*ln(2)/(%(w)s^2)*((%(x)s-%(x0)s)^2)))'
+  expr_latex = r'y=a\left\{ m\frac{w^2}{4(x-x_0)^2 + w^2} + (1-m)\exp\left[-\frac{4\ln2}{w^2}(x-x_0)^2\right] \right\}'
   parameters = [
     ('a', 'Max height (at x=x0)'),
     ('x0', 'Center'),
@@ -65,9 +63,10 @@ class FitFuncPseudoVoigt(FitFunctionBase):
     self.addParam(FitParam('x0', (x1 + x2)/2))
     self.addParam(FitParam('w', (x2 - x1)*0.1))
     self.addParam(FitParam('m', 0.1))
+    self.addParam(self.eval('Area', 'a*(pi*sqrt(ln(2))*m*w + sqrt(pi)*(1-m)*w)/(2*sqrt(ln(2)))', None))
 
     half = self.eval('half', 'a/2', None)
-    x1 = self.eval('x1', 'x0+w', self.w)
+    x1 = self.eval('x1', 'x0+w/2', self.w)
     self.addHandle(FitHandlePosition(view, self.x0, self.a))
     self.addHandle(FitHandleLine(view, self.x0, half, x1, half))
 

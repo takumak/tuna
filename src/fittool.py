@@ -4,6 +4,7 @@ import re
 import numpy as np
 import pyqtgraph as pg
 from PyQt5.QtCore import QThread
+from PyQt5.QtGui import QValidator
 
 import log
 from line import Line
@@ -15,40 +16,49 @@ from functions import blockable
 
 
 
+class InvalidConstraints(Exception):
+  def __init__(self, msg):
+    super().__init__()
+    self.reason = msg
+
+
+
 class OptimizeThread(QThread):
   def __init__(self, tool, params):
     super().__init__()
+    self.tool = tool
     self.params = params
-    self.peakFunctions = list(tool.peakFunctions)
-    self.constraints = tool.constraints.strValue().strip()
-    self.prepare(tool.activeLine(), params, tool.optimizeMethod, tool.fitRange)
+    self.prepare()
     self.exc_info = None
 
-  def parseConstraints(self, variables):
+  @classmethod
+  def parseConstraints(self, constraints, variables, tool):
     from sympy import Symbol, sympify
-    exprs = self.constraints
+    exprs = constraints.strip()
     if not exprs: return []
 
     constraints = []
     for pair in [l.strip().split('=') for l in re.split(r'[;,\n]', exprs)]:
       if len(pair) != 2:
-        raise RuntimeError('"%s" is not valid equation' % '='.join(pair))
+        raise InvalidConstraints('"%s" is not valid equation (statement must contain "=")' % '='.join(pair))
       lhs, rhs = map(sympify, pair)
       if not isinstance(lhs, Symbol):
-        raise RuntimeError('lhs must be a symbol: "%s"' % pair[0])
+        raise InvalidConstraints('lhs must be a symbol: "%s"' % pair[0])
 
       params = []
       subs = []
       for sym in [lhs] + list(rhs.free_symbols):
         m = re.match(r'F(\d+)_(.*)', sym.name)
         if not m:
-          raise RuntimeError('Unknown symbol: %s' % sym.name)
+          raise InvalidConstraints('Unknown symbol: %s; '
+                                   'Function parameters are in format of "F1_name"'
+                                   % sym.name)
         i, pn = int(m.group(1)), m.group(2)
-        if i > len(self.peakFunctions):
-          raise RuntimeError('Function id out of range: %s' % sym.name)
-        f = self.peakFunctions[i - 1]
+        if i > len(tool.peakFunctions):
+          raise InvalidConstraints('Function id out of range: %s' % sym.name)
+        f = tool.peakFunctions[i - 1]
         if pn not in f.paramsNameMap:
-          raise RuntimeError('"%s" does not have such a parameter: %s' % (f.label, sym.name))
+          raise InvalidConstraints('"%s" does not have such a parameter: %s' % (f.label, sym.name))
         p = f.paramsNameMap[pn]
 
         if sym == lhs:
@@ -84,26 +94,30 @@ class OptimizeThread(QThread):
       pairs.append((lhs, float(v)))
     return pairs
 
-  def prepare(self, line, params, optimizeMethod, fitRange):
-    self.constraints = self.parseConstraints(params)
+  def prepare(self):
+    line = self.tool.activeLine()
+    params = self.params
+
+    self.constraints = self.parseConstraints(self.tool.constraints.strValue(), params, self.tool)
     constraints = self.constraints
     for lhs, rhs, subs in constraints:
       if lhs in params:
         params.remove(lhs)
 
     logging.debug('Optimize: %s using %s' % (
-      ','.join(['%s' % p.name for p in params]), optimizeMethod))
+      ','.join(['%s' % p.name for p in params]), self.tool.optimizeMethod))
 
     self.srcfuncs = []
     funcs = []
-    for func in self.peakFunctions:
+    for func in self.tool.peakFunctions:
       for p in params + [lhs for lhs, rhs, subs in constraints]:
         if p in func.params:
           self.srcfuncs.append(func)
           break
       funcs.append(self.wrapFuncWithConstraints(func, params, constraints))
 
-    x, y = np.array([(x, y) for x, y in zip(line.x, line.y2) if fitRange.inRange(x)]).T
+    x, y = np.array([(x, y) for x, y in zip(line.x, line.y2)
+                     if self.tool.fitRange.inRange(x)]).T
     def R2(a):
       cvals = [v for p, v in self.calcConstraintValues(a)]
       return np.sum((np.sum([f(x, a, cvals) for f in funcs], axis=0) - y)**2)
@@ -111,7 +125,7 @@ class OptimizeThread(QThread):
 
     self.R2 = R2
     self.a0 = a0
-    self.optimizeMethod = optimizeMethod
+    self.optimizeMethod = self.tool.optimizeMethod
 
   def run(self):
     try:
@@ -164,7 +178,8 @@ class FitTool(ToolBase):
     self.addSettingItem(SettingItemFloat('R2', 'R^2', '0'))
     self.addSettingItem(SettingItemRange('fitRange', 'Fit range', '-inf:inf'))
     self.addSettingItem(SettingItemStr('isecFunc', 'Function', '1'))
-    self.addSettingItem(SettingItemStr('constraints', 'Constraints', ''))
+    self.addSettingItem(SettingItemStr('constraints', 'Constraints', '',
+                                       validator=self.validateConstraints))
     self.isecPoints = SettingItemStr('isecPoints', 'Points', '')
 
   def setMethod(self, name, method):
@@ -203,6 +218,16 @@ class FitTool(ToolBase):
         p.setStrValue(m.group(1))
       self.pressures[name] = p
     return p
+
+  def validateConstraints(self, value):
+    try:
+      OptimizeThread.parseConstraints(value, [], self)
+      return QValidator.Acceptable, 'OK'
+    except InvalidConstraints as ex:
+      return QValidator.Invalid, ex.reason
+    except:
+      log.warnException()
+      return QValidator.Invalid, 'Unknown error'
 
   def optimize(self, params, callback=None):
     if self.optimizer:

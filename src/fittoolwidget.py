@@ -4,7 +4,7 @@ from PyQt5.QtCore import pyqtSignal, Qt
 from PyQt5.QtGui import QKeySequence, QBrush
 from PyQt5.QtWidgets import QVBoxLayout, QHeaderView, QComboBox, \
   QTableWidgetItem, QLabel, QPushButton, QButtonGroup, QWidget, \
-  QCheckBox
+  QCheckBox, QTabWidget
 
 from functions import blockable
 from toolwidgetbase import *
@@ -358,25 +358,43 @@ class FitToolWidget(ToolWidgetBase):
     self.peakFunctions.itemSelectionChanged.connect(self.paramsSelected)
     self.peakFunctions.addAction(
       '&Optimize selected parameters',
-      self.optimize1, QKeySequence('Ctrl+Enter,Ctrl+Return'))
+      lambda: self.optimize(1),
+      QKeySequence('Ctrl+Enter,Ctrl+Return')
+    )
     self.peakFunctions.addAction('Copy in &JSON', self.copyJSON, QKeySequence.UnknownKey)
     vbox.addWidget(self.peakFunctions)
 
+    self.plotParams = QCheckBox('Plot Pressure vs Parameters')
+    self.plotParams.toggled.connect(self.toolSetPlotParams)
+    vbox.addWidget(self.plotParams)
+
+    tab = QTabWidget()
+    for tablabel in 'Optimize', 'Intersections', 'Export':
+      vbox2 = VBoxLayout(hmargins=True)
+      getattr(self, 'maketab_%s' % tablabel.lower())(vbox2)
+      vbox2.addStretch(1)
+      page = QWidget()
+      page.setLayout(vbox2)
+      tab.addTab(page, tablabel)
+    vbox.addWidget(tab)
+
+    vbox.addStretch(1)
+
+    self.paramsSelected()
+
+  def maketab_optimize(self, vbox):
     self.optimizeCombo = QComboBox()
     for name in self.tool.optimizeMethods:
       self.optimizeCombo.addItem(name)
     self.optimizeCombo.currentIndexChanged.connect(self.setOptimizeMethod)
     self.optimizeCombo.setCurrentIndex(0)
     self.setOptimizeMethod()
-    self.optimize10btn = QPushButton()
-    self.optimize10btn.pressed.connect(self.optimize10)
-    self.optimizeFinished()
+
     hbox = HBoxLayout()
-    hbox.addWidget(QLabel('Optimize'))
+    hbox.addWidget(QLabel('Method'))
     hbox.addWidget(self.optimizeCombo)
     hbox.addWidget(QLabel('R^2'))
     hbox.addWidget(self.tool.R2.getWidget())
-    hbox.addWidget(self.optimize10btn)
     hbox.addStretch(1)
     vbox.addLayout(hbox)
 
@@ -388,36 +406,34 @@ class FitToolWidget(ToolWidgetBase):
     hbox = HBoxLayout()
     hbox.addWidget(QLabel('Fit range'))
     hbox.addWidget(self.tool.fitRange.getWidget())
+    hbox.addStretch(1)
     vbox.addLayout(hbox)
 
-    self.plotParams = QCheckBox('Plot Pressure vs Parameters')
-    self.plotParams.toggled.connect(self.toolSetPlotParams)
-    vbox.addWidget(self.plotParams)
+    self.optimize1btn = QPushButton('Optimize')
+    self.optimize1btn.pressed.connect(lambda: self.optimize(1))
+    self.optimize10btn = QPushButton()
+    self.optimize10btn.pressed.connect(lambda: self.optimize(10, toggle=True))
+    self.optimizeStatus = QLabel()
+    hbox = HBoxLayout()
+    hbox.addWidget(self.optimize1btn)
+    hbox.addWidget(self.optimize10btn)
+    hbox.addWidget(self.optimizeStatus)
+    hbox.addStretch(1)
+    vbox.addLayout(hbox)
+    self.optimizeCnt = 0
+    self.optimizeFinished()
 
-
-    #### intersection
-
-    vbox.addWidget(HSeparator())
-    vbox2 = VBoxLayout()
-
+  def maketab_intersections(self, vbox):
     hbox = HBoxLayout()
     hbox.addWidget(QLabel('f(x)='))
     hbox.addWidget(self.tool.isecFunc.getWidget())
-    vbox2.addLayout(hbox)
-    vbox2.addWidget(self.tool.isecPoints.getWidget())
+    vbox.addLayout(hbox)
+    vbox.addWidget(self.tool.isecPoints.getWidget())
     calcbtn = QPushButton('Calc')
     calcbtn.clicked.connect(self.tool.calcIntersections)
-    vbox2.addWidget(calcbtn)
+    vbox.addWidget(calcbtn)
 
-    isec = ExpanderWidget('Intersections', vbox2)
-    vbox.addWidget(isec)
-
-
-    #### xlsx exporter
-
-    vbox.addWidget(HSeparator())
-    vbox2 = VBoxLayout()
-
+  def maketab_export(self, vbox):
     self.plotModeCombo = QComboBox()
     self.plotModeCombo.currentIndexChanged.connect(self.plotModeSelected)
     self.plotModeCombo.addItem('Select...', None)
@@ -426,23 +442,16 @@ class FitToolWidget(ToolWidgetBase):
     hbox = HBoxLayout()
     hbox.addWidget(QLabel('Plot Pressure vs Selected parameters'))
     hbox.addWidget(self.plotModeCombo)
-    vbox2.addLayout(hbox)
+    vbox.addLayout(hbox)
 
     self.plotLabelsTable = PlotLabelsTable()
-    vbox2.addWidget(self.plotLabelsTable)
+    vbox.addWidget(self.plotLabelsTable)
 
     hbox = HBoxLayout()
     btn = QPushButton('Export xlsx')
     btn.clicked.connect(self.exportXlsx)
     hbox.addWidget(btn)
-    vbox2.addLayout(hbox)
-
-    expander = ExpanderWidget('Export xlsx', vbox2)
-    vbox.addWidget(expander)
-
-    vbox.addStretch(1)
-
-    self.paramsSelected()
+    vbox.addLayout(hbox)
 
   def setOptimizeMethod(self):
     self.tool.optimizeMethod = self.optimizeCombo.currentText()
@@ -536,43 +545,43 @@ class FitToolWidget(ToolWidgetBase):
     self.setUpdatesEnabled(True)
     self.peakFunctions.setFocus()
 
-  def optimize(self, callback=None):
+  def optimize(self, cnt, toggle=False):
+    if self.optimizeCnt > 0:
+      if toggle: self.optimizeCnt = 0
+      return
+
     params = [p for p in self.peakFunctions.selectedParameters() if not p.readOnly]
     if len(params) == 0:
       raise RuntimeError('Select parameters to optimize')
-    self.tool.optimize(params, callback)
 
-  def optimizeFinished(self):
-    self.optimize10btn.setText('Do 10 times')
-    self.optimize10btn.setEnabled(True)
-
-  def optimize1(self):
-    self.optimize10btn.setEnabled(False)
-    try:
-      self.optimize(lambda success: self.optimizeFinished())
-    except:
-      self.optimizeFinished()
-      raise
-
-  def optimize10(self):
-    cnt = [11]
+    self.optimizeCnt = cnt
 
     def callback(success):
-      if not success: return
-
-      cnt[0] = cnt[0] - 1
-      self.optimize10btn.setText(str(cnt[0]))
-      if cnt[0] == 0:
+      if not success or self.optimizeCnt == 0:
         self.optimizeFinished()
+        return
+
+      self.optimize1btn.setEnabled(False)
+      if self.optimizeCnt > 1:
+        self.optimize10btn.setText('Cancel')
       else:
         self.optimize10btn.setEnabled(False)
-        try:
-          self.optimize(callback)
-        except:
-          self.optimizeFinished()
-          raise
+      self.optimizeStatus.setText('Running... %d' % self.optimizeCnt)
+
+      self.optimizeCnt -= 1
+      try:
+        self.tool.optimize(params, callback)
+      except:
+        self.optimizeFinished()
+        raise
 
     callback(True)
+
+  def optimizeFinished(self):
+    self.optimize1btn.setEnabled(True)
+    self.optimize10btn.setText('Do 10 times')
+    self.optimize10btn.setEnabled(True)
+    self.optimizeStatus.setText('')
 
   def copyJSON(self):
     params = self.peakFunctions.selectedParameters()

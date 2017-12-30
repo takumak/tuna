@@ -122,19 +122,15 @@ class HSeparator(QFrame):
 
 
 
-class HBoxLayout(QHBoxLayout):
-  def __init__(self):
-    super().__init__()
-    self.setContentsMargins(0, 0, 0, 0)
+class BoxLayoutBase():
+  def __init__(self, vmargins=False, hmargins=False):
+    vm = 4 if hmargins else 0
+    hm = 4 if hmargins else 0
+    self.setContentsMargins(hm, vm, hm, vm)
     self.setSpacing(4)
 
-
-
-class VBoxLayout(QVBoxLayout):
-  def __init__(self):
-    super().__init__()
-    self.setContentsMargins(0, 0, 0, 0)
-    self.setSpacing(4)
+class HBoxLayout(QHBoxLayout, BoxLayoutBase): pass
+class VBoxLayout(QVBoxLayout, BoxLayoutBase): pass
 
 
 

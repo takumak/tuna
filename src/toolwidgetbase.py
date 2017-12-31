@@ -168,7 +168,7 @@ class MethodSelectorBGSub(MethodSelectorBase):
 class MethodSelectorInterp(MethodSelectorBase):
   def __init__(self, dx):
     super().__init__('interp', 'Interpolation', [
-      InterpCubicSpline(), InterpLinear(), InterpPchip(),
+      InterpCubicSpline(), InterpBSpline(), InterpLinear(), InterpPchip(),
       InterpAkima(), InterpKrogh(), InterpBarycentric()])
 
     self.comboHBox.addWidget(QLabel('dx'))

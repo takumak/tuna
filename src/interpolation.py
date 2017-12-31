@@ -6,7 +6,7 @@ from commonwidgets import *
 
 
 
-__all__ = ['InterpLinear', 'InterpUnivariateSpline',
+__all__ = ['InterpLinear', 'InterpBSpline',
            'InterpCubicSpline', 'InterpBarycentric',
            'InterpKrogh', 'InterpPchip', 'InterpAkima']
 
@@ -38,18 +38,24 @@ This runs <code>scipy.interpolate.interp1d(x, y, "linear")</code>.<br>
 
 
 
-class InterpUnivariateSpline(InterpBase):
-  name = 'univariate_spline'
-  label = 'Univariate spline'
+class InterpBSpline(InterpBase):
+  name = 'b_spline'
+  label = 'B-spline'
 
   def __init__(self):
     super().__init__()
-    self.addSettingItem(SettingItemInt('k', 'Spline degree', 3, min_=3, max_=5))
-    self.addSettingItem(SettingItemFloat('s', 'Smoothing factor', 10, min_=0, emptyIsNone=True))
+    self.addSettingItem(SettingItemStr('w', 'Weight (function of x,y)', '1'))
 
   def func(self, x, y):
-    from scipy.interpolate import UnivariateSpline
-    return UnivariateSpline(x, y, k=self.k.value(), s=self.s.value())
+    from sympy import sympify, lambdify
+    from scipy.interpolate import splrep, splev
+    w = lambdify(['x', 'y'], sympify(self.w.strValue()), 'numpy')(x, y)
+    try:
+      iter(w)
+    except:
+      w = np.full(x.shape, w)
+    spl = splrep(x, y, w=w)
+    return lambda x: splev(x, spl)
 
 
 

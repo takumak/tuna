@@ -45,7 +45,7 @@ class FitFuncPseudoVoigt(FitFunctionBase):
   name = 'pseudovoigt'
   label = 'PseudoVoigt'
   expr = 'a*(m*2/pi*w/(4*(x-x0)**2+w**2) + (1-m)*2*sqrt(ln(2))/(sqrt(pi)*w)*exp(-4*ln(2)/(w**2)*(x-x0)**2))'
-  expr_excel = '%(a)s*(%(m)s*2/PI()*%(w)s/(4*((%(x)s-%(x0)s)^2)+w^2) + (1-%(m)s)*2*sqrt(ln(2))/(sqrt(PI())*%(w)s)*exp(-4*ln(2)/(%(w)s^2)*((%(x)s-%(x0)s)^2)))'
+  expr_excel = '%(a)s*(%(m)s*2/PI()*%(w)s/(4*((%(x)s-%(x0)s)^2)+%(w)s^2) + (1-%(m)s)*2*sqrt(ln(2))/(sqrt(PI())*%(w)s)*exp(-4*ln(2)/(%(w)s^2)*((%(x)s-%(x0)s)^2)))'
   expr_latex = r'y=a\left\{ m\frac{2}{\pi}\frac{w}{4(x-x_0)^2 + w^2} + (1-m)\frac{2\sqrt{\ln2}}{\sqrt{\pi}w}\exp\left[-\frac{4\ln2}{w^2}(x-x_0)^2\right] \right\}'
   parameters = [
     ('a', 'Area'),

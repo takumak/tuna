@@ -38,9 +38,11 @@ class OptimizeThread(QThread):
     if not exprs: return []
 
     constraints = []
-    for pair in [l.strip().split('=') for l in re.split(r'[;,\n]', exprs)]:
+    for line in [l.strip() for l in re.split(r'[;,\n]', exprs)]:
+      if not line or line[0] == '#': continue
+      pair = line.split('=')
       if len(pair) != 2:
-        raise InvalidConstraints('"%s" is not valid equation (statement must contain "=")' % '='.join(pair))
+        raise InvalidConstraints('"%s" is not valid equation (statement must contain "=")' % line)
       lhs, rhs = map(sympify, pair)
       if not isinstance(lhs, Symbol):
         raise InvalidConstraints('lhs must be a symbol: "%s"' % pair[0])

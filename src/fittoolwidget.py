@@ -395,6 +395,8 @@ class FitToolWidget(ToolWidgetBase):
     hbox.addWidget(self.optimizeCombo)
     hbox.addWidget(QLabel('R^2'))
     hbox.addWidget(self.tool.R2.getWidget())
+    hbox.addWidget(QLabel('IAD'))
+    hbox.addWidget(self.tool.IAD.getWidget())
     hbox.addStretch(1)
     vbox.addLayout(hbox)
 

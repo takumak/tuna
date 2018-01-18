@@ -177,7 +177,8 @@ class FitTool(ToolBase):
     self.optimizer = None
 
     self.optimizeMethod = self.optimizeMethods[0]
-    self.addSettingItem(SettingItemFloat('R2', 'R^2', '0'))
+    self.R2 = SettingItemFloat('R2', 'R^2', '0')
+    self.IAD = SettingItemFloat('IAD', 'IAD', '0')
     self.addSettingItem(SettingItemRange('fitRange', 'Fit range', '-inf:inf'))
     self.addSettingItem(SettingItemStr('isecFunc', 'Function', '1'))
     self.addSettingItem(SettingItemStr('constraints', 'Constraints', '',
@@ -402,6 +403,7 @@ class FitTool(ToolBase):
     diff = np.sum([f.y(x) for f in self.functions()], axis=0) - y
     R2 = 1 - np.sum(diff**2)/np.sum((y - sum(y)/len(y))**2)
     self.R2.setStrValue('%.4f' % R2)
+    self.IAD.setStrValue(str(sum(diff)))
     self.diffCurveItem.setXY(x, diff)
 
   def activeLine(self):

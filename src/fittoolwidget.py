@@ -411,14 +411,14 @@ class FitToolWidget(ToolWidgetBase):
     hbox.addStretch(1)
     vbox.addLayout(hbox)
 
-    self.optimize1btn = QPushButton('Optimize')
-    self.optimize1btn.pressed.connect(lambda: self.optimize(1))
-    self.optimize10btn = QPushButton()
-    self.optimize10btn.pressed.connect(lambda: self.optimize(10, toggle=True))
+    self.optimize1Btn = QPushButton('Optimize')
+    self.optimize1Btn.pressed.connect(lambda: self.optimize(1))
+    self.optimizeAutoBtn = QPushButton()
+    self.optimizeAutoBtn.pressed.connect(lambda: self.optimize(-1, toggle=True))
     self.optimizeStatus = QLabel()
     hbox = HBoxLayout()
-    hbox.addWidget(self.optimize1btn)
-    hbox.addWidget(self.optimize10btn)
+    hbox.addWidget(self.optimize1Btn)
+    hbox.addWidget(self.optimizeAutoBtn)
     hbox.addWidget(self.optimizeStatus)
     hbox.addStretch(1)
     vbox.addLayout(hbox)
@@ -548,7 +548,7 @@ class FitToolWidget(ToolWidgetBase):
     self.peakFunctions.setFocus()
 
   def optimize(self, cnt, toggle=False):
-    if self.optimizeCnt > 0:
+    if self.optimizeCnt != 0:
       if toggle: self.optimizeCnt = 0
       return
 
@@ -558,17 +558,29 @@ class FitToolWidget(ToolWidgetBase):
 
     self.optimizeCnt = cnt
 
-    def callback(success):
+    prevRes = ['#']
+
+    def callback(success, resparams, resvalues):
+      self.peakFunctions.setFocus()
+
       if not success or self.optimizeCnt == 0:
         self.optimizeFinished()
         return
 
-      self.optimize1btn.setEnabled(False)
-      if self.optimizeCnt > 1:
-        self.optimize10btn.setText('Cancel')
+      if self.optimizeCnt < 0:
+        res = ','.join(map(str, resvalues))
+        if res == prevRes[0]:
+          self.optimizeFinished()
+          return
+        prevRes[0] = res
+
+      self.optimize1Btn.setEnabled(False)
+      if self.optimizeCnt < 0:
+        self.optimizeAutoBtn.setText('Cancel')
+        self.optimizeStatus.setText('Running... %d' % (-self.optimizeCnt - 1))
       else:
-        self.optimize10btn.setEnabled(False)
-      self.optimizeStatus.setText('Running... %d' % self.optimizeCnt)
+        self.optimizeAutoBtn.setEnabled(False)
+        self.optimizeStatus.setText('Running...')
 
       self.optimizeCnt -= 1
       try:
@@ -577,13 +589,14 @@ class FitToolWidget(ToolWidgetBase):
         self.optimizeFinished()
         raise
 
-    callback(True)
+    callback(True, [], [])
 
   def optimizeFinished(self):
-    self.optimize1btn.setEnabled(True)
-    self.optimize10btn.setText('Do 10 times')
-    self.optimize10btn.setEnabled(True)
+    self.optimize1Btn.setEnabled(True)
+    self.optimizeAutoBtn.setText('Auto run')
+    self.optimizeAutoBtn.setEnabled(True)
     self.optimizeStatus.setText('')
+    self.optimizeCnt = 0
 
   def copyJSON(self):
     params = self.peakFunctions.selectedParameters()

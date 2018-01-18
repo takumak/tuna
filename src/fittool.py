@@ -268,7 +268,7 @@ class FitTool(ToolBase):
     self.calcIntersections()
 
     if optimizer.callback:
-      optimizer.callback(optimizer.exc_info is None)
+      optimizer.callback(optimizer.exc_info is None, optimizer.params, optimizer.res.x)
 
   def functions(self):
     if self.mode == 'normwin':

@@ -3,7 +3,7 @@ import logging
 import re
 import numpy as np
 import pyqtgraph as pg
-from PyQt5.QtCore import QThread
+from PyQt5.QtCore import QThread, pyqtSignal
 from PyQt5.QtGui import QValidator
 
 import log
@@ -159,6 +159,8 @@ class FitTool(ToolBase):
     # 'trust-ncg'
   ]
 
+  intersectionsUpdated = pyqtSignal()
+
 
   def __init__(self, graphWidget):
     super().__init__(graphWidget)
@@ -183,7 +185,7 @@ class FitTool(ToolBase):
     self.addSettingItem(SettingItemStr('isecFunc', 'Function', '1'))
     self.addSettingItem(SettingItemStr('constraints', 'Constraints', '',
                                        validator=self.validateConstraints))
-    self.isecPoints = SettingItemStr('isecPoints', 'Points', '')
+    self.isecPoints = []
 
   def setMethod(self, name, method):
     curr = getattr(self, name)
@@ -495,13 +497,13 @@ class FitTool(ToolBase):
   def setActiveLineName(self, name):
     self.activeLineName = name
     self.restorePeakFuncParams()
-    self.calcIntersections()
 
   def calcIntersections(self):
-    line = self.activeLine()
-    if line is None or self.isecFunc.strValue() == '':
-      self.isecPoints.setStrValue('')
-      return
+    active = self.activeLine()
+    # if line is None or self.isecFunc.strValue() == '':
+    #   self.isecPoints = []
+    #   self.intersectionsUpdated()
+    #   return
 
     from sympy import Symbol
     from sympy.parsing.sympy_parser import parse_expr
@@ -538,20 +540,24 @@ class FitTool(ToolBase):
       cval = expr.evalf()
       func = lambda x: cval
 
-    xx = zip(line.x[:-1], line.x[1:])
-    yy = zip(line.y2[:-1], line.y2[1:])
-    pts = []
-    for (x1, x2), (y1, y2) in zip(xx, yy):
-      Y1 = y1 - func(x1)
-      Y2 = y2 - func(x2)
-      if Y1*Y2 > 0: continue
+    ptslist = []
+    for line in self.lines:
+      xx = zip(line.x[:-1], line.x[1:])
+      yy = zip(line.y2[:-1], line.y2[1:])
+      pts = []
+      for (x1, x2), (y1, y2) in zip(xx, yy):
+        Y1 = y1 - func(x1)
+        Y2 = y2 - func(x2)
+        if Y1*Y2 > 0: continue
 
-      r = abs(Y1)/(abs(Y1)+abs(Y2))
-      x0 = (x2 - x1)*r + x1
-      y0 = (y2 - y1)*r + y1
-      pts.append((x0, y0))
+        r = abs(Y1)/(abs(Y1)+abs(Y2))
+        x0 = (x2 - x1)*r + x1
+        y0 = (y2 - y1)*r + y1
+        pts.append((x0, y0))
+      ptslist.append((line, pts))
 
-    self.isecPoints.setStrValue(','.join(['(%g, %g)' % p for p in pts]))
+    self.isecPoints = ptslist
+    self.intersectionsUpdated.emit()
 
   def saveState(self):
     linenames = [l.name for l in self.lines]

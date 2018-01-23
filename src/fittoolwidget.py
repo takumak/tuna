@@ -430,10 +430,27 @@ class FitToolWidget(ToolWidgetBase):
     hbox.addWidget(QLabel('f(x)='))
     hbox.addWidget(self.tool.isecFunc.getWidget())
     vbox.addLayout(hbox)
-    vbox.addWidget(self.tool.isecPoints.getWidget())
+    self.isec_table = TableWidget()
+    vbox.addWidget(self.isec_table)
     calcbtn = QPushButton('Calc')
     calcbtn.clicked.connect(self.tool.calcIntersections)
     vbox.addWidget(calcbtn)
+
+    self.updateIsecTable()
+    self.tool.intersectionsUpdated.connect(self.updateIsecTable)
+
+  def updateIsecTable(self):
+    tbl = self.isec_table
+    tbl.setColumnCount(3)
+    tbl.setRowCount(len(self.tool.isecPoints))
+
+    for i, (line, pts) in enumerate(self.tool.isecPoints):
+      tbl.setItem(i, 0, QTableWidgetItem(line.name))
+      for j, (x, y) in enumerate(pts):
+        if tbl.columnCount() <= j*2+2:
+          tbl.setColumnCount(j*2+3)
+        tbl.setItem(i, j*2+1, QTableWidgetItem(str(x)))
+        tbl.setItem(i, j*2+2, QTableWidgetItem(str(y)))
 
   def maketab_export(self, vbox):
     self.plotModeCombo = QComboBox()

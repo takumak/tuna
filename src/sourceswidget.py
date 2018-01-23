@@ -32,49 +32,21 @@ class SourcesWidget(QSplitter):
     self.fileMenu.addAction('&Remove file').triggered.connect(
       lambda: self.removeFile(self.fileMenu.target))
 
-    self.errtbl = TableWidget()
-    self.errtbl.setColumnCount(2)
-    self.errtbl.setHorizontalHeaderLabels(['Column', 'Error'])
-    self.errtbl.itemChanged.connect(self.errtblItemChanged)
-    self.addWidget(self.errtbl)
-
     self.sheets = []
 
   def treeItemSelectionChanged(self):
     items = self.tree.selectedItems()
     if len(items) == 0:
       self.replaceWidget(1, self.blank)
-      self.errtbl.setDisabled(True)
       return
 
     item = items[0]
     sw = item.data(0, Qt.UserRole)[0]
     if not isinstance(sw, SheetWidget):
       self.replaceWidget(1, self.blank)
-      self.errtbl.setDisabled(True)
       return
 
-    from functions import getTableColumnLabel
-
     self.replaceWidget(1, sw)
-    self.errtbl.clearContents()
-    self.errtbl.setRowCount(sw.sheet.colCount())
-    for c in range(sw.sheet.colCount()):
-      l = getTableColumnLabel(c)
-      litem = QTableWidgetItem(l)
-      litem.setFlags(litem.flags() & ~Qt.ItemIsEditable)
-      eitem = QTableWidgetItem(sw.sheet.errors[c])
-      eitem.setData(Qt.UserRole, (sw.sheet, c))
-      self.errtbl.setItem(c, 0, litem)
-      self.errtbl.setItem(c, 1, eitem)
-    self.errtbl.setDisabled(False)
-
-  def errtblItemChanged(self, item):
-    data = item.data(Qt.UserRole)
-    if data:
-      sheet, c = data
-      sheet.setError(c, item.text())
-      logging.info('Error table item changed: errors[%d]=%s' % (c, item.text()))
 
   def topLevelItemForFilename(self, filename):
     for i in range(self.tree.topLevelItemCount()):

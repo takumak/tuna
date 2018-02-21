@@ -123,13 +123,19 @@ class FitFunctionBase(QObject):
       return np.full(x.shape, y)
     return y
 
-  def y(self, x):
+  def y(self, x, params=None):
     from sympy import Symbol, lambdify
     expr = self.parse_expr(self.expr)
     args = [Symbol('x')]+[Symbol(p.name) for p in self.params]
     func = lambdify(args, expr, 'numpy')
 
-    y = lambda x: self.samedim(func(x, *[p.value() for p in self.params]), x)
+    def getargs(override):
+      p_ = self.getParams()
+      if override:
+        p_.update(override)
+      return [p_[p.name] for p in self.params]
+
+    y = lambda x, params=None: self.samedim(func(x, *getargs(params)), x)
     self.y = y
     return y(x)
 

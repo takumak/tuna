@@ -160,6 +160,7 @@ class FitTool(ToolBase):
   ]
 
   intersectionsUpdated = pyqtSignal()
+  peakPositionsUpdated = pyqtSignal()
 
 
   def __init__(self, graphWidget):
@@ -186,6 +187,7 @@ class FitTool(ToolBase):
     self.addSettingItem(SettingItemStr('constraints', 'Constraints', '',
                                        validator=self.validateConstraints))
     self.isecPoints = []
+    self.peakPos = []
 
   def setMethod(self, name, method):
     curr = getattr(self, name)
@@ -268,6 +270,7 @@ class FitTool(ToolBase):
       self.parameterChanged_peaks(f)
 
     self.calcIntersections()
+    self.calcPeakPositions()
 
     if optimizer.callback:
       optimizer.callback(optimizer.exc_info is None, optimizer.params, optimizer.res.x)
@@ -558,6 +561,16 @@ class FitTool(ToolBase):
 
     self.isecPoints = ptslist
     self.intersectionsUpdated.emit()
+
+  def calcPeakPositions(self):
+    peakpos = []
+    for line in self.lines:
+      x = np.linspace(min(line.x), max(line.y), 500)
+      y = np.sum([f.y(x, self.peakFuncParams.get(line.name)) for f in self.functions()], axis=0)
+      mx, my = max(zip(x, y), key=lambda p: p[1])
+      peakpos.append((line, (mx, my)))
+    self.peakPos = peakpos
+    self.peakPositionsUpdated.emit()
 
   def saveState(self):
     linenames = [l.name for l in self.lines]

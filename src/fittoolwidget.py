@@ -369,9 +369,9 @@ class FitToolWidget(ToolWidgetBase):
     vbox.addWidget(self.plotParams)
 
     tab = QTabWidget()
-    for tablabel in 'Optimize', 'Intersections', 'Export':
+    for tablabel in 'Optimize', 'Intersections', 'Peak position', 'Export':
       vbox2 = VBoxLayout(hmargins=True)
-      getattr(self, 'maketab_%s' % tablabel.lower())(vbox2)
+      getattr(self, 'maketab_%s' % tablabel.replace(' ', '_').lower())(vbox2)
       vbox2.addStretch(1)
       page = QWidget()
       page.setLayout(vbox2)
@@ -451,6 +451,22 @@ class FitToolWidget(ToolWidgetBase):
           tbl.setColumnCount(j*2+3)
         tbl.setItem(i, j*2+1, QTableWidgetItem(str(x)))
         tbl.setItem(i, j*2+2, QTableWidgetItem(str(y)))
+
+  def maketab_peak_position(self, vbox):
+    self.peak_pos_table = TableWidget()
+    vbox.addWidget(self.peak_pos_table)
+    self.updatePeakPosTable()
+    self.tool.peakPositionsUpdated.connect(self.updatePeakPosTable)
+
+  def updatePeakPosTable(self):
+    tbl = self.peak_pos_table
+    tbl.setColumnCount(3)
+    tbl.setRowCount(len(self.tool.peakPos))
+
+    for i, (line, (x, y)) in enumerate(self.tool.peakPos):
+      tbl.setItem(i, 0, QTableWidgetItem(line.name))
+      tbl.setItem(i, 1, QTableWidgetItem(str(x)))
+      tbl.setItem(i, 2, QTableWidgetItem(str(y)))
 
   def maketab_export(self, vbox):
     self.plotModeCombo = QComboBox()

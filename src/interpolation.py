@@ -54,7 +54,14 @@ class InterpBSpline(InterpBase):
       iter(w)
     except:
       w = np.full(x.shape, w)
-    spl = splrep(x, y, w=w)
+
+    c = len(x)//10
+    xl = np.linspace(x[0]+(x[0]-x[1])*c, x[0], c, endpoint=False)
+    xr = np.flip(np.linspace(x[-1]+(x[-1]-x[-2])*c, x[-1], c, endpoint=False), 0)
+    x2 = np.concatenate((xl, x, xr))
+    y2 = np.concatenate((np.full(c, y[0]), y, np.full(c, y[-1])))
+    w2 = np.concatenate((np.full(c, w[0]), w, np.full(c, w[-1])))
+    spl = splrep(x2, y2, w=w2)
     return lambda x: splev(x, spl)
 
 

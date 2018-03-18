@@ -1,18 +1,25 @@
 import sys, os, platform, re
+from glob import glob
+from distutils.version import StrictVersion
 
 x64 = platform.architecture()[0] == '64bit'
 
 if not os.path.exists('venv'):
   if x64:
-    np = 'numpy-1.13.3+mkl-cp35-cp35m-win_amd64.whl'
-    sp = 'scipy-1.0.0-cp35-cp35m-win_amd64.whl'
+    suffix = 'win_amd64'
   else:
-    np = 'numpy-1.13.3+mkl-cp35-cp35m-win32.whl'
-    sp = 'scipy-1.0.0-cp35-cp35m-win32.whl'
+    suffix = 'win32'
+
+  ver = sys.version_info
+  ver = '%d%d' % (ver.major, ver.minor)
+  np_p = 'numpy-*-cp%s-cp%sm-%s.whl' % (ver, ver, suffix)
+  sp_p = 'scipy-*-cp%s-cp%sm-%s.whl' % (ver, ver, suffix)
+  np = list(sorted(glob(np_p), key=StrictVersion))
+  sp = list(sorted(glob(sp_p), key=StrictVersion))
 
   depends = re.split(r'[\s]+', open('../../depends.txt').read().strip())
 
-  if not (os.path.exists(np) and os.path.exists(sp)):
+  if not (len(np) > 0 and len(sp) > 0):
     print('''
 Download following 2 files:
   * %s
@@ -21,9 +28,11 @@ from:
   http://www.lfd.uci.edu/~gohlke/pythonlibs/
 and place these files into:
   %s
-'''.strip() % (np, sp, os.path.dirname(os.path.realpath(os.curdir))))
+'''.strip() % (np_p, sp_p, os.path.dirname(os.path.realpath(os.curdir))))
     sys.exit(0)
 
+  np = np[-1]
+  sp = sp[-1]
 
   import pip
   pip.main(['install', 'virtualenv'])

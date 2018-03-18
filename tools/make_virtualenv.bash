@@ -4,7 +4,15 @@ set -xe
 
 ROOT=$(dirname $(dirname $(readlink -e $0)))
 
-pyenv local 3.5.3
+if which pyenv >/dev/null 2>&1; then
+  if pyenv versions --bare | grep '^3\.5\.4$' >/dev/null 2>&1; then
+    :
+  else
+    (cd $(pyenv root) && git pull)
+    pyenv install 3.5.4
+  fi
+  pyenv local 3.5.4
+fi
 pip install virtualenv
 
 rm -rf venv

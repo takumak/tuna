@@ -1,4 +1,4 @@
-This is e-pTeX, Version 3.14159265-p3.7.1-161114-2.6 (utf8.euc) (TeX Live 2017) (preloaded format=platex 2018.2.10)  18 MAR 2018 20:54
+This is e-pTeX, Version 3.14159265-p3.7.1-161114-2.6 (utf8.euc) (TeX Live 2017) (preloaded format=platex 2018.2.10)  18 MAR 2018 22:17
 entering extended mode
  \write18 enabled.
  %&-line parsing enabled.
@@ -762,10 +762,25 @@ LaTeX Font Info:    Font shape `OT1/cmtt/bx/n' in size <10> not available
 \openout6 = `tuna_manual.pyg'.
 
 
-(./_minted-tuna_manual/072CF0BF46FE11F4F1E99970411A470B9216A1213ACA1AACD90B60E0
+(./_minted-tuna_manual/A290AE2739C6427AD03EA45B24F59F479216A1213ACA1AACD90B60E0
 9E619035.pygtex [5
 
-])) [6]
+]
+LaTeX Font Info:    Font shape `JT1/gt/m/n' will be
+(Font)              scaled to size 4.805pt on input line 6.
+LaTeX Font Info:    Font shape `JY1/gt/m/n' will be
+(Font)              scaled to size 4.805pt on input line 6.
+)
+Overfull \hbox (23.07137pt too wide) in paragraph at lines 49--51
+[]\JY1/mc/m/n/10 次に \OT1/cmr/m/n/10 tuna \JY1/mc/m/n/10 をダウンロ ードして実
+行する\OT1/cmr/m/n/10 . 2 \JY1/mc/m/n/10 回目以降は []
+ []
+
+\openout6 = `tuna_manual.pyg'.
+
+
+(./_minted-tuna_manual/072CF0BF46FE11F4F1E99970411A470B9216A1213ACA1AACD90B60E0
+9E619035.pygtex)) [6]
 Package atveryend Info: Empty hook `BeforeClearDocument' on input line 53.
 Package atveryend Info: Empty hook `AfterLastShipout' on input line 53.
  (./tuna_manual.aux)
@@ -781,12 +796,12 @@ runsystem(rm tuna_manual.pyg)...executed.
 
  ) 
 Here is how much of TeX's memory you used:
- 17926 strings out of 495132
- 344511 string characters out of 6185644
- 496420 words of memory out of 5000000
- 21054 multiletter control sequences out of 15000+600000
- 15343 words of font info for 69 fonts, out of 8000000 for 9000
+ 17936 strings out of 495132
+ 345174 string characters out of 6185644
+ 496493 words of memory out of 5000000
+ 21060 multiletter control sequences out of 15000+600000
+ 15792 words of font info for 72 fonts, out of 8000000 for 9000
  19 hyphenation exceptions out of 8191
- 63i,7n,77p,781b,549s stack positions out of 5000i,500n,10000p,200000b,80000s
+ 63i,8n,77p,781b,604s stack positions out of 5000i,500n,10000p,200000b,80000s
 
-Output written on tuna_manual.dvi (6 pages, 117748 bytes).
+Output written on tuna_manual.dvi (6 pages, 119572 bytes).

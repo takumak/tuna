@@ -1,0 +1,8 @@
+\begin{Verbatim}[commandchars=\\\{\},codes={\catcode`\$=3\catcode`\^=7\catcode`\_=8}]
+\PYGZdl{} xcode\PYGZhy{}select \PYGZhy{}\PYGZhy{}install
+\PYGZdl{} git clone https://github.com/pyenv/pyenv.git \PYGZti{}/.pyenv
+\PYGZdl{} \PYG{n+nb}{echo} \PYG{l+s+s1}{\PYGZsq{}export PYENV\PYGZus{}ROOT=\PYGZdq{}\PYGZdl{}HOME/.pyenv\PYGZdq{}\PYGZsq{}} \PYGZgt{}\PYGZgt{} \PYGZti{}/.bash\PYGZus{}profile
+\PYGZdl{} \PYG{n+nb}{echo} \PYG{l+s+s1}{\PYGZsq{}export PATH=\PYGZdq{}\PYGZdl{}PYENV\PYGZus{}ROOT/bin:\PYGZdl{}PATH\PYGZdq{}\PYGZsq{}} \PYGZgt{}\PYGZgt{} \PYGZti{}/.bash\PYGZus{}profile
+\PYGZdl{} \PYG{n+nb}{echo} \PYGZhy{}e \PYG{l+s+s1}{\PYGZsq{}if command \PYGZhy{}v pyenv 1\PYGZgt{}/dev/null 2\PYGZgt{}\PYGZam{}1; then\PYGZbs{}n  eval \PYGZdq{}\PYGZdl{}(pyenv init \PYGZhy{})\PYGZdq{}\PYGZbs{}nfi\PYGZsq{}} \PYGZgt{}\PYGZgt{} \PYGZti{}/.bash\PYGZus{}profile
+\PYGZdl{} \PYG{n+nb}{exec} \PYG{l+s+s2}{\PYGZdq{}}\PYG{n+nv}{\PYGZdl{}SHELL}\PYG{l+s+s2}{\PYGZdq{}}
+\end{Verbatim}

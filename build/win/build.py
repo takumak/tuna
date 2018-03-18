@@ -1,6 +1,5 @@
 import sys, os, platform, re
 from glob import glob
-from distutils.version import StrictVersion
 
 x64 = platform.architecture()[0] == '64bit'
 
@@ -14,8 +13,8 @@ if not os.path.exists('venv'):
   ver = '%d%d' % (ver.major, ver.minor)
   np_p = 'numpy-*-cp%s-cp%sm-%s.whl' % (ver, ver, suffix)
   sp_p = 'scipy-*-cp%s-cp%sm-%s.whl' % (ver, ver, suffix)
-  np = list(sorted(glob(np_p), key=StrictVersion))
-  sp = list(sorted(glob(sp_p), key=StrictVersion))
+  np = glob(np_p)
+  sp = glob(sp_p)
 
   depends = re.split(r'[\s]+', open('../../depends.txt').read().strip())
 
@@ -31,8 +30,8 @@ and place these files into:
 '''.strip() % (np_p, sp_p, os.path.dirname(os.path.realpath(os.curdir))))
     sys.exit(0)
 
-  np = np[-1]
-  sp = sp[-1]
+  np = np[0]
+  sp = sp[0]
 
   import pip
   pip.main(['install', 'virtualenv'])

@@ -44,12 +44,12 @@ class InterpBSpline(InterpBase):
 
   def __init__(self):
     super().__init__()
-    self.addSettingItem(SettingItemStr('w', 'Weight (function of x,y)', '1'))
+    self.addSettingItem(SettingItemStr('w', 'Weight (function of x,y)', '1/(ymax*0.003*(1.00001-y/ymax))'))
 
   def func(self, x, y):
     from sympy import sympify, lambdify
     from scipy.interpolate import splrep, splev
-    w = lambdify(['x', 'y'], sympify(self.w.strValue()), 'numpy')(x, y)
+    w = lambdify(['x', 'y', 'ymax'], sympify(self.w.strValue()), 'numpy')(x, y, np.full(len(x), max(y)))
     try:
       iter(w)
     except:

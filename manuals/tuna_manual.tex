@@ -1,0 +1,53 @@
+\documentclass[a4paper,12pt,dvipdfmx]{jsarticle}
+
+\usepackage{here}
+\usepackage{scrextend} % addmargin environment
+
+\usepackage{tcolorbox}
+\newcommand{\code}[1]{\tcbox[
+    nobeforeafter,colframe=black!40,colback=black!10,boxrule=1pt,arc=4pt,
+    boxsep=0pt,left=2pt,right=2pt,top=2pt,bottom=2pt,tcbox raise base,fontupper=\ttfamily]{#1}}
+\definecolor{kwR}{HTML}{EF5350}
+\definecolor{kwG}{HTML}{66BB6A}
+\definecolor{kwB}{HTML}{5C6BC0}
+\newtcbox{\kwR}{nobeforeafter,colframe=kwR,colback=kwR!30,boxrule=1pt,arc=4pt,
+  boxsep=0pt,left=2pt,right=2pt,top=2pt,bottom=2pt,tcbox raise base}
+\newtcbox{\kwG}{nobeforeafter,colframe=kwG,colback=kwG!30,boxrule=1pt,arc=4pt,
+  boxsep=0pt,left=2pt,right=2pt,top=2pt,bottom=2pt,tcbox raise base}
+\newtcbox{\kwB}{nobeforeafter,colframe=kwB,colback=kwB!30,boxrule=1pt,arc=4pt,
+  boxsep=0pt,left=2pt,right=2pt,top=2pt,bottom=2pt,tcbox raise base}
+
+\newcommand{\cnum}[1]{\raise0.2ex\hbox{\textcircled{\footnotesize{#1}}}}
+
+\usepackage{minted}
+\newenvironment{codeb}[2][]{%
+  \VerbatimEnvironment%
+  \begin{minted}[
+      breaklines=true,
+      frame=single,
+      escapeinside=||,
+      rulecolor=\color{black},
+      autogobble=true,
+      #1]{#2}%
+}{%
+  \end{minted}%
+}
+
+\usepackage[dvipdfmx]{hyperref}
+\usepackage{pxjahyper}
+\newcommand{\scipy}[1]{\href{https://docs.scipy.org/doc/scipy/reference/generated/#1.html}{#1}}
+
+
+\title{Tunaユーザーマニュアル}
+\author{川井拓真}
+\date{\today}
+
+\begin{document}
+
+\maketitle
+\tableofcontents
+\input{1_IAD-analysis.tex}
+\input{2_fitting.tex}
+\input{9_run-from-source.tex}
+
+\end{document}

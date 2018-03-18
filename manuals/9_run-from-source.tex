@@ -1,0 +1,45 @@
+\clearpage
+\section{ソースコードから起動する方法}
+
+\subsection{Windows}
+
+\begin{enumerate}
+\item \url{https://github.com/takumak/tuna/archive/master.zip}
+  をダウンロードして展開する.
+  もしくは\code{git clone https://github.com/takumak/tuna.git}してもいい.
+\item \url{https://www.python.org/downloads/windows/}
+  からPythonをダウンロードしてインストールする.
+  Python 3.6.5rc1やPython 3.7.0b2など, バージョン番号の後ろにrcやa, bがついているものはテスト版なので,
+  Python 3.6.4など, バージョン番号のみのものを選ぶ.
+  exeファイルを作りたい場合, pyinstallerの相性問題によりPython 3.5系の最新版を推奨する.
+  x86とx86-64などは何でもいいが, Windows x86-64 executable installerを推奨する.
+\item \url{https://www.lfd.uci.edu/~gohlke/pythonlibs/}
+  からnumpyとscipyをダウンロードして \code{tuna{\textbackslash}build{\textbackslash}win} に入れる.
+  Python 3.5系をインストールした場合はcp35, 3.6系ならcp36がファイル名に含まれているものを選ぶ.
+  x86を選択した場合はwin32, x86-64を選択した場合はwin\_amd64がファイル名に含まれているものを選ぶ.
+  どのファイルをダウンロードすべきかわからない場合, 後で \code{python build.py}
+  を実行したらダウンロードすべきファイルを指示されるので, それをダウンロードする.
+\item コマンドプロンプトを開いて以下のコマンドを実行する.
+\end{enumerate}
+
+\begin{codeb}{batch}
+  cd tuna-master|\textbackslash|build|\textbackslash|win
+  python build.py
+  cd ..|\textbackslash|..
+  .|\textbackslash|build|\textbackslash|win|\textbackslash|venv|\textbackslash|Scripts|\textbackslash|activate.bat
+  python src|\textbackslash|tuna.py
+\end{codeb}
+
+\subsection{Mac/Linux}
+
+ターミナルで以下のコマンドを実行する.
+事前に\href{https://github.com/pyenv/pyenv}{pyenv}を導入していれば,
+\code{tools/make\_virtualenv.bash} が自動的にテスト済みのバージョンを導入する%
+(\code{pyenv install 3.5.5;pyenv local 3.5.5}).
+
+\begin{codeb}{bash}
+  $ git clone https://github.com/takumak/tuna.git
+  $ cd tuna
+  $ ./tools/make_virtualenv.bash
+  $ ./tools/run_in_virtualenv.bash
+\end{codeb}

@@ -1,0 +1,6 @@
+\begin{Verbatim}[commandchars=\\\{\},codes={\catcode`\$=3\catcode`\^=7\catcode`\_=8}]
+\PYGZdl{} git clone https://github.com/takumak/tuna.git
+\PYGZdl{} \PYG{n+nb}{cd} tuna
+\PYGZdl{} ./tools/make\PYGZus{}virtualenv.bash
+\PYGZdl{} ./tools/run\PYGZus{}in\PYGZus{}virtualenv.bash
+\end{Verbatim}

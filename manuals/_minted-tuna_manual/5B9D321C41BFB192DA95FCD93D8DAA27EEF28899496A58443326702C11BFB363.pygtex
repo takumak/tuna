@@ -1,0 +1,7 @@
+\begin{Verbatim}[commandchars=\\\{\},codes={\catcode`\$=3\catcode`\^=7\catcode`\_=8}]
+\PYG{k}{cd} tuna\PYGZhy{}master\PYG{esc}{\textbackslash}build\PYG{esc}{\textbackslash}win
+python build.py
+\PYG{k}{cd} ..\PYG{esc}{\textbackslash}..
+.\PYG{esc}{\textbackslash}build\PYG{esc}{\textbackslash}win\PYG{esc}{\textbackslash}venv\PYG{esc}{\textbackslash}Scripts\PYG{esc}{\textbackslash}activate.bat
+python src\PYG{esc}{\textbackslash}tuna.py
+\end{Verbatim}

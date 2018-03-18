@@ -9,10 +9,11 @@ if which pyenv >/dev/null 2>&1; then
     :
   else
     (cd $(pyenv root) && git pull)
-    pyenv install 3.5.5
+    env PYTHON_CONFIGURE_OPTS="--enable-shared" pyenv install 3.5.5
   fi
   pyenv local 3.5.5
 fi
+
 pip install virtualenv
 
 rm -rf venv

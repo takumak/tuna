@@ -137,6 +137,11 @@ def load(filename):
     from pyexcel.sources.factory import FileTypeNotSupported
   loaders = [FileLoaderText, FileLoaderCSV, FileLoaderExcel]
 
+  if not os.path.exists(filename) and '\\' in filename:
+    newfn = filename.replace('\\', '/')
+    if os.path.exists(newfn):
+      filename = newfn
+
   t = QMimeDatabase().mimeTypeForFile(filename).name()
   for o in loaders:
     if o.canLoad(t):

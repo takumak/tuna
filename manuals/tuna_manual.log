@@ -1,4 +1,4 @@
-This is e-pTeX, Version 3.14159265-p3.7.1-161114-2.6 (utf8.euc) (TeX Live 2017) (preloaded format=platex 2018.2.10)  18 MAR 2018 18:52
+This is e-pTeX, Version 3.14159265-p3.7.1-161114-2.6 (utf8.euc) (TeX Live 2017) (preloaded format=platex 2018.2.10)  18 MAR 2018 20:54
 entering extended mode
  \write18 enabled.
  %&-line parsing enabled.
@@ -733,14 +733,14 @@ Overfull \hbox (56.02333pt too wide) in paragraph at lines 73--79
  []
 
 ) (./2_fitting.tex) (./9_run-from-source.tex [4]
-LaTeX Font Info:    Try loading font information for OMS+cmtt on input line 17.
+LaTeX Font Info:    Try loading font information for OMS+cmtt on input line 18.
 
-LaTeX Font Info:    No file OMScmtt.fd. on input line 17.
+LaTeX Font Info:    No file OMScmtt.fd. on input line 18.
 
 
 LaTeX Font Warning: Font shape `OMS/cmtt/m/n' undefined
 (Font)              using `OMS/cmsy/m/n' instead
-(Font)              for symbol `textbackslash' on input line 17.
+(Font)              for symbol `textbackslash' on input line 18.
 
 \openout6 = `tuna_manual.pyg'.
 
@@ -789,4 +789,4 @@ Here is how much of TeX's memory you used:
  19 hyphenation exceptions out of 8191
  63i,7n,77p,781b,549s stack positions out of 5000i,500n,10000p,200000b,80000s
 
-Output written on tuna_manual.dvi (6 pages, 117708 bytes).
+Output written on tuna_manual.dvi (6 pages, 117748 bytes).

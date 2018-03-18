@@ -11,27 +11,30 @@ if not os.path.exists('venv'):
 
   ver = sys.version_info
   ver = '%d%d' % (ver.major, ver.minor)
-  np_p = 'numpy-*-cp%s-cp%sm-%s.whl' % (ver, ver, suffix)
-  sp_p = 'scipy-*-cp%s-cp%sm-%s.whl' % (ver, ver, suffix)
-  np = glob(np_p)
-  sp = glob(sp_p)
 
-  depends = re.split(r'[\s]+', open('../../depends.txt').read().strip())
+  missing = []
+  whls = []
+  for name in 'numpy', 'scipy', 'PyOpenGL', 'PyOpenGL_accelerate':
+    pat = '%s-*-cp%s-cp%sm-%s.whl' % (name, ver, ver, suffix)
+    lst = glob(pat)
+    if len(lst) == 0:
+      missing.append(pat)
+    else:
+      whls.append(lst[0])
 
-  if not (len(np) > 0 and len(sp) > 0):
+  if len(missing) > 0:
     print('''
-Download following 2 files:
-  * %s
-  * %s
+Download following file(s):
+%s
 from:
   http://www.lfd.uci.edu/~gohlke/pythonlibs/
 and place these files into:
   %s
-'''.strip() % (np_p, sp_p, os.path.dirname(os.path.realpath(os.curdir))))
+'''.strip() % ('\n'.join(['  * %s' % p for p in missing]),
+               os.path.dirname(os.path.realpath(os.curdir))))
     sys.exit(0)
 
-  np = np[0]
-  sp = sp[0]
+  depends = re.split(r'[\s]+', open('../../depends.txt').read().strip())
 
   import pip
   pip.main(['install', 'virtualenv'])
@@ -41,8 +44,7 @@ and place these files into:
   virtualenv.main()
 
   import subprocess
-  subprocess.run(['venv/Scripts/pip.exe', 'install', np], check=True)
-  subprocess.run(['venv/Scripts/pip.exe', 'install', sp], check=True)
+  subprocess.run(['venv/Scripts/pip.exe', 'install'] + whls, check=True)
   subprocess.run(['venv/Scripts/pip.exe', 'install', 'pyinstaller'] + depends, check=True)
 
 
